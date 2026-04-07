@@ -52,7 +52,7 @@ export default function MateriaisPage() {
   const [expandedDiscipline, setExpandedDiscipline] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [showAddMaterial, setShowAddMaterial] = useState<string | null>(null);
-  const [materialForm, setMaterialForm] = useState({ title: "", type: "LINK", url: "" });
+  const [materialForm, setMaterialForm] = useState<{ title: string; type: "PDF" | "SLIDE" | "LINK"; url: string }>({ title: "", type: "LINK", url: "" });
 
   const loadPeriods = useCallback(async () => {
     const res = await fetch("/api/periods");
@@ -244,7 +244,7 @@ export default function MateriaisPage() {
                               <div className="flex gap-2">
                                 <select
                                   value={materialForm.type}
-                                  onChange={(e) => setMaterialForm({ ...materialForm, type: e.target.value })}
+                                  onChange={(e) => setMaterialForm({ ...materialForm, type: e.target.value as "PDF" | "SLIDE" | "LINK" })}
                                   className="flex h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
                                 >
                                   <option value="LINK">Link</option>
