@@ -5,7 +5,7 @@ import bcrypt from "bcryptjs";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
-const prisma = new PrismaClient({ adapter } as any);
+const prisma = new PrismaClient({ adapter });
 
 const curriculum = [
   {

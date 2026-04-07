@@ -5,7 +5,7 @@ const protectedPaths = ["/dashboard", "/agenda", "/materiais", "/editor", "/abnt
 const adminPaths = ["/admin"];
 const authPaths = ["/login", "/register"];
 
-export function proxy(request: NextRequest) {
+export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const token = request.cookies.get("auth-token")?.value;
 

@@ -34,12 +34,6 @@ interface Period {
   disciplines: Discipline[];
 }
 
-const progressColors: Record<string, "blue" | "yellow" | "green"> = {
-  NOT_VIEWED: "blue",
-  IN_PROGRESS: "yellow",
-  COMPLETED: "green",
-};
-
 const progressLabels: Record<string, string> = {
   NOT_VIEWED: "Não visualizado",
   IN_PROGRESS: "Em progresso",
