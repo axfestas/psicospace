@@ -18,7 +18,7 @@ function createPrismaClient(): PrismaClient {
   });
 }
 
-// Lazily initialise the Prisma client so that DATABASE_URL is only validated
+// Lazily initialize the Prisma client so that DATABASE_URL is only validated
 // when a real database call is made (not during the static-generation build
 // phase where env vars may be absent). JavaScript's single-threaded event
 // loop means the synchronous check + assignment cannot interleave.

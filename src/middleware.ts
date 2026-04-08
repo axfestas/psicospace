@@ -4,6 +4,7 @@ import { verifyToken } from "@/lib/auth";
 const protectedPaths = ["/dashboard", "/agenda", "/materiais", "/editor", "/abnt", "/admin"];
 const adminPaths = ["/admin"];
 const authPaths = ["/login", "/register"];
+const ADMIN_ROLES = ["ADMIN", "SUPERADMIN"];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -25,7 +26,7 @@ export async function middleware(request: NextRequest) {
     }
 
     const isAdmin = adminPaths.some((p) => pathname.startsWith(p));
-    if (isAdmin && !["ADMIN", "SUPERADMIN"].includes(payload.role)) {
+    if (isAdmin && !ADMIN_ROLES.includes(payload.role)) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
   }
