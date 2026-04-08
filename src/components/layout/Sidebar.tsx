@@ -165,13 +165,31 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         </nav>
 
         <div className="border-t border-gray-200 p-4 dark:border-gray-700">
-          <div className="mb-3">
-            <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
-              {user?.name}
-            </p>
-            <p className="truncate text-xs text-gray-500 dark:text-gray-400">
-              {user?.email}
-            </p>
+          <div className="mb-3 flex items-center gap-3">
+            <div className="h-9 w-9 flex-shrink-0 rounded-full overflow-hidden ring-2 ring-gray-200 dark:ring-gray-700">
+              {user?.avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={user.avatarUrl}
+                  alt={user.name}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center bg-blue-600 text-white text-sm font-bold">
+                  {user?.name
+                    ? user.name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase()
+                    : "?"}
+                </div>
+              )}
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
+                {user?.name}
+              </p>
+              <p className="truncate text-xs text-gray-500 dark:text-gray-400">
+                {user?.email}
+              </p>
+            </div>
           </div>
           <button
             onClick={handleLogout}

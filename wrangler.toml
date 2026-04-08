@@ -9,5 +9,5 @@ database_name = "d1_psi"
 database_id = "b7cd865b-771e-48d2-a26e-b9b5400e2772"
 
 [[r2_buckets]]
-binding = "R2_BUCKET"
+binding = "bk-psi"
 bucket_name = "bk-psi"
