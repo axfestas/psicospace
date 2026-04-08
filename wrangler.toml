@@ -9,4 +9,4 @@ pages_build_output_dir = ".vercel/output/static"
 [[d1_databases]]
 binding = "d1_psi"
 database_name = "psicospace"
-database_id = "<DATABASE_ID>"   # format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx  (run: wrangler d1 list)
+database_id = "b7cd865b-771e-48d2-a26e-b9b5400e2772"   # format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx  (run: wrangler d1 list)
