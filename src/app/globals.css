@@ -270,3 +270,24 @@ body {
   border-left-color: #4b5563;
   color: #9ca3af;
 }
+
+/* Inline comment marks */
+.comment-mark {
+  background-color: #fef08a;
+  border-bottom: 2px solid #ca8a04;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.comment-mark:hover {
+  background-color: #fde047;
+}
+
+.dark .comment-mark {
+  background-color: rgba(234, 179, 8, 0.25);
+  border-bottom-color: #ca8a04;
+}
+
+.dark .comment-mark:hover {
+  background-color: rgba(234, 179, 8, 0.4);
+}

@@ -19,7 +19,7 @@ import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import FontFamily from "@tiptap/extension-font-family";
 import Placeholder from "@tiptap/extension-placeholder";
-import { Extension, Node, mergeAttributes } from "@tiptap/core";
+import { Extension, Node, Mark, mergeAttributes } from "@tiptap/core";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -32,6 +32,7 @@ import {
   ListChecks, Highlighter, Columns, Printer, Download, X, Check,
   ChevronDown, RemoveFormatting, Indent, Outdent, Search, BookOpen,
   FileDown, BookMarked, Type, Settings, StickyNote, PanelTop, PanelBottom,
+  MessageSquare, Upload,
 } from "lucide-react";
 
 interface Document {
@@ -44,12 +45,18 @@ interface Document {
 type PageMargin = "narrow" | "normal" | "wide";
 type PageOrientation = "portrait" | "landscape";
 
+interface CommentData {
+  text: string;
+  createdAt: string;
+}
+
 interface DocMeta {
   html: string;
   header?: string;
   footer?: string;
   margin?: PageMargin;
   orientation?: PageOrientation;
+  comments?: Record<string, CommentData>;
 }
 
 function parseDocContent(raw: string): DocMeta {
@@ -165,6 +172,50 @@ const Footnote = Node.create({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       insertFootnote: (content: string) => ({ commands }: any) =>
         commands.insertContent({ type: "footnote", attrs: { content } }),
+    };
+  },
+});
+
+// ── Comment mark extension ───────────────────────────────────────────────────
+const CommentMark = Mark.create({
+  name: "comment",
+  addAttributes() {
+    return {
+      commentId: {
+        default: null,
+        parseHTML: (el) => (el as HTMLElement).getAttribute("data-comment-id"),
+        renderHTML: (attrs) => attrs.commentId ? { "data-comment-id": attrs.commentId } : {},
+      },
+    };
+  },
+  parseHTML() { return [{ tag: "span[data-comment-id]" }]; },
+  renderHTML({ HTMLAttributes }) {
+    return ["span", mergeAttributes(HTMLAttributes, { class: "comment-mark" }), 0];
+  },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  addCommands(): any {
+    return {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      setComment: (commentId: string) => ({ commands }: any) =>
+        commands.setMark("comment", { commentId }),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      unsetCommentById: (commentId: string) => ({ tr, dispatch, state }: any) => {
+        if (dispatch) {
+          const commentMark = state.schema.marks.comment;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          state.doc.descendants((node: any, pos: number) => {
+            if (!node.isText) return;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            node.marks.forEach((mark: any) => {
+              if (mark.type === commentMark && mark.attrs.commentId === commentId) {
+                tr.removeMark(pos, pos + node.nodeSize, commentMark);
+              }
+            });
+          });
+          dispatch(tr);
+        }
+        return true;
+      },
     };
   },
 });
@@ -363,28 +414,231 @@ function LinkDialog({
 }
 
 function ImageDialog({ onConfirm, onCancel }: { onConfirm: (url: string, alt?: string) => void; onCancel: () => void }) {
+  const [tab, setTab] = useState<"url" | "upload">("url");
   const [url, setUrl] = useState("https://");
   const [alt, setAlt] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setFile(f);
+    setError("");
+    const reader = new FileReader();
+    reader.onload = (ev) => setPreview(ev.target?.result as string);
+    reader.readAsDataURL(f);
+  };
+
+  const handleUpload = async () => {
+    if (!file) return;
+    setUploading(true);
+    setError("");
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/upload", { method: "POST", body: fd });
+      if (res.ok) {
+        const data = await res.json() as { url: string };
+        onConfirm(data.url, alt);
+      } else {
+        const data = await res.json() as { error?: string };
+        setError(data.error || "Erro ao enviar imagem");
+      }
+    } catch {
+      setError("Erro de rede ao enviar imagem");
+    } finally {
+      setUploading(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 w-96 space-y-4">
         <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">Inserir imagem</h3>
-        <div className="space-y-2">
-          <label className="text-sm text-gray-700 dark:text-gray-300">URL da imagem</label>
-          <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://..." autoFocus />
+        {/* Tabs */}
+        <div className="flex gap-2 border-b border-gray-200 dark:border-gray-700">
+          <button
+            onClick={() => setTab("url")}
+            className={`pb-1.5 text-sm px-2 ${tab === "url" ? "border-b-2 border-blue-500 text-blue-600 dark:text-blue-400" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"}`}
+          >
+            Por URL
+          </button>
+          <button
+            onClick={() => setTab("upload")}
+            className={`pb-1.5 text-sm px-2 flex items-center gap-1 ${tab === "upload" ? "border-b-2 border-blue-500 text-blue-600 dark:text-blue-400" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"}`}
+          >
+            <Upload className="h-3.5 w-3.5" /> Enviar arquivo
+          </button>
         </div>
+        {tab === "url" ? (
+          <div className="space-y-2">
+            <label className="text-sm text-gray-700 dark:text-gray-300">URL da imagem</label>
+            <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://..." autoFocus />
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <label className="text-sm text-gray-700 dark:text-gray-300">Arquivo de imagem</label>
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/gif,image/webp"
+              onChange={handleFileChange}
+              className="block w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-blue-900/30 dark:file:text-blue-300"
+            />
+            {preview && (
+              <img src={preview} alt="pré-visualização" className="mt-2 max-h-32 rounded border border-gray-200 dark:border-gray-600 object-contain" />
+            )}
+          </div>
+        )}
         <div className="space-y-2">
           <label className="text-sm text-gray-700 dark:text-gray-300">Texto alternativo (opcional)</label>
           <Input value={alt} onChange={(e) => setAlt(e.target.value)} placeholder="Descrição da imagem" />
         </div>
+        {error && <p className="text-xs text-red-500">{error}</p>}
+        <div className="flex gap-2 justify-end">
+          <Button size="sm" variant="outline" onClick={onCancel} disabled={uploading}>
+            <X className="h-3.5 w-3.5 mr-1" />Cancelar
+          </Button>
+          <Button
+            size="sm"
+            disabled={uploading || (tab === "upload" && !file)}
+            onClick={tab === "url" ? () => onConfirm(url, alt) : handleUpload}
+          >
+            {uploading ? (
+              <span className="flex items-center gap-1.5">
+                <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                Enviando...
+              </span>
+            ) : (
+              <><Check className="h-3.5 w-3.5 mr-1" />Inserir</>
+            )}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AddCommentDialog({
+  onConfirm,
+  onCancel,
+}: {
+  onConfirm: (text: string) => void;
+  onCancel: () => void;
+}) {
+  const [text, setText] = useState("");
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 w-96 space-y-4">
+        <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+          <MessageSquare className="h-4 w-4 text-yellow-500" />
+          Adicionar comentário
+        </h3>
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="Escreva seu comentário..."
+          autoFocus
+          rows={4}
+          className="w-full rounded border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-gray-100 p-2 focus:outline-none focus:ring-2 focus:ring-yellow-400 resize-none"
+        />
         <div className="flex gap-2 justify-end">
           <Button size="sm" variant="outline" onClick={onCancel}>
             <X className="h-3.5 w-3.5 mr-1" />Cancelar
           </Button>
-          <Button size="sm" onClick={() => onConfirm(url, alt)}>
-            <Check className="h-3.5 w-3.5 mr-1" />Inserir
+          <Button size="sm" disabled={!text.trim()} onClick={() => onConfirm(text.trim())}>
+            <Check className="h-3.5 w-3.5 mr-1" />Comentar
           </Button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function CommentsPanel({
+  comments,
+  editor,
+  onDelete,
+  onClose,
+}: {
+  comments: Record<string, CommentData>;
+  editor: ReturnType<typeof useEditor> | null;
+  onDelete: (id: string) => void;
+  onClose: () => void;
+}) {
+  // Build ordered list by traversing the document
+  const ordered: Array<{ id: string; highlightedText: string; data: CommentData }> = [];
+  if (editor) {
+    const commentMark = editor.schema.marks.comment;
+    if (commentMark) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      editor.state.doc.descendants((node: any, _pos: number) => {
+        if (!node.isText) return;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        node.marks.forEach((mark: any) => {
+          if (mark.type === commentMark) {
+            const id = mark.attrs.commentId as string;
+            if (id && comments[id] && !ordered.find((o) => o.id === id)) {
+              ordered.push({
+                id,
+                highlightedText: (node.text as string)?.slice(0, 60) || "",
+                data: comments[id],
+              });
+            }
+          }
+        });
+      });
+    }
+  }
+  // Include orphan comments (mark removed but comment data still present)
+  Object.entries(comments).forEach(([id, data]) => {
+    if (!ordered.find((o) => o.id === id)) {
+      ordered.push({ id, highlightedText: "", data });
+    }
+  });
+
+  return (
+    <div className="w-72 flex-shrink-0 border-l border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex flex-col overflow-hidden">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+        <span className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+          <MessageSquare className="h-4 w-4 text-yellow-500" />
+          Comentários ({ordered.length})
+        </span>
+        <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200" title="Fechar painel">
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+      <div className="flex-1 overflow-y-auto p-2 space-y-2">
+        {ordered.length === 0 && (
+          <p className="text-xs text-gray-400 text-center py-8">
+            Nenhum comentário ainda.<br />
+            Selecione um trecho e clique em <strong>Comentar</strong>.
+          </p>
+        )}
+        {ordered.map(({ id, highlightedText, data }) => (
+          <div key={id} className="bg-white dark:bg-gray-800 rounded-lg border border-yellow-200 dark:border-yellow-700/40 p-3 space-y-1.5">
+            {highlightedText && (
+              <p className="text-xs text-gray-500 dark:text-gray-400 italic line-clamp-2 border-l-2 border-yellow-400 pl-2">
+                &ldquo;{highlightedText}{highlightedText.length >= 60 ? "…" : ""}&rdquo;
+              </p>
+            )}
+            <p className="text-sm text-gray-800 dark:text-gray-200">{data.text}</p>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-gray-400">
+                {new Date(data.createdAt).toLocaleString("pt-BR")}
+              </span>
+              <button
+                onClick={() => onDelete(id)}
+                className="text-red-400 hover:text-red-600 transition-colors"
+                title="Remover comentário"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -621,6 +875,10 @@ function EditorPageInner() {
   const [showHeaderFooter, setShowHeaderFooter] = useState(false);
   const [showFootnoteDialog, setShowFootnoteDialog] = useState(false);
   const [footnotes, setFootnotes] = useState<string[]>([]);
+  // Etapa 3 state
+  const [comments, setComments] = useState<Record<string, CommentData>>({});
+  const [showComments, setShowComments] = useState(false);
+  const [showAddCommentDialog, setShowAddCommentDialog] = useState(false);
 
   const getHeadingValue = useCallback((ed: ReturnType<typeof useEditor> | null): number => {
     if (!ed) return 0;
@@ -659,6 +917,7 @@ function EditorPageInner() {
       IndentExtension,
       LineHeight,
       Footnote,
+      CommentMark,
       Placeholder.configure({ placeholder: "Comece a escrever seu documento..." }),
     ],
     content: "",
@@ -707,6 +966,8 @@ function EditorPageInner() {
       if (meta.footer !== undefined) setFooter(meta.footer);
       if (meta.margin) setPageMargin(meta.margin);
       if (meta.orientation) setPageOrientation(meta.orientation);
+      if (meta.comments) setComments(meta.comments);
+      else setComments({});
     }
   }, [editor]);
 
@@ -724,6 +985,7 @@ function EditorPageInner() {
       footer: footer || undefined,
       margin: pageMargin,
       orientation: pageOrientation,
+      comments: Object.keys(comments).length ? comments : undefined,
     });
     if (currentDoc) {
       await fetch(`/api/documents/${currentDoc.id}`, {
@@ -747,7 +1009,7 @@ function EditorPageInner() {
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
     loadDocuments();
-  }, [editor, currentDoc, title, header, footer, pageMargin, pageOrientation, router, loadDocuments]);
+  }, [editor, currentDoc, title, header, footer, pageMargin, pageOrientation, comments, router, loadDocuments]);
 
   const handleNewDocument = () => {
     setCurrentDoc(null);
@@ -757,6 +1019,7 @@ function EditorPageInner() {
     setFooter("");
     setPageMargin("normal");
     setPageOrientation("portrait");
+    setComments({});
     router.push("/editor");
   };
 
@@ -949,6 +1212,29 @@ function EditorPageInner() {
     (editor.chain().focus() as any).insertFootnote(text.trim()).run();
   };
 
+  const handleAddComment = (text: string) => {
+    if (!editor) return;
+    setShowAddCommentDialog(false);
+    const id = `c${Date.now()}`;
+    setComments((prev) => ({
+      ...prev,
+      [id]: { text, createdAt: new Date().toISOString() },
+    }));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (editor.chain().focus() as any).setComment(id).run();
+    setShowComments(true);
+  };
+
+  const handleDeleteComment = (id: string) => {
+    setComments((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (editor?.chain().focus() as any)?.unsetCommentById?.(id);
+  };
+
   const handleInsertLink = (url: string) => {
     if (!editor) return;
     setShowLinkDialog(false);
@@ -1052,6 +1338,12 @@ function EditorPageInner() {
             placeholder="Título do documento"
           />
           <div className="flex items-center gap-1.5 flex-shrink-0">
+            <Button size="sm" onClick={() => setShowComments(!showComments)} variant={showComments ? "default" : "outline"} title="Comentários">
+              <MessageSquare className="h-4 w-4" />
+              {Object.keys(comments).length > 0 && (
+                <span className="ml-1 text-xs">{Object.keys(comments).length}</span>
+              )}
+            </Button>
             <Button size="sm" onClick={() => setShowFindReplace(!showFindReplace)} variant="outline" title="Localizar/Substituir (Ctrl+F)">
               <Search className="h-4 w-4" />
             </Button>
@@ -1083,6 +1375,8 @@ function EditorPageInner() {
           </div>
         </div>
 
+        {/* Card + optional Comments panel side-by-side */}
+        <div className="flex-1 flex gap-2 min-h-0">
         <Card className="flex-1 flex flex-col overflow-hidden min-h-0">
           {/* Find & Replace panel */}
           {showFindReplace && (
@@ -1335,6 +1629,9 @@ function EditorPageInner() {
                 <ToolbarButton onClick={() => setShowLinkDialog(true)} active={editor.isActive("link")} title="Link">
                   <Link2 className="h-3.5 w-3.5" />
                 </ToolbarButton>
+                <ToolbarButton onClick={() => setShowAddCommentDialog(true)} active={editor.isActive("comment")} title="Adicionar comentário">
+                  <MessageSquare className="h-3.5 w-3.5" />
+                </ToolbarButton>
                 <ToolbarButton onClick={() => editor.chain().focus().unsetAllMarks().run()} title="Limpar formatação">
                   <RemoveFormatting className="h-3.5 w-3.5" />
                 </ToolbarButton>
@@ -1406,6 +1703,17 @@ function EditorPageInner() {
             )}
           </div>
         </Card>
+
+        {/* Comments panel - rendered as a side panel next to the Card */}
+        {showComments && (
+          <CommentsPanel
+            comments={comments}
+            editor={editor}
+            onDelete={handleDeleteComment}
+            onClose={() => setShowComments(false)}
+          />
+        )}
+        </div>
       </div>
 
       {showLinkDialog && (
@@ -1434,6 +1742,12 @@ function EditorPageInner() {
         <FootnoteDialog
           onConfirm={handleInsertFootnote}
           onCancel={() => setShowFootnoteDialog(false)}
+        />
+      )}
+      {showAddCommentDialog && (
+        <AddCommentDialog
+          onConfirm={handleAddComment}
+          onCancel={() => setShowAddCommentDialog(false)}
         />
       )}
     </div>
