@@ -371,7 +371,8 @@ function EditorPageInner() {
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;");
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
     win.document.write(`<!DOCTYPE html><html><head><title>${safeTitle}</title>
       <style>
         body{font-family:Arial,sans-serif;max-width:800px;margin:40px auto;padding:20px;line-height:1.6;}
@@ -398,7 +399,8 @@ function EditorPageInner() {
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;");
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
     const blob = new Blob(
       [`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${safeTitle}</title></head><body><h1>${safeTitle}</h1>${editor.getHTML()}</body></html>`],
       { type: "text/html" }
@@ -414,7 +416,8 @@ function EditorPageInner() {
     if (!editor) return;
     setShowLinkDialog(false);
     if (editor.state.selection.empty) {
-      editor.chain().focus().insertContent(`<a href="${url}">${url}</a>`).run();
+      // Use setLink on a text node to avoid raw HTML injection
+      editor.chain().focus().insertContent(url).setLink({ href: url }).run();
     } else {
       editor.chain().focus().setLink({ href: url }).run();
     }

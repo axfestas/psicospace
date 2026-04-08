@@ -14,6 +14,15 @@ function getBaseUrl(): string {
   return process.env.NEXT_PUBLIC_BASE_URL || "https://psicospace.pages.dev";
 }
 
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 /** Send welcome email with e-mail verification link */
 export async function sendWelcomeEmail(opts: {
   to: string;
@@ -21,7 +30,8 @@ export async function sendWelcomeEmail(opts: {
   verificationToken: string;
 }) {
   const resend = getResend();
-  const verifyUrl = `${getBaseUrl()}/verificar-email?token=${opts.verificationToken}`;
+  const verifyUrl = `${getBaseUrl()}/api/auth/verify-email?token=${opts.verificationToken}`;
+  const safeName = escapeHtml(opts.name);
 
   return resend.emails.send({
     from: getFromAddress(),
@@ -37,7 +47,7 @@ export async function sendWelcomeEmail(opts: {
       <h1 style="color:#fff;margin:0;font-size:28px;font-weight:700;">Ψ PsicoSpace</h1>
     </div>
     <div style="padding:40px;">
-      <h2 style="color:#111827;margin-top:0;">Olá, ${opts.name}! 👋</h2>
+      <h2 style="color:#111827;margin-top:0;">Olá, ${safeName}! 👋</h2>
       <p style="color:#374151;line-height:1.6;">
         Seja bem-vindo(a) ao <strong>PsicoSpace</strong>, sua plataforma acadêmica de Psicologia.
         Para começar, precisamos confirmar o seu e-mail.
@@ -85,12 +95,14 @@ export async function sendPendingItemsEmail(opts: {
 
   if (!overdueTasks.length && !soonTasks.length && !soonEvents.length) return;
 
+  const safeName = escapeHtml(opts.name);
+
   const taskRow = (t: { title: string; dueDate: string }) =>
-    `<tr><td style="padding:8px 0;border-bottom:1px solid #f3f4f6;color:#374151;">${t.title}</td>
+    `<tr><td style="padding:8px 0;border-bottom:1px solid #f3f4f6;color:#374151;">${escapeHtml(t.title)}</td>
      <td style="padding:8px 0;border-bottom:1px solid #f3f4f6;color:#6b7280;text-align:right;">${new Date(t.dueDate).toLocaleDateString("pt-BR")}</td></tr>`;
 
   const eventRow = (e: { title: string; startAt: string }) =>
-    `<tr><td style="padding:8px 0;border-bottom:1px solid #f3f4f6;color:#374151;">${e.title}</td>
+    `<tr><td style="padding:8px 0;border-bottom:1px solid #f3f4f6;color:#374151;">${escapeHtml(e.title)}</td>
      <td style="padding:8px 0;border-bottom:1px solid #f3f4f6;color:#6b7280;text-align:right;">${new Date(e.startAt).toLocaleDateString("pt-BR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</td></tr>`;
 
   const overdueSection = overdueTasks.length
@@ -122,7 +134,7 @@ export async function sendPendingItemsEmail(opts: {
       <h1 style="color:#fff;margin:0;font-size:28px;font-weight:700;">Ψ PsicoSpace</h1>
     </div>
     <div style="padding:40px;">
-      <h2 style="color:#111827;margin-top:0;">Olá, ${opts.name}!</h2>
+      <h2 style="color:#111827;margin-top:0;">Olá, ${safeName}!</h2>
       <p style="color:#374151;line-height:1.6;">
         Aqui está um resumo das suas pendências e eventos próximos:
       </p>
