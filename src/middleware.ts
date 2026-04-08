@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyToken } from "@/lib/auth";
 
-const protectedPaths = ["/dashboard", "/agenda", "/materiais", "/editor", "/abnt", "/admin"];
+const protectedPaths = ["/dashboard", "/agenda", "/materiais", "/editor", "/abnt", "/admin", "/perfil", "/configuracoes"];
 const adminPaths = ["/admin"];
 const superAdminPaths = ["/admin/migrations"];
 const authPaths = ["/login", "/register"];
