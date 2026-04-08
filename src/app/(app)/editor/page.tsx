@@ -32,7 +32,8 @@ import {
   ListChecks, Highlighter, Columns, Printer, Download, X, Check,
   ChevronDown, RemoveFormatting, Indent, Outdent, Search, BookOpen,
   FileDown, BookMarked, Type, Settings, StickyNote, PanelTop, PanelBottom,
-  MessageSquare, Upload,
+  MessageSquare, Upload, LayoutTemplate, Eye, EyeOff, Target, Clock,
+  Maximize2, Minimize2,
 } from "lucide-react";
 
 interface Document {
@@ -70,6 +71,148 @@ function parseDocContent(raw: string): DocMeta {
 function serializeDocContent(meta: DocMeta): string {
   return JSON.stringify(meta);
 }
+
+// ── Document templates ──────────────────────────────────────────────────────
+interface DocTemplate {
+  id: string;
+  label: string;
+  description: string;
+  title: string;
+  html: string;
+  header?: string;
+  footer?: string;
+}
+
+const DOCUMENT_TEMPLATES: DocTemplate[] = [
+  {
+    id: "blank",
+    label: "Em branco",
+    description: "Documento vazio",
+    title: "Novo Documento",
+    html: "",
+  },
+  {
+    id: "abnt",
+    label: "Artigo ABNT",
+    description: "Estrutura padrão ABNT para artigos científicos",
+    title: "Artigo Científico",
+    html: `<h1>Título do Artigo</h1>
+<p><strong>Autor:</strong> Nome do Autor</p>
+<p><strong>Instituição:</strong> Nome da Instituição</p>
+<p><strong>E-mail:</strong> email@exemplo.com</p>
+<h2>Resumo</h2>
+<p>Escreva aqui o resumo do artigo (máximo 250 palavras). O resumo deve apresentar de forma concisa os objetivos, metodologia, resultados e conclusões do trabalho.</p>
+<p><strong>Palavras-chave:</strong> palavra1; palavra2; palavra3.</p>
+<h2>Abstract</h2>
+<p>Write the abstract here (maximum 250 words).</p>
+<p><strong>Keywords:</strong> keyword1; keyword2; keyword3.</p>
+<h2>1. Introdução</h2>
+<p>Apresente o contexto do estudo, justificativa e objetivos.</p>
+<h2>2. Fundamentação Teórica</h2>
+<p>Descreva o referencial teórico que embasou a pesquisa.</p>
+<h2>3. Metodologia</h2>
+<p>Descreva os procedimentos metodológicos utilizados.</p>
+<h2>4. Resultados e Discussão</h2>
+<p>Apresente e discuta os resultados obtidos.</p>
+<h2>5. Conclusão</h2>
+<p>Sintetize as principais conclusões do trabalho.</p>
+<h2>Referências</h2>
+<p>SOBRENOME, Nome. <em>Título da obra</em>. Cidade: Editora, Ano.</p>`,
+  },
+  {
+    id: "relatorio_clinico",
+    label: "Relatório Clínico",
+    description: "Relatório de acompanhamento psicológico",
+    title: "Relatório Clínico Psicológico",
+    html: `<h1>Relatório Clínico Psicológico</h1>
+<p><strong>Data:</strong> ___/___/______</p>
+<p><strong>Psicólogo(a):</strong> _____________________________ &nbsp;&nbsp; <strong>CRP:</strong> __________</p>
+<h2>1. Identificação do Paciente</h2>
+<p><strong>Nome:</strong> _____________________________</p>
+<p><strong>Data de Nascimento:</strong> ___/___/______ &nbsp;&nbsp; <strong>Idade:</strong> ______</p>
+<p><strong>Encaminhado por:</strong> _____________________________</p>
+<h2>2. Motivo do Atendimento</h2>
+<p>Descreva aqui a queixa principal e o motivo do encaminhamento.</p>
+<h2>3. Histórico Clínico Relevante</h2>
+<p>Descreva o histórico clínico, tratamentos anteriores e informações relevantes.</p>
+<h2>4. Procedimentos Utilizados</h2>
+<p>Descreva os instrumentos e técnicas utilizadas no processo avaliativo/terapêutico.</p>
+<h2>5. Observações e Resultados</h2>
+<p>Descreva as observações clínicas e os resultados obtidos.</p>
+<h2>6. Hipótese Diagnóstica</h2>
+<p>Apresente a hipótese diagnóstica conforme CID/DSM (se aplicável).</p>
+<h2>7. Conduta e Recomendações</h2>
+<p>Descreva a conduta adotada e as recomendações para continuidade do tratamento.</p>
+<p style="margin-top: 3em">_____________________________</p>
+<p>Psicólogo(a) Responsável</p>`,
+  },
+  {
+    id: "prontuario",
+    label: "Prontuário",
+    description: "Prontuário psicológico completo",
+    title: "Prontuário Psicológico",
+    html: `<h1>Prontuário Psicológico</h1>
+<h2>Dados de Identificação</h2>
+<p><strong>Nome:</strong> _____________________________</p>
+<p><strong>Data de Nascimento:</strong> ___/___/______</p>
+<p><strong>Gênero:</strong> ____________ &nbsp;&nbsp; <strong>Estado Civil:</strong> ____________</p>
+<p><strong>Profissão:</strong> _____________________________</p>
+<p><strong>Endereço:</strong> _____________________________</p>
+<p><strong>Telefone:</strong> ____________ &nbsp;&nbsp; <strong>E-mail:</strong> _____________________________</p>
+<p><strong>Responsável (se menor):</strong> _____________________________</p>
+<h2>Anamnese</h2>
+<p><strong>Queixa Principal:</strong></p>
+<p>_________________________________________________________</p>
+<p><strong>História do Problema:</strong></p>
+<p>_________________________________________________________</p>
+<p><strong>Histórico Familiar:</strong></p>
+<p>_________________________________________________________</p>
+<p><strong>Histórico de Saúde:</strong></p>
+<p>_________________________________________________________</p>
+<p><strong>Medicações em Uso:</strong></p>
+<p>_________________________________________________________</p>
+<h2>Evolução do Atendimento</h2>
+<p><strong>Sessão 1 — Data:</strong> ___/___/______</p>
+<p>_________________________________________________________</p>
+<p><strong>Sessão 2 — Data:</strong> ___/___/______</p>
+<p>_________________________________________________________</p>
+<h2>Encerramento</h2>
+<p><strong>Data de encerramento:</strong> ___/___/______</p>
+<p><strong>Motivo:</strong> _____________________________</p>`,
+  },
+  {
+    id: "ata",
+    label: "Ata de Reunião",
+    description: "Ata para registro de reuniões",
+    title: "Ata de Reunião",
+    html: `<h1>Ata de Reunião</h1>
+<p><strong>Data:</strong> ___/___/______ &nbsp;&nbsp; <strong>Horário:</strong> ____h____min às ____h____min</p>
+<p><strong>Local:</strong> _____________________________</p>
+<p><strong>Responsável pela reunião:</strong> _____________________________</p>
+<h2>Participantes</h2>
+<ul>
+  <li>_____________________________</li>
+  <li>_____________________________</li>
+  <li>_____________________________</li>
+</ul>
+<h2>Pauta</h2>
+<ol>
+  <li>_____________________________</li>
+  <li>_____________________________</li>
+  <li>_____________________________</li>
+</ol>
+<h2>Discussões e Deliberações</h2>
+<p><strong>Item 1:</strong></p>
+<p>_________________________________________________________</p>
+<p><strong>Item 2:</strong></p>
+<p>_________________________________________________________</p>
+<h2>Encaminhamentos</h2>
+<p>_________________________________________________________</p>
+<p><strong>Próxima reunião:</strong> ___/___/______</p>
+<p style="margin-top: 3em">_____________________________</p>
+<p>Secretário(a) / Responsável</p>`,
+  },
+];
 
 // ── Custom FontSize extension (no extra npm package needed) ──────────────────
 const FontSize = Extension.create({
@@ -849,6 +992,125 @@ function FootnoteDialog({ onConfirm, onCancel }: { onConfirm: (text: string) => 
   );
 }
 
+// ── Template Picker Dialog ───────────────────────────────────────────────────
+function TemplatePickerDialog({
+  onConfirm,
+  onCancel,
+}: {
+  onConfirm: (tpl: DocTemplate) => void;
+  onCancel: () => void;
+}) {
+  const [selected, setSelected] = useState<string>("blank");
+  const tpl = DOCUMENT_TEMPLATES.find((t) => t.id === selected)!;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 w-[640px] max-w-full space-y-4 max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between flex-shrink-0">
+          <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+            <LayoutTemplate className="h-4 w-4 text-blue-500" />
+            Novo documento a partir de template
+          </h3>
+          <button onClick={onCancel} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"><X className="h-4 w-4" /></button>
+        </div>
+        <div className="flex gap-4 flex-1 min-h-0">
+          {/* Template list */}
+          <div className="w-52 flex-shrink-0 space-y-1 overflow-y-auto">
+            {DOCUMENT_TEMPLATES.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setSelected(t.id)}
+                className={`w-full text-left rounded-lg px-3 py-2.5 transition-colors ${
+                  selected === t.id
+                    ? "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300"
+                    : "hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+                }`}
+              >
+                <p className="text-sm font-medium">{t.label}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{t.description}</p>
+              </button>
+            ))}
+          </div>
+          {/* Preview */}
+          <div className="flex-1 border border-gray-200 dark:border-gray-700 rounded-lg overflow-y-auto bg-white dark:bg-gray-900 p-4">
+            <p className="text-xs text-gray-400 mb-2 uppercase tracking-wide font-semibold">Pré-visualização</p>
+            {tpl.html ? (
+              <div
+                className="prose prose-sm dark:prose-invert max-w-none text-xs"
+                dangerouslySetInnerHTML={{ __html: tpl.html }}
+              />
+            ) : (
+              <p className="text-sm text-gray-400 italic">Documento em branco — sem conteúdo inicial.</p>
+            )}
+          </div>
+        </div>
+        <div className="flex gap-2 justify-end flex-shrink-0">
+          <Button size="sm" variant="outline" onClick={onCancel}>
+            <X className="h-3.5 w-3.5 mr-1" />Cancelar
+          </Button>
+          <Button size="sm" onClick={() => onConfirm(tpl)}>
+            <Check className="h-3.5 w-3.5 mr-1" />Usar template
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Word Goal Bar ────────────────────────────────────────────────────────────
+function WordGoalBar({
+  wordCount,
+  goal,
+  onSetGoal,
+}: {
+  wordCount: number;
+  goal: number;
+  onSetGoal: (n: number) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [input, setInput] = useState(String(goal));
+  const pct = goal > 0 ? Math.min(100, Math.round((wordCount / goal) * 100)) : 0;
+  const color = pct >= 100 ? "bg-green-500" : pct >= 60 ? "bg-blue-500" : "bg-orange-400";
+  return (
+    <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+      <Target className="h-3.5 w-3.5 flex-shrink-0" />
+      {editing ? (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            const n = parseInt(input, 10);
+            if (!isNaN(n) && n >= 0) onSetGoal(n);
+            setEditing(false);
+          }}
+          className="flex items-center gap-1"
+        >
+          <input
+            autoFocus
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            className="w-16 h-5 text-xs rounded border border-gray-300 dark:border-gray-600 px-1 bg-white dark:bg-gray-800"
+          />
+          <button type="submit" className="text-blue-600 hover:text-blue-700 font-medium">OK</button>
+          <button type="button" onClick={() => setEditing(false)} className="text-gray-400 hover:text-gray-600">
+            <X className="h-3 w-3" />
+          </button>
+        </form>
+      ) : (
+        <button onClick={() => { setInput(String(goal)); setEditing(true); }} className="hover:text-gray-700 dark:hover:text-gray-200" title="Definir meta de palavras">
+          {goal > 0 ? `${wordCount}/${goal} palavras` : "Definir meta"}
+        </button>
+      )}
+      {goal > 0 && (
+        <div className="w-24 h-1.5 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
+          <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${pct}%` }} />
+        </div>
+      )}
+      {goal > 0 && pct >= 100 && (
+        <span className="text-green-600 dark:text-green-400 font-medium">✓ Meta atingida!</span>
+      )}
+    </div>
+  );
+}
+
 function EditorPageInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -879,6 +1141,13 @@ function EditorPageInner() {
   const [comments, setComments] = useState<Record<string, CommentData>>({});
   const [showComments, setShowComments] = useState(false);
   const [showAddCommentDialog, setShowAddCommentDialog] = useState(false);
+  // Etapa 4 state
+  const [isDirty, setIsDirty] = useState(false);
+  const [autoSaved, setAutoSaved] = useState(false);
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
+  const [readingMode, setReadingMode] = useState(false);
+  const [wordGoal, setWordGoal] = useState(0);
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const getHeadingValue = useCallback((ed: ReturnType<typeof useEditor> | null): number => {
     if (!ed) return 0;
