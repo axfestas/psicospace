@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
@@ -14,6 +14,7 @@ import {
   Settings,
   UserCircle,
   X,
+  LogOut,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -37,10 +38,16 @@ interface SidebarProps {
 
 export function Sidebar({ open, onClose }: SidebarProps) {
   const pathname = usePathname();
-  const { user } = useAuth();
+  const router = useRouter();
+  const { user, logout } = useAuth();
 
   const isAdmin = user?.role === "ADMIN" || user?.role === "SUPERADMIN";
   const isSuperAdmin = user?.role === "SUPERADMIN";
+
+  const handleLogout = async () => {
+    await logout();
+    router.push("/login");
+  };
 
   return (
     <>
@@ -158,19 +165,21 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         </nav>
 
         <div className="border-t border-gray-200 p-4 dark:border-gray-700">
-          <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-white text-sm font-semibold">
-              {user?.name?.charAt(0).toUpperCase() || "U"}
-            </div>
-            <div className="min-w-0">
-              <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
-                {user?.name}
-              </p>
-              <p className="truncate text-xs text-gray-500 dark:text-gray-400">
-                {user?.email}
-              </p>
-            </div>
+          <div className="mb-3">
+            <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
+              {user?.name}
+            </p>
+            <p className="truncate text-xs text-gray-500 dark:text-gray-400">
+              {user?.email}
+            </p>
           </div>
+          <button
+            onClick={handleLogout}
+            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 transition-colors"
+          >
+            <LogOut className="h-4 w-4 flex-shrink-0" />
+            Sair
+          </button>
         </div>
       </aside>
     </>
