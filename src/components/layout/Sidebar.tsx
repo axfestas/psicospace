@@ -15,11 +15,8 @@ import {
   UserCircle,
   X,
   LogOut,
-  Sun,
-  Moon,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useTheme } from "@/contexts/ThemeContext";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -43,7 +40,6 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuth();
-  const { theme, toggleTheme } = useTheme();
 
   const isAdmin = user?.role === "ADMIN" || user?.role === "SUPERADMIN";
   const isSuperAdmin = user?.role === "SUPERADMIN";
@@ -177,13 +173,6 @@ export function Sidebar({ open, onClose }: SidebarProps) {
               {user?.email}
             </p>
           </div>
-          <button
-            onClick={toggleTheme}
-            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800 transition-colors mb-1"
-          >
-            {theme === "dark" ? <Sun className="h-4 w-4 flex-shrink-0" /> : <Moon className="h-4 w-4 flex-shrink-0" />}
-            {theme === "dark" ? "Modo claro" : "Modo escuro"}
-          </button>
           <button
             onClick={handleLogout}
             className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 transition-colors"
