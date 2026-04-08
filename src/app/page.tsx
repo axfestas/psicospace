@@ -31,12 +31,11 @@ export default function HomePage() {
             <span className="block text-blue-600"> acadêmica</span>
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-gray-600 dark:text-gray-400">
-            PsicoSpace é o planner acadêmico completo para estudantes de Psicologia. Gerencie materiais,
-            organize sua agenda, crie documentos com editor rico e domine as normas ABNT.
+            Organize sua vida acadêmica em Psicologia em um só lugar — agenda, materiais, escrita e normas ABNT, sem complicação.
           </p>
           <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
             <Link href="/register" className="rounded-xl bg-blue-600 px-8 py-4 text-base font-semibold text-white hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200 dark:shadow-none">
-              Começar gratuitamente →
+              Começar agora →
             </Link>
             <Link href="/login" className="rounded-xl border border-gray-300 px-8 py-4 text-base font-semibold text-gray-700 hover:bg-gray-50 transition-colors dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800">
               Já tenho conta
@@ -48,14 +47,12 @@ export default function HomePage() {
           <h2 className="text-center text-3xl font-bold text-gray-900 dark:text-gray-100 mb-12">
             Tudo que você precisa em um só lugar
           </h2>
-          <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-8 sm:grid-cols-2">
             {[
               { icon: "📅", title: "Agenda Inteligente", desc: "Calendário mensal com eventos, tarefas com checklist e área de anotações livres." },
               { icon: "📚", title: "Gestão de Materiais", desc: "Organize materiais por período e disciplina. Acompanhe seu progresso de estudo." },
               { icon: "✍️", title: "Editor Rico", desc: "Editor de texto completo com formatação, listas, títulos e exportação para PDF." },
               { icon: "📖", title: "Guia ABNT", desc: "Referência completa das normas ABNT para trabalhos acadêmicos de Psicologia." },
-              { icon: "📊", title: "Dashboard", desc: "Visão geral do seu progresso, eventos do dia e tarefas pendentes." },
-              { icon: "🌙", title: "Modo Escuro", desc: "Interface adaptável com suporte a modo claro e escuro para estudar confortavelmente." },
             ].map((feature) => (
               <div key={feature.title} className="rounded-2xl border border-gray-200 bg-white p-6 hover:shadow-md transition-shadow dark:border-gray-700 dark:bg-gray-800">
                 <span className="text-4xl mb-4 block">{feature.icon}</span>
