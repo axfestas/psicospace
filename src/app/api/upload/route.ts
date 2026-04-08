@@ -49,8 +49,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Build a unique key: userId/timestamp-filename.ext
+    // safeName strips all characters except alphanumerics, dots, hyphens, and
+    // underscores, which prevents path-separator injection (no slashes remain).
+    // auth.userId is a CUID from a verified JWT (alphanumeric only), so the
+    // full key cannot contain any path-traversal sequences like "../".
     const safeName = file.name
       .replace(/[^a-zA-Z0-9._-]/g, "_")
+      .replace(/\.{2,}/g, "_") // collapse repeated dots (e.g. "..") for clarity
       .slice(0, 100);
     const key = `${auth.userId}/${Date.now()}-${safeName}`;
 

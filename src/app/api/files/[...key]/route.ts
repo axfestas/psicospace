@@ -24,6 +24,8 @@ export async function GET(
 
     const headers = new Headers();
     object.writeHttpMetadata(headers);
+    // Keys include a timestamp, so the same key always refers to the same
+    // content. 1-year immutable is safe here — old keys are never reused.
     headers.set("cache-control", "private, max-age=31536000, immutable");
 
     return new NextResponse(object.body, { headers });

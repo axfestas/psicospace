@@ -286,7 +286,7 @@ export default function MateriaisPage() {
                                     <input
                                       ref={fileInputRef}
                                       type="file"
-                                      accept={materialForm.type in FILE_ACCEPT ? FILE_ACCEPT[materialForm.type as "PDF" | "SLIDE"] : undefined}
+                                      accept={materialForm.type === "PDF" || materialForm.type === "SLIDE" ? FILE_ACCEPT[materialForm.type] : undefined}
                                       onChange={handleFileUpload}
                                       className="hidden"
                                       id="file-upload"
