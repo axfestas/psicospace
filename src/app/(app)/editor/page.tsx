@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef, Suspense } from "react";
+import React, { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useEditor, EditorContent } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
@@ -33,7 +33,7 @@ import {
   ChevronDown, RemoveFormatting, Indent, Outdent, Search, BookOpen,
   FileDown, BookMarked, Type, Settings, StickyNote, PanelTop, PanelBottom,
   MessageSquare, Upload, LayoutTemplate, Eye, EyeOff, Target, Clock,
-  Maximize2, Minimize2,
+  Maximize2, Minimize2, Tag, Keyboard, Hash, Filter, ChevronRight,
 } from "lucide-react";
 
 interface Document {
@@ -59,6 +59,7 @@ interface DocMeta {
   orientation?: PageOrientation;
   comments?: Record<string, CommentData>;
   versions?: VersionSnapshot[];
+  tags?: string[];
 }
 
 // ── Version snapshot ─────────────────────────────────────────────────────────
@@ -1002,6 +1003,232 @@ function FootnoteDialog({ onConfirm, onCancel }: { onConfirm: (text: string) => 
   );
 }
 
+// ── Slash Commands ───────────────────────────────────────────────────────────
+interface SlashCommandItem {
+  id: string;
+  label: string;
+  description: string;
+  icon: React.ElementType;
+  keywords: string[];
+  run: (editor: ReturnType<typeof import("@tiptap/react").useEditor>) => void;
+}
+
+const SLASH_COMMANDS: SlashCommandItem[] = [
+  { id: "h1", label: "Título 1", description: "Grande título de seção", icon: Type, keywords: ["h1", "título", "heading"],
+    run: (ed) => ed?.chain().focus().toggleHeading({ level: 1 }).run() },
+  { id: "h2", label: "Título 2", description: "Título médio de seção", icon: Type, keywords: ["h2", "título", "heading"],
+    run: (ed) => ed?.chain().focus().toggleHeading({ level: 2 }).run() },
+  { id: "h3", label: "Título 3", description: "Subtítulo", icon: Type, keywords: ["h3", "título", "heading"],
+    run: (ed) => ed?.chain().focus().toggleHeading({ level: 3 }).run() },
+  { id: "ul", label: "Lista com Marcadores", description: "Lista de itens simples", icon: List, keywords: ["ul", "lista", "bullet", "marcadores"],
+    run: (ed) => ed?.chain().focus().toggleBulletList().run() },
+  { id: "ol", label: "Lista Numerada", description: "Lista ordenada numerada", icon: ListOrdered, keywords: ["ol", "lista", "numerada", "ordenada"],
+    run: (ed) => ed?.chain().focus().toggleOrderedList().run() },
+  { id: "todo", label: "Lista de Tarefas", description: "Lista com checkboxes", icon: ListChecks, keywords: ["todo", "tarefa", "checklist", "checkbox"],
+    run: (ed) => ed?.chain().focus().toggleTaskList().run() },
+  { id: "quote", label: "Citação", description: "Bloco de citação ou destaque", icon: Quote, keywords: ["quote", "citação", "blockquote"],
+    run: (ed) => ed?.chain().focus().toggleBlockquote().run() },
+  { id: "code", label: "Bloco de Código", description: "Trecho de código formatado", icon: Code2, keywords: ["code", "código", "programação"],
+    run: (ed) => ed?.chain().focus().toggleCodeBlock().run() },
+  { id: "table", label: "Tabela", description: "Grade de linhas e colunas", icon: TableIcon, keywords: ["table", "tabela", "grade"],
+    run: (ed) => ed?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run() },
+  { id: "hr", label: "Divisor", description: "Linha horizontal de separação", icon: Minus, keywords: ["hr", "divisor", "linha", "separador"],
+    run: (ed) => ed?.chain().focus().setHorizontalRule().run() },
+  { id: "image", label: "Imagem", description: "Inserir imagem por URL", icon: ImageIcon, keywords: ["image", "imagem", "foto"],
+    run: () => { /* signal to open image dialog */ } },
+];
+
+function SlashMenu({
+  query,
+  coords,
+  onSelect,
+  onClose,
+}: {
+  query: string;
+  coords: { top: number; left: number };
+  onSelect: (item: SlashCommandItem) => void;
+  onClose: () => void;
+}) {
+  const [activeIdx, setActiveIdx] = useState(0);
+  const filtered = SLASH_COMMANDS.filter((c) => {
+    if (!query) return true;
+    const q = query.toLowerCase();
+    return c.label.toLowerCase().includes(q) || c.keywords.some((k) => k.includes(q));
+  });
+
+  // Expose navigate/select via imperativeHandle is complex; instead use keydown in parent
+  // This component just renders, navigation handled by parent useEffect
+  const ref = useRef<HTMLDivElement>(null);
+
+  // Scroll active item into view
+  useEffect(() => {
+    const el = ref.current?.querySelector(`[data-idx="${activeIdx}"]`) as HTMLElement | null;
+    el?.scrollIntoView({ block: "nearest" });
+  }, [activeIdx]);
+
+  // Navigation state exposed via a ref so parent can call
+  // We'll use a different pattern: emit keyboard events via context
+  // Instead keep it self-contained: handle keydown inside the menu div
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        e.stopPropagation();
+        setActiveIdx((i) => (i + 1) % filtered.length);
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        e.stopPropagation();
+        setActiveIdx((i) => (i - 1 + filtered.length) % filtered.length);
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        e.stopPropagation();
+        if (filtered[activeIdx]) onSelect(filtered[activeIdx]);
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        onClose();
+      }
+    };
+    document.addEventListener("keydown", handler, true);
+    return () => document.removeEventListener("keydown", handler, true);
+  }, [filtered, activeIdx, onSelect, onClose]);
+
+  // Reset active on query change
+  useEffect(() => { setActiveIdx(0); }, [query]);
+
+  if (filtered.length === 0) return null;
+
+  return (
+    <div
+      ref={ref}
+      className="fixed z-[100] w-72 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl overflow-hidden"
+      style={{ top: coords.top + 4, left: Math.max(8, coords.left) }}
+    >
+      <div className="px-3 py-2 border-b border-gray-100 dark:border-gray-700 text-xs text-gray-400 flex items-center gap-1">
+        <Hash className="h-3 w-3" />
+        Comandos
+        {query && <span className="ml-1 font-medium text-gray-600 dark:text-gray-300">/{query}</span>}
+        <span className="ml-auto">↑↓ navegar · Enter inserir · Esc fechar</span>
+      </div>
+      <div className="max-h-64 overflow-y-auto py-1">
+        {filtered.map((item, idx) => {
+          const Icon = item.icon;
+          return (
+            <button
+              key={item.id}
+              data-idx={idx}
+              onClick={() => onSelect(item)}
+              className={`w-full flex items-center gap-3 px-3 py-2 text-left transition-colors ${
+                idx === activeIdx
+                  ? "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
+                  : "hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+              }`}
+            >
+              <div className={`p-1.5 rounded-md ${idx === activeIdx ? "bg-blue-100 dark:bg-blue-800" : "bg-gray-100 dark:bg-gray-700"}`}>
+                <Icon className="h-3.5 w-3.5" />
+              </div>
+              <div>
+                <p className="text-sm font-medium">{item.label}</p>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400">{item.description}</p>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── Keyboard Shortcuts Modal ─────────────────────────────────────────────────
+function ShortcutsModal({ onClose }: { onClose: () => void }) {
+  const groups = [
+    {
+      label: "Arquivo",
+      shortcuts: [
+        { keys: ["Ctrl", "S"], desc: "Salvar documento" },
+        { keys: ["Ctrl", "F"], desc: "Localizar e substituir" },
+        { keys: ["Ctrl", "/"], desc: "Atalhos de teclado" },
+      ],
+    },
+    {
+      label: "Formatação de texto",
+      shortcuts: [
+        { keys: ["Ctrl", "B"], desc: "Negrito" },
+        { keys: ["Ctrl", "I"], desc: "Itálico" },
+        { keys: ["Ctrl", "U"], desc: "Sublinhado" },
+        { keys: ["Ctrl", "Shift", "X"], desc: "Tachado" },
+        { keys: ["Ctrl", "`"], desc: "Código inline" },
+      ],
+    },
+    {
+      label: "Parágrafos e blocos",
+      shortcuts: [
+        { keys: ["Ctrl", "Alt", "1…6"], desc: "Título nível 1–6" },
+        { keys: ["Ctrl", "Shift", "B"], desc: "Lista com marcadores" },
+        { keys: ["Ctrl", "Shift", "O"], desc: "Lista numerada" },
+        { keys: ["Ctrl", "Shift", "T"], desc: "Lista de tarefas" },
+        { keys: ["Ctrl", "Shift", "E"], desc: "Citação (blockquote)" },
+        { keys: ["Ctrl", "Alt", "C"], desc: "Bloco de código" },
+        { keys: ["Tab"], desc: "Aumentar indentação" },
+        { keys: ["Shift", "Tab"], desc: "Diminuir indentação" },
+      ],
+    },
+    {
+      label: "Edição",
+      shortcuts: [
+        { keys: ["Ctrl", "Z"], desc: "Desfazer" },
+        { keys: ["Ctrl", "Y"], desc: "Refazer" },
+        { keys: ["Ctrl", "A"], desc: "Selecionar tudo" },
+        { keys: ["/"], desc: "Menu de comandos slash" },
+      ],
+    },
+    {
+      label: "Visualização",
+      shortcuts: [
+        { keys: ["Esc"], desc: "Sair do modo leitura" },
+      ],
+    },
+  ];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
+      <div
+        className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-[600px] max-w-full max-h-[85vh] flex flex-col overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex-shrink-0">
+          <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+            <Keyboard className="h-4 w-4 text-blue-500" />
+            Atalhos de Teclado
+          </h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"><X className="h-4 w-4" /></button>
+        </div>
+        <div className="overflow-y-auto p-6 grid grid-cols-2 gap-6">
+          {groups.map((g) => (
+            <div key={g.label}>
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-2">{g.label}</p>
+              <div className="space-y-1.5">
+                {g.shortcuts.map((s) => (
+                  <div key={s.desc} className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600 dark:text-gray-300">{s.desc}</span>
+                    <div className="flex items-center gap-0.5">
+                      {s.keys.map((k, i) => (
+                        <span key={i} className="flex items-center gap-0.5">
+                          {i > 0 && <span className="text-gray-300 text-xs mx-0.5">+</span>}
+                          <kbd className="text-[11px] bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-1.5 py-0.5 rounded border border-gray-200 dark:border-gray-600 font-mono">{k}</kbd>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Template Picker Dialog ───────────────────────────────────────────────────
 function TemplatePickerDialog({
   onConfirm,
@@ -1285,6 +1512,13 @@ function EditorPageInner() {
   const [versions, setVersions] = useState<VersionSnapshot[]>([]);
   const [showVersionHistory, setShowVersionHistory] = useState(false);
   const [showDocStats, setShowDocStats] = useState(false);
+  // Etapa 6 state
+  const [slashMenu, setSlashMenu] = useState<{ query: string; coords: { top: number; left: number } } | null>(null);
+  const [docTags, setDocTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState("");
+  const [docSearch, setDocSearch] = useState("");
+  const [tagFilter, setTagFilter] = useState("");
+  const [showShortcuts, setShowShortcuts] = useState(false);
 
   const getHeadingValue = useCallback((ed: ReturnType<typeof useEditor> | null): number => {
     if (!ed) return 0;
@@ -1350,6 +1584,23 @@ function EditorPageInner() {
       });
       setTocEntries(entries);
       setFootnotes(notes);
+      // Slash commands detection
+      const { selection } = ed.state;
+      const { $from } = selection;
+      if ($from.parent.type.name === "paragraph") {
+        const lineText = $from.parent.textContent;
+        if (lineText.startsWith("/")) {
+          const query = lineText.slice(1);
+          try {
+            const domCoords = ed.view.coordsAtPos($from.start());
+            setSlashMenu({ query, coords: { top: domCoords.bottom + window.scrollY, left: domCoords.left + window.scrollX } });
+          } catch { setSlashMenu(null); }
+        } else {
+          setSlashMenu(null);
+        }
+      } else {
+        setSlashMenu(null);
+      }
     },
   });
 
@@ -1377,6 +1628,8 @@ function EditorPageInner() {
       else setComments({});
       if (meta.versions) setVersions(meta.versions);
       else setVersions([]);
+      if (meta.tags) setDocTags(meta.tags);
+      else setDocTags([]);
       setIsDirty(false);
     }
   }, [editor]);
@@ -1407,6 +1660,7 @@ function EditorPageInner() {
       orientation: pageOrientation,
       comments: Object.keys(comments).length ? comments : undefined,
       versions: nextVersions,
+      tags: docTags.length ? docTags : undefined,
     });
     if (currentDoc) {
       await fetch(`/api/documents/${currentDoc.id}`, {
@@ -1436,7 +1690,7 @@ function EditorPageInner() {
       setTimeout(() => setSaved(false), 2000);
     }
     loadDocuments();
-  }, [editor, currentDoc, title, header, footer, pageMargin, pageOrientation, comments, versions, router, loadDocuments]);
+  }, [editor, currentDoc, title, header, footer, pageMargin, pageOrientation, comments, versions, docTags, router, loadDocuments]);
 
   const handleNewDocument = () => {
     setCurrentDoc(null);
@@ -1448,6 +1702,7 @@ function EditorPageInner() {
     setPageOrientation("portrait");
     setComments({});
     setVersions([]);
+    setDocTags([]);
     setIsDirty(false);
     router.push("/editor");
   };
@@ -1488,10 +1743,39 @@ function EditorPageInner() {
     setShowVersionHistory(false);
   };
 
+  const handleSlashSelect = useCallback((item: SlashCommandItem) => {
+    if (!editor) return;
+    setSlashMenu(null);
+    // Delete the /query text from the current paragraph start to cursor
+    const { from } = editor.state.selection;
+    const lineStart = editor.state.selection.$from.start();
+    const tr = editor.state.tr.delete(lineStart, from);
+    editor.view.dispatch(tr);
+    // Special case: image opens the dialog
+    if (item.id === "image") {
+      setShowImageDialog(true);
+      return;
+    }
+    item.run(editor);
+  }, [editor]);
+
   const handleDeleteDocument = async (id: string) => {
     await fetch(`/api/documents/${id}`, { method: "DELETE" });
     if (currentDoc?.id === id) handleNewDocument();
     loadDocuments();
+  };
+
+  const handleAddTag = (tag: string) => {
+    const t = tag.trim().toLowerCase().replace(/\s+/g, "-");
+    if (!t || docTags.includes(t)) return;
+    setDocTags((prev) => [...prev, t]);
+    setTagInput("");
+    setIsDirty(true);
+  };
+
+  const handleRemoveTag = (tag: string) => {
+    setDocTags((prev) => prev.filter((t) => t !== tag));
+    setIsDirty(true);
   };
 
   const handlePrint = () => {
@@ -1721,7 +2005,7 @@ function EditorPageInner() {
     editor?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
   };
 
-  // Ctrl+S to save, Ctrl+F for find/replace, Escape to exit reading mode
+  // Ctrl+S to save, Ctrl+F for find/replace, Escape to exit reading mode, Ctrl+/ shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "s") {
@@ -1732,8 +2016,13 @@ function EditorPageInner() {
         e.preventDefault();
         setShowFindReplace(true);
       }
+      if ((e.ctrlKey || e.metaKey) && e.key === "/") {
+        e.preventDefault();
+        setShowShortcuts((v) => !v);
+      }
       if (e.key === "Escape") {
         setReadingMode(false);
+        setSlashMenu(null);
       }
     };
     document.addEventListener("keydown", handler);
@@ -1791,8 +2080,9 @@ function EditorPageInner() {
       {/* Document list sidebar */}
       <div className="w-56 flex-shrink-0 hidden lg:flex flex-col gap-2">
         <Card className="flex-1 overflow-hidden">
-          <CardContent className="p-3 h-full flex flex-col">
-            <div className="flex items-center justify-between mb-3">
+          <CardContent className="p-3 h-full flex flex-col gap-2">
+            {/* Header */}
+            <div className="flex items-center justify-between flex-shrink-0">
               <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Documentos</span>
               <div className="flex items-center gap-1">
                 <button onClick={() => setShowTemplatePicker(true)} className="text-gray-400 hover:text-blue-600" title="Novo a partir de template">
@@ -1803,11 +2093,57 @@ function EditorPageInner() {
                 </button>
               </div>
             </div>
+            {/* Search */}
+            <div className="relative flex-shrink-0">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400" />
+              <input
+                value={docSearch}
+                onChange={(e) => setDocSearch(e.target.value)}
+                placeholder="Buscar..."
+                className="w-full text-xs pl-6 pr-2 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+              />
+              {docSearch && (
+                <button onClick={() => setDocSearch("")} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                  <X className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+            {/* Tag filter */}
+            {docTags.length > 0 && (
+              <div className="flex flex-wrap gap-1 flex-shrink-0">
+                {docTags.map((tag) => (
+                  <button
+                    key={tag}
+                    onClick={() => setTagFilter(tagFilter === tag ? "" : tag)}
+                    className={`text-[10px] px-1.5 py-0.5 rounded-full border transition-colors ${
+                      tagFilter === tag
+                        ? "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-600 text-blue-700 dark:text-blue-300"
+                        : "bg-gray-100 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-gray-400"
+                    }`}
+                  >
+                    #{tag}
+                  </button>
+                ))}
+              </div>
+            )}
+            {/* Document list */}
             <div className="space-y-1 overflow-y-auto flex-1">
               {documents.length === 0 && (
                 <p className="text-xs text-gray-400 text-center py-4">Nenhum documento</p>
               )}
-              {documents.map((doc) => (
+              {documents
+                .filter((doc) => {
+                  if (docSearch && !doc.title.toLowerCase().includes(docSearch.toLowerCase())) return false;
+                  if (tagFilter) {
+                    // tags are stored in content JSON
+                    try {
+                      const meta = parseDocContent(doc.content || "");
+                      if (!meta.tags?.includes(tagFilter)) return false;
+                    } catch { return false; }
+                  }
+                  return true;
+                })
+                .map((doc) => (
                 <div
                   key={doc.id}
                   className={`group flex items-center justify-between rounded-lg p-2 cursor-pointer ${
@@ -1840,15 +2176,43 @@ function EditorPageInner() {
 
       {/* Main editor area */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Title + action buttons */}
+        {/* Title + tags + action buttons */}
         <div className="mb-2 flex items-center gap-2 flex-wrap">
-          <Input
-            value={title}
-            onChange={(e) => { setTitle(e.target.value); setIsDirty(true); }}
-            className="flex-1 min-w-40 text-lg font-semibold border-0 border-b rounded-none px-0 focus:ring-0 bg-transparent"
-            placeholder="Título do documento"
-          />
+          <div className="flex-1 min-w-40 flex flex-col gap-1">
+            <Input
+              value={title}
+              onChange={(e) => { setTitle(e.target.value); setIsDirty(true); }}
+              className="text-lg font-semibold border-0 border-b rounded-none px-0 focus:ring-0 bg-transparent"
+              placeholder="Título do documento"
+            />
+            {/* Tags row */}
+            <div className="flex items-center gap-1 flex-wrap min-h-[22px]">
+              {docTags.map((tag) => (
+                <span key={tag} className="inline-flex items-center gap-1 text-[11px] bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700 rounded-full px-2 py-0.5">
+                  #{tag}
+                  <button onClick={() => handleRemoveTag(tag)} className="hover:text-red-500" title="Remover tag">
+                    <X className="h-2.5 w-2.5" />
+                  </button>
+                </span>
+              ))}
+              <form
+                onSubmit={(e) => { e.preventDefault(); handleAddTag(tagInput); }}
+                className="inline-flex items-center"
+              >
+                <input
+                  value={tagInput}
+                  onChange={(e) => setTagInput(e.target.value)}
+                  placeholder="+ tag"
+                  className="text-[11px] w-14 bg-transparent text-gray-500 dark:text-gray-400 placeholder-gray-400 focus:outline-none focus:text-gray-700 dark:focus:text-gray-200"
+                  title="Adicionar tag (Enter para confirmar)"
+                />
+              </form>
+            </div>
+          </div>
           <div className="flex items-center gap-1.5 flex-shrink-0">
+            <Button size="sm" onClick={() => setShowShortcuts(true)} variant="outline" title="Atalhos de teclado (Ctrl+/)">
+              <Keyboard className="h-4 w-4" />
+            </Button>
             <Button size="sm" onClick={() => setShowTemplatePicker(true)} variant="outline" title="Novo a partir de template">
               <LayoutTemplate className="h-4 w-4" />
             </Button>
@@ -2302,6 +2666,17 @@ function EditorPageInner() {
         <TemplatePickerDialog
           onConfirm={handleNewFromTemplate}
           onCancel={() => setShowTemplatePicker(false)}
+        />
+      )}
+      {showShortcuts && (
+        <ShortcutsModal onClose={() => setShowShortcuts(false)} />
+      )}
+      {slashMenu && (
+        <SlashMenu
+          query={slashMenu.query}
+          coords={slashMenu.coords}
+          onSelect={handleSlashSelect}
+          onClose={() => setSlashMenu(null)}
         />
       )}
     </div>
