@@ -1,6 +1,7 @@
-import jwt from "jsonwebtoken";
+import { SignJWT, jwtVerify } from "jose";
 import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
+import type { Role } from "@/types";
 
 function getJwtSecret(): string {
   const secret = process.env.JWT_SECRET;
@@ -13,7 +14,7 @@ function getJwtSecret(): string {
 export interface JWTPayload {
   userId: string;
   email: string;
-  role: string;
+  role: Role;
 }
 
 export async function hashPassword(password: string): Promise<string> {
@@ -27,13 +28,30 @@ export async function comparePassword(
   return bcrypt.compare(password, hash);
 }
 
-export function signToken(payload: JWTPayload): string {
-  return jwt.sign(payload, getJwtSecret(), { expiresIn: "7d" });
+export async function signToken(payload: JWTPayload): Promise<string> {
+  const secret = new TextEncoder().encode(getJwtSecret());
+  return new SignJWT({ userId: payload.userId, email: payload.email, role: payload.role })
+    .setProtectedHeader({ alg: "HS256" })
+    .setExpirationTime("7d")
+    .sign(secret);
 }
 
-export function verifyToken(token: string): JWTPayload | null {
+const VALID_ROLES: Role[] = ["ESTUDANTE", "DOCENTE", "ADMIN", "SUPERADMIN"];
+
+export async function verifyToken(token: string): Promise<JWTPayload | null> {
   try {
-    return jwt.verify(token, getJwtSecret()) as JWTPayload;
+    const secret = new TextEncoder().encode(getJwtSecret());
+    const { payload } = await jwtVerify(token, secret);
+    const { userId, email, role } = payload;
+    if (
+      typeof userId !== "string" ||
+      typeof email !== "string" ||
+      typeof role !== "string" ||
+      !VALID_ROLES.includes(role as Role)
+    ) {
+      return null;
+    }
+    return { userId, email, role: role as Role };
   } catch {
     return null;
   }

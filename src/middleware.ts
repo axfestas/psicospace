@@ -4,8 +4,9 @@ import { verifyToken } from "@/lib/auth";
 const protectedPaths = ["/dashboard", "/agenda", "/materiais", "/editor", "/abnt", "/admin"];
 const adminPaths = ["/admin"];
 const authPaths = ["/login", "/register"];
+const ADMIN_ROLES = ["ADMIN", "SUPERADMIN"];
 
-export function proxy(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const token = request.cookies.get("auth-token")?.value;
 
@@ -17,7 +18,7 @@ export function proxy(request: NextRequest) {
       return NextResponse.redirect(new URL("/login", request.url));
     }
 
-    const payload = verifyToken(token);
+    const payload = await verifyToken(token);
     if (!payload) {
       const response = NextResponse.redirect(new URL("/login", request.url));
       response.cookies.delete("auth-token");
@@ -25,13 +26,13 @@ export function proxy(request: NextRequest) {
     }
 
     const isAdmin = adminPaths.some((p) => pathname.startsWith(p));
-    if (isAdmin && !["ADMIN", "SUPERADMIN"].includes(payload.role)) {
+    if (isAdmin && !ADMIN_ROLES.includes(payload.role)) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
   }
 
   if (isAuthPath && token) {
-    const payload = verifyToken(token);
+    const payload = await verifyToken(token);
     if (payload) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }

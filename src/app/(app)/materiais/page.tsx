@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { Badge } from "@/components/ui/badge";
-import { ChevronRight, ChevronDown, Plus, ExternalLink, FileText, Presentation } from "lucide-react";
+import { ChevronRight, ChevronDown, Plus, ExternalLink, FileText, Presentation, Upload } from "lucide-react";
 
 interface Progress {
   status: "NOT_VIEWED" | "IN_PROGRESS" | "COMPLETED";
@@ -40,6 +40,12 @@ const progressLabels: Record<string, string> = {
   COMPLETED: "Concluído",
 };
 
+const FILE_ACCEPT: Record<"PDF" | "SLIDE", string> = {
+  PDF: ".pdf,application/pdf",
+  SLIDE:
+    ".ppt,.pptx,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation",
+};
+
 export default function MateriaisPage() {
   const [periods, setPeriods] = useState<Period[]>([]);
   const [expandedPeriod, setExpandedPeriod] = useState<string | null>(null);
@@ -47,6 +53,9 @@ export default function MateriaisPage() {
   const [loading, setLoading] = useState(true);
   const [showAddMaterial, setShowAddMaterial] = useState<string | null>(null);
   const [materialForm, setMaterialForm] = useState<{ title: string; type: "PDF" | "SLIDE" | "LINK"; url: string }>({ title: "", type: "LINK", url: "" });
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadPeriods = useCallback(async () => {
     const res = await fetch("/api/periods");
@@ -90,6 +99,25 @@ export default function MateriaisPage() {
       setMaterialForm({ title: "", type: "LINK", url: "" });
       loadPeriods();
     }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setUploadError(null);
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await fetch("/api/upload", { method: "POST", body: formData });
+    if (res.ok) {
+      const data = await res.json();
+      setMaterialForm((prev) => ({ ...prev, url: data.url }));
+    } else {
+      const data = await res.json().catch(() => ({}));
+      setUploadError(data.error ?? "Falha ao enviar arquivo. Tente novamente.");
+    }
+    setUploading(false);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const getTypeIcon = (type: string) => {
@@ -238,24 +266,58 @@ export default function MateriaisPage() {
                               <div className="flex gap-2">
                                 <select
                                   value={materialForm.type}
-                                  onChange={(e) => setMaterialForm({ ...materialForm, type: e.target.value as "PDF" | "SLIDE" | "LINK" })}
+                                  onChange={(e) => {
+                                    setMaterialForm({ ...materialForm, type: e.target.value as "PDF" | "SLIDE" | "LINK", url: "" });
+                                  }}
                                   className="flex h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
                                 >
                                   <option value="LINK">Link</option>
                                   <option value="PDF">PDF</option>
                                   <option value="SLIDE">Slide</option>
                                 </select>
-                                <Input
-                                  placeholder="URL"
-                                  value={materialForm.url}
-                                  onChange={(e) => setMaterialForm({ ...materialForm, url: e.target.value })}
-                                />
+                                {materialForm.type === "LINK" ? (
+                                  <Input
+                                    placeholder="URL"
+                                    value={materialForm.url}
+                                    onChange={(e) => setMaterialForm({ ...materialForm, url: e.target.value })}
+                                  />
+                                ) : (
+                                  <div className="flex flex-1 items-center gap-2">
+                                    <input
+                                      ref={fileInputRef}
+                                      type="file"
+                                      accept={materialForm.type === "PDF" || materialForm.type === "SLIDE" ? FILE_ACCEPT[materialForm.type] : undefined}
+                                      onChange={handleFileUpload}
+                                      className="hidden"
+                                      id="file-upload"
+                                    />
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => fileInputRef.current?.click()}
+                                      disabled={uploading}
+                                    >
+                                      <Upload className="h-3 w-3 mr-1" />
+                                      {uploading ? "Enviando..." : "Escolher arquivo"}
+                                    </Button>
+                                    {materialForm.url && !uploadError && (
+                                      <span className="text-xs text-green-600 dark:text-green-400 truncate max-w-[120px]">
+                                        ✓ Arquivo enviado
+                                      </span>
+                                    )}
+                                    {uploadError && (
+                                      <span className="text-xs text-red-600 dark:text-red-400 truncate max-w-[180px]">
+                                        {uploadError}
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
                               </div>
                               <div className="flex gap-2">
-                                <Button size="sm" onClick={() => handleAddMaterial(discipline.id)}>
+                                <Button size="sm" onClick={() => handleAddMaterial(discipline.id)} disabled={uploading || !materialForm.url || !materialForm.title}>
                                   Adicionar
                                 </Button>
-                                <Button size="sm" variant="outline" onClick={() => setShowAddMaterial(null)}>
+                                <Button size="sm" variant="outline" onClick={() => { setShowAddMaterial(null); setMaterialForm({ title: "", type: "LINK", url: "" }); }}>
                                   Cancelar
                                 </Button>
                               </div>
