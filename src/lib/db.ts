@@ -10,6 +10,13 @@ const clientCache = new WeakMap<CfD1Database, PrismaClient>();
 function getClient(): PrismaClient {
   const { env } = getRequestContext();
   const d1 = env.d1_psi;
+  if (!d1) {
+    throw new Error(
+      "D1 database binding 'd1_psi' is not configured. " +
+        "Add a D1 binding named 'd1_psi' in the Cloudflare Pages dashboard " +
+        "under Settings → Functions → D1 database bindings."
+    );
+  }
   let client = clientCache.get(d1);
   if (!client) {
     // PrismaD1 expects the D1Database type from @cloudflare/workers-types, but

@@ -15,7 +15,8 @@ export async function GET() {
     });
 
     return NextResponse.json({ tasks });
-  } catch {
+  } catch (error) {
+    console.error("[tasks]", error);
     return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 });
   }
 }
@@ -39,7 +40,8 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json({ task }, { status: 201 });
-  } catch {
+  } catch (error) {
+    console.error("[tasks]", error);
     return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 });
   }
 }

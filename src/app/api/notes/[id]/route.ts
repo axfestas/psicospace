@@ -22,7 +22,8 @@ export async function PUT(
 
     const updated = await prisma.note.update({ where: { id }, data: { content } });
     return NextResponse.json({ note: updated });
-  } catch {
+  } catch (error) {
+    console.error("[notes/[id]]", error);
     return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 });
   }
 }
@@ -43,7 +44,8 @@ export async function DELETE(
 
     await prisma.note.delete({ where: { id } });
     return NextResponse.json({ message: "Nota excluída com sucesso" });
-  } catch {
+  } catch (error) {
+    console.error("[notes/[id]]", error);
     return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 });
   }
 }

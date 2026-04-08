@@ -18,7 +18,8 @@ export async function GET(
     });
 
     return NextResponse.json({ progress });
-  } catch {
+  } catch (error) {
+    console.error("[materials/[id]/progress]", error);
     return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 });
   }
 }
@@ -41,7 +42,8 @@ export async function PUT(
     });
 
     return NextResponse.json({ progress });
-  } catch {
+  } catch (error) {
+    console.error("[materials/[id]/progress]", error);
     return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 });
   }
 }
