@@ -54,7 +54,72 @@ body {
   pointer-events: none;
 }
 
-/* ── Word-like page editor ─────────────────────────────────── */
+/* ── Margin presets ─────────────────────────────────────────── */
+.editor-page[data-margin="narrow"] {
+  padding: 48px 48px;
+}
+.editor-page[data-margin="normal"] {
+  padding: 96px 96px;
+}
+.editor-page[data-margin="wide"] {
+  padding: 96px 144px;
+}
+
+/* ── Landscape orientation ──────────────────────────────────── */
+.editor-page[data-orientation="landscape"] {
+  width: 1123px;
+  min-height: 794px;
+}
+.editor-page[data-orientation="landscape"]::after {
+  top: 794px;
+}
+.editor-page[data-orientation="landscape"] .ProseMirror {
+  min-height: 600px;
+}
+
+/* ── Header and footer ──────────────────────────────────────── */
+.editor-header {
+  border-bottom: 1px dashed #d1d5db;
+  padding-bottom: 8px;
+  margin-bottom: 12px;
+}
+.editor-footer {
+  border-top: 1px dashed #d1d5db;
+  padding-top: 8px;
+  margin-top: 12px;
+}
+.dark .editor-header,
+.dark .editor-footer {
+  border-color: #374151;
+}
+
+/* ── Footnotes ─────────────────────────────────────────────── */
+.editor-footnotes {
+  border-top: 1px solid #e5e7eb;
+  margin-top: 2rem;
+  padding-top: 0.5rem;
+  counter-reset: footnote;
+}
+.dark .editor-footnotes {
+  border-color: #374151;
+}
+.ProseMirror {
+  counter-reset: footnote;
+}
+.footnote-ref {
+  counter-increment: footnote;
+  cursor: default;
+  display: inline;
+}
+.footnote-ref::after {
+  content: "[" counter(footnote) "]";
+  color: #2563eb;
+  font-size: 0.7em;
+  vertical-align: super;
+  line-height: 0;
+}
+
+
 
 /* Outer scrollable area — grey "desk" */
 .editor-page-area {

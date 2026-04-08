@@ -19,7 +19,7 @@ import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import FontFamily from "@tiptap/extension-font-family";
 import Placeholder from "@tiptap/extension-placeholder";
-import { Extension } from "@tiptap/core";
+import { Extension, Node, mergeAttributes } from "@tiptap/core";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -31,7 +31,7 @@ import {
   Code, Code2, Quote, Minus, Table as TableIcon, Image as ImageIcon,
   ListChecks, Highlighter, Columns, Printer, Download, X, Check,
   ChevronDown, RemoveFormatting, Indent, Outdent, Search, BookOpen,
-  FileDown, BookMarked,
+  FileDown, BookMarked, Type, Settings, StickyNote, PanelTop, PanelBottom,
 } from "lucide-react";
 
 interface Document {
@@ -39,6 +39,29 @@ interface Document {
   title: string;
   content: string;
   updatedAt: string;
+}
+
+type PageMargin = "narrow" | "normal" | "wide";
+type PageOrientation = "portrait" | "landscape";
+
+interface DocMeta {
+  html: string;
+  header?: string;
+  footer?: string;
+  margin?: PageMargin;
+  orientation?: PageOrientation;
+}
+
+function parseDocContent(raw: string): DocMeta {
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed.html === "string") return parsed as DocMeta;
+  } catch { /* not JSON, treat as plain HTML */ }
+  return { html: raw };
+}
+
+function serializeDocContent(meta: DocMeta): string {
+  return JSON.stringify(meta);
 }
 
 // ── Custom FontSize extension (no extra npm package needed) ──────────────────
@@ -88,6 +111,64 @@ const IndentExtension = Extension.create({
   },
 });
 
+// ── Custom LineHeight extension ──────────────────────────────────────────────
+const LineHeight = Extension.create({
+  name: "lineHeight",
+  addOptions() { return { types: ["paragraph", "heading"] }; },
+  addGlobalAttributes() {
+    return [{
+      types: this.options.types,
+      attributes: {
+        lineHeight: {
+          default: null,
+          parseHTML: (el) => (el as HTMLElement).style.lineHeight || null,
+          renderHTML: (attrs) => attrs.lineHeight ? { style: `line-height: ${attrs.lineHeight}` } : {},
+        },
+      },
+    }];
+  },
+  addCommands() {
+    return {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      setLineHeight: (lineHeight: string) => ({ commands }: any) =>
+        this.options.types.every((type: string) => commands.updateAttributes(type, { lineHeight })),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      unsetLineHeight: () => ({ commands }: any) =>
+        this.options.types.every((type: string) => commands.resetAttributes(type, "lineHeight")),
+    };
+  },
+});
+
+// ── Custom Footnote node ─────────────────────────────────────────────────────
+const Footnote = Node.create({
+  name: "footnote",
+  group: "inline",
+  inline: true,
+  atom: true,
+  addAttributes() {
+    return {
+      content: { default: "" },
+    };
+  },
+  parseHTML() {
+    return [{ tag: "span[data-type=footnote]" }];
+  },
+  renderHTML({ HTMLAttributes }) {
+    return ["span", mergeAttributes(HTMLAttributes, {
+      "data-type": "footnote",
+      class: "footnote-ref",
+    })];
+  },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  addCommands(): any {
+    return {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      insertFootnote: (content: string) => ({ commands }: any) =>
+        commands.insertContent({ type: "footnote", attrs: { content } }),
+    };
+  },
+});
+
 const FONTS = [
   { label: "Padrão", value: "" },
   { label: "Arial", value: "Arial" },
@@ -113,6 +194,14 @@ const FONT_SIZES = [
   { label: "36pt", value: "36pt" },
   { label: "48pt", value: "48pt" },
   { label: "72pt", value: "72pt" },
+];
+
+const LINE_HEIGHTS = [
+  { label: "Simples", value: "1" },
+  { label: "1.15", value: "1.15" },
+  { label: "1.5", value: "1.5" },
+  { label: "Duplo", value: "2" },
+  { label: "Triplo", value: "3" },
 ];
 
 const HEADING_OPTIONS = [
@@ -178,7 +267,7 @@ function ColorPicker({
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (ref.current && !ref.current.contains(e.target as globalThis.Node)) setOpen(false);
     };
     if (open) document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -404,6 +493,108 @@ function TableOfContents({ entries, onClose }: { entries: TocEntry[]; onClose: (
   );
 }
 
+function PageSettingsPanel({
+  margin, orientation, onMarginChange, onOrientationChange, onClose,
+}: {
+  margin: PageMargin;
+  orientation: PageOrientation;
+  onMarginChange: (m: PageMargin) => void;
+  onOrientationChange: (o: PageOrientation) => void;
+  onClose: () => void;
+}) {
+  const margins: { label: string; value: PageMargin }[] = [
+    { label: "Estreito (12mm)", value: "narrow" },
+    { label: "Normal (25mm)", value: "normal" },
+    { label: "Largo (38mm)", value: "wide" },
+  ];
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 w-80 space-y-5">
+        <div className="flex items-center justify-between">
+          <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+            <Settings className="h-4 w-4" />
+            Configurações de Página
+          </h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="h-4 w-4" /></button>
+        </div>
+        <div>
+          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Margens</p>
+          <div className="space-y-1">
+            {margins.map((m) => (
+              <button
+                key={m.value}
+                onClick={() => onMarginChange(m.value)}
+                className={`w-full text-left text-sm px-3 py-2 rounded-lg transition-colors ${
+                  margin === m.value
+                    ? "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 font-medium"
+                    : "hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+                }`}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Orientação</p>
+          <div className="flex gap-2">
+            {(["portrait", "landscape"] as PageOrientation[]).map((o) => (
+              <button
+                key={o}
+                onClick={() => onOrientationChange(o)}
+                className={`flex-1 text-sm px-3 py-2 rounded-lg border transition-colors ${
+                  orientation === o
+                    ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 font-medium"
+                    : "border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+                }`}
+              >
+                {o === "portrait" ? "🖼️ Retrato" : "🌄 Paisagem"}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="flex justify-end">
+          <Button size="sm" onClick={onClose}>
+            <Check className="h-3.5 w-3.5 mr-1" />Aplicar
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FootnoteDialog({ onConfirm, onCancel }: { onConfirm: (text: string) => void; onCancel: () => void }) {
+  const [text, setText] = useState("");
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 w-96 space-y-4">
+        <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+          <StickyNote className="h-4 w-4" />
+          Inserir Nota de Rodapé
+        </h3>
+        <div className="space-y-2">
+          <label className="text-sm text-gray-700 dark:text-gray-300">Texto da nota</label>
+          <textarea
+            autoFocus
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Digite o texto da nota de rodapé..."
+            className="w-full h-24 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+        <div className="flex gap-2 justify-end">
+          <Button size="sm" variant="outline" onClick={onCancel}>
+            <X className="h-3.5 w-3.5 mr-1" />Cancelar
+          </Button>
+          <Button size="sm" onClick={() => onConfirm(text)} disabled={!text.trim()}>
+            <Check className="h-3.5 w-3.5 mr-1" />Inserir
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function EditorPageInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -421,6 +612,15 @@ function EditorPageInner() {
   const [showFindReplace, setShowFindReplace] = useState(false);
   const [showToc, setShowToc] = useState(false);
   const [tocEntries, setTocEntries] = useState<TocEntry[]>([]);
+  // Etapa 2 state
+  const [header, setHeader] = useState("");
+  const [footer, setFooter] = useState("");
+  const [pageMargin, setPageMargin] = useState<PageMargin>("normal");
+  const [pageOrientation, setPageOrientation] = useState<PageOrientation>("portrait");
+  const [showPageSettings, setShowPageSettings] = useState(false);
+  const [showHeaderFooter, setShowHeaderFooter] = useState(false);
+  const [showFootnoteDialog, setShowFootnoteDialog] = useState(false);
+  const [footnotes, setFootnotes] = useState<string[]>([]);
 
   const getHeadingValue = useCallback((ed: ReturnType<typeof useEditor> | null): number => {
     if (!ed) return 0;
@@ -457,6 +657,8 @@ function EditorPageInner() {
       TaskItem.configure({ nested: true }),
       FontFamily,
       IndentExtension,
+      LineHeight,
+      Footnote,
       Placeholder.configure({ placeholder: "Comece a escrever seu documento..." }),
     ],
     content: "",
@@ -471,12 +673,17 @@ function EditorPageInner() {
       setWordCount(text.trim() ? text.trim().split(/\s+/).length : 0);
       // Update TOC
       const entries: TocEntry[] = [];
+      const notes: string[] = [];
       ed.state.doc.descendants((node) => {
         if (node.type.name === "heading") {
           entries.push({ level: node.attrs.level as number, text: node.textContent });
         }
+        if (node.type.name === "footnote") {
+          notes.push(node.attrs.content as string);
+        }
       });
       setTocEntries(entries);
+      setFootnotes(notes);
     },
   });
 
@@ -494,7 +701,12 @@ function EditorPageInner() {
       const data = await res.json();
       setCurrentDoc(data.document);
       setTitle(data.document.title);
-      editor?.commands.setContent(data.document.content || "");
+      const meta = parseDocContent(data.document.content || "");
+      editor?.commands.setContent(meta.html || "");
+      if (meta.header !== undefined) setHeader(meta.header);
+      if (meta.footer !== undefined) setFooter(meta.footer);
+      if (meta.margin) setPageMargin(meta.margin);
+      if (meta.orientation) setPageOrientation(meta.orientation);
     }
   }, [editor]);
 
@@ -506,7 +718,13 @@ function EditorPageInner() {
   const handleSave = useCallback(async () => {
     if (!editor) return;
     setSaving(true);
-    const content = editor.getHTML();
+    const content = serializeDocContent({
+      html: editor.getHTML(),
+      header: header || undefined,
+      footer: footer || undefined,
+      margin: pageMargin,
+      orientation: pageOrientation,
+    });
     if (currentDoc) {
       await fetch(`/api/documents/${currentDoc.id}`, {
         method: "PUT",
@@ -529,12 +747,16 @@ function EditorPageInner() {
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
     loadDocuments();
-  }, [editor, currentDoc, title, router, loadDocuments]);
+  }, [editor, currentDoc, title, header, footer, pageMargin, pageOrientation, router, loadDocuments]);
 
   const handleNewDocument = () => {
     setCurrentDoc(null);
     setTitle("Novo Documento");
     editor?.commands.setContent("");
+    setHeader("");
+    setFooter("");
+    setPageMargin("normal");
+    setPageOrientation("portrait");
     router.push("/editor");
   };
 
@@ -555,20 +777,32 @@ function EditorPageInner() {
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#39;");
+    const safeHeader = header.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const safeFooter = footer.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const marginMap = { narrow: "12mm", normal: "25mm", wide: "38mm" };
+    const m = marginMap[pageMargin];
+    const isLandscape = pageOrientation === "landscape";
     win.document.write(`<!DOCTYPE html><html><head><title>${safeTitle}</title>
       <style>
-        body{font-family:Arial,sans-serif;max-width:800px;margin:40px auto;padding:20px;line-height:1.6;}
+        @page{size:${isLandscape ? "landscape" : "portrait"};margin:${m};}
+        body{font-family:Arial,sans-serif;line-height:1.6;}
         h1,h2,h3,h4,h5,h6{margin-top:1.5em;}
         table{border-collapse:collapse;width:100%;}
         td,th{border:1px solid #ccc;padding:8px;}
         img{max-width:100%;}
         ul,ol{padding-left:2em;}
         blockquote{border-left:4px solid #ccc;margin-left:0;padding-left:1em;color:#555;}
-        @media print{body{margin:0;padding:15mm;}}
+        .doc-header{border-bottom:1px solid #ccc;padding-bottom:4px;margin-bottom:1em;font-size:0.85em;color:#555;}
+        .doc-footer{border-top:1px solid #ccc;padding-top:4px;margin-top:2em;font-size:0.85em;color:#555;}
+        .footnote-ref{counter-increment:footnote;}
+        .footnote-ref::after{content:"[" counter(footnote) "]";font-size:0.7em;vertical-align:super;color:#2563eb;}
+        body{counter-reset:footnote;}
       </style>
       </head><body>
+        ${safeHeader ? `<div class="doc-header">${safeHeader}</div>` : ""}
         <h1 style="font-size:1.5em;border-bottom:1px solid #eee;padding-bottom:0.5em;">${safeTitle}</h1>
         ${content}
+        ${safeFooter ? `<div class="doc-footer">${safeFooter}</div>` : ""}
       </body></html>`);
     win.document.close();
     win.focus();
@@ -688,6 +922,33 @@ function EditorPageInner() {
     dispatch(tr);
   };
 
+  const handleCapitalize = (type: "upper" | "lower" | "title") => {
+    if (!editor) return;
+    const { from, to } = editor.state.selection;
+    if (from === to) return;
+    const text = editor.state.doc.textBetween(from, to);
+    let transformed = "";
+    if (type === "upper") transformed = text.toUpperCase();
+    else if (type === "lower") transformed = text.toLowerCase();
+    else transformed = text.replace(/\b\w/g, (c) => c.toUpperCase());
+    editor.chain().focus().insertContentAt({ from, to }, transformed).run();
+  };
+
+  const handleSetLineHeight = (lh: string) => {
+    if (!editor) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const chain = editor.chain().focus() as any;
+    if (!lh) chain?.unsetLineHeight?.();
+    else chain?.setLineHeight?.(lh);
+  };
+
+  const handleInsertFootnote = (text: string) => {
+    if (!editor || !text.trim()) return;
+    setShowFootnoteDialog(false);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (editor.chain().focus() as any).insertFootnote(text.trim()).run();
+  };
+
   const handleInsertLink = (url: string) => {
     if (!editor) return;
     setShowLinkDialog(false);
@@ -730,6 +991,8 @@ function EditorPageInner() {
   const currentColor = editor?.getAttributes("textStyle")?.color || "#000000";
   const currentHighlight = editor?.getAttributes("highlight")?.color || "";
   const currentFontSize = editor?.getAttributes("textStyle")?.fontSize || "";
+  const currentLineHeight = editor?.getAttributes("paragraph")?.lineHeight ||
+    editor?.getAttributes("heading")?.lineHeight || "";
 
   return (
     <div className="flex h-full gap-4">
@@ -794,6 +1057,12 @@ function EditorPageInner() {
             </Button>
             <Button size="sm" onClick={() => setShowToc(!showToc)} variant="outline" title="Sumário">
               <BookOpen className="h-4 w-4" />
+            </Button>
+            <Button size="sm" onClick={() => setShowHeaderFooter(!showHeaderFooter)} variant={showHeaderFooter ? "default" : "outline"} title="Cabeçalho e Rodapé">
+              <PanelTop className="h-4 w-4" />
+            </Button>
+            <Button size="sm" onClick={() => setShowPageSettings(true)} variant="outline" title="Configurações de Página">
+              <Settings className="h-4 w-4" />
             </Button>
             <Button size="sm" onClick={handlePrint} variant="outline" title="Imprimir">
               <Printer className="h-4 w-4" />
@@ -872,6 +1141,13 @@ function EditorPageInner() {
                 }}
               />
 
+              <SelectDropdown
+                title="Espaçamento de linha"
+                options={[{ label: "↕", value: "" }, ...LINE_HEIGHTS]}
+                value={currentLineHeight}
+                onChange={(v) => handleSetLineHeight(String(v))}
+              />
+
               <Divider />
 
               <ColorPicker
@@ -926,6 +1202,21 @@ function EditorPageInner() {
               </ToolbarButton>
               <ToolbarButton onClick={() => editor?.chain().focus().toggleCode().run()} active={editor?.isActive("code")} title="Código inline">
                 <Code className="h-4 w-4" />
+              </ToolbarButton>
+
+              <Divider />
+
+              <ToolbarButton onClick={() => handleCapitalize("upper")} title="MAIÚSCULAS">
+                <span className="text-xs font-bold tracking-tight">AA</span>
+              </ToolbarButton>
+              <ToolbarButton onClick={() => handleCapitalize("lower")} title="minúsculas">
+                <span className="text-xs font-normal tracking-tight">aa</span>
+              </ToolbarButton>
+              <ToolbarButton onClick={() => handleCapitalize("title")} title="Título (Cada Palavra)">
+                <Type className="h-4 w-4" />
+              </ToolbarButton>
+              <ToolbarButton onClick={() => setShowFootnoteDialog(true)} title="Inserir nota de rodapé">
+                <StickyNote className="h-4 w-4" />
               </ToolbarButton>
 
               <Divider />
@@ -1052,8 +1343,58 @@ function EditorPageInner() {
           )}
 
           <div className="editor-page-area">
-            <div className="editor-page">
+            <div
+              className="editor-page"
+              data-margin={pageMargin}
+              data-orientation={pageOrientation}
+            >
+              {/* Cabeçalho */}
+              {showHeaderFooter && (
+                <div className="editor-header">
+                  <div className="flex items-center gap-1 mb-1">
+                    <PanelTop className="h-3 w-3 text-gray-400 flex-shrink-0" />
+                    <span className="text-xs text-gray-400">Cabeçalho</span>
+                  </div>
+                  <textarea
+                    value={header}
+                    onChange={(e) => setHeader(e.target.value)}
+                    placeholder="Cabeçalho do documento..."
+                    className="w-full bg-transparent resize-none text-sm text-gray-600 dark:text-gray-400 placeholder-gray-300 dark:placeholder-gray-600 focus:outline-none"
+                    rows={2}
+                  />
+                </div>
+              )}
+
               <EditorContent editor={editor} />
+
+              {/* Notas de rodapé */}
+              {footnotes.length > 0 && (
+                <div className="editor-footnotes">
+                  {footnotes.map((note, i) => (
+                    <p key={i} className="text-xs text-gray-600 dark:text-gray-400">
+                      <sup className="text-blue-600 mr-1">{i + 1}</sup>
+                      {note}
+                    </p>
+                  ))}
+                </div>
+              )}
+
+              {/* Rodapé */}
+              {showHeaderFooter && (
+                <div className="editor-footer">
+                  <div className="flex items-center gap-1 mb-1">
+                    <PanelBottom className="h-3 w-3 text-gray-400 flex-shrink-0" />
+                    <span className="text-xs text-gray-400">Rodapé</span>
+                  </div>
+                  <textarea
+                    value={footer}
+                    onChange={(e) => setFooter(e.target.value)}
+                    placeholder="Rodapé do documento..."
+                    className="w-full bg-transparent resize-none text-sm text-gray-600 dark:text-gray-400 placeholder-gray-300 dark:placeholder-gray-600 focus:outline-none"
+                    rows={2}
+                  />
+                </div>
+              )}
             </div>
           </div>
 
@@ -1078,6 +1419,21 @@ function EditorPageInner() {
         <ImageDialog
           onConfirm={handleInsertImage}
           onCancel={() => setShowImageDialog(false)}
+        />
+      )}
+      {showPageSettings && (
+        <PageSettingsPanel
+          margin={pageMargin}
+          orientation={pageOrientation}
+          onMarginChange={setPageMargin}
+          onOrientationChange={setPageOrientation}
+          onClose={() => setShowPageSettings(false)}
+        />
+      )}
+      {showFootnoteDialog && (
+        <FootnoteDialog
+          onConfirm={handleInsertFootnote}
+          onCancel={() => setShowFootnoteDialog(false)}
         />
       )}
     </div>
