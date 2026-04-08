@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { hashPassword, signToken, setAuthCookie } from "@/lib/auth";
+import { sendWelcomeEmail } from "@/lib/email";
 
 export const runtime = "edge";
+
+function generateToken(): string {
+  const arr = new Uint8Array(32);
+  crypto.getRandomValues(arr);
+  return Array.from(arr, (b) => b.toString(16).padStart(2, "0")).join("");
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -31,9 +38,33 @@ export async function POST(request: NextRequest) {
     }
 
     const hashedPassword = await hashPassword(password);
+    const verificationToken = generateToken();
+
     const user = await prisma.user.create({
-      data: { name, email, password: hashedPassword },
+      data: {
+        name,
+        email,
+        password: hashedPassword,
+        emailVerificationToken: verificationToken,
+      },
     });
+
+    // Create welcome notification
+    await prisma.notification.create({
+      data: {
+        userId: user.id,
+        title: "Bem-vindo ao PsicoSpace! 🎉",
+        message: `Olá, ${user.name}! Sua conta foi criada com sucesso. Confirme seu e-mail para aproveitar todos os recursos.`,
+        type: "info",
+      },
+    });
+
+    // Send welcome + verification email (fire-and-forget, don't fail registration)
+    sendWelcomeEmail({
+      to: user.email,
+      name: user.name,
+      verificationToken,
+    }).catch((err) => console.error("[register] Failed to send email:", err));
 
     const token = await signToken({ userId: user.id, email: user.email, role: user.role });
     const cookie = setAuthCookie(token);

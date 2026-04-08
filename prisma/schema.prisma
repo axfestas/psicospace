@@ -26,13 +26,15 @@ enum ProgressStatus {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  name      String
-  email     String   @unique
-  password  String
-  role      Role     @default(ESTUDANTE)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                      String   @id @default(cuid())
+  name                    String
+  email                   String   @unique
+  password                String
+  role                    Role     @default(ESTUDANTE)
+  emailVerified           Boolean  @default(false)
+  emailVerificationToken  String?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
 
   events            Event[]
   tasks             Task[]
@@ -130,6 +132,7 @@ model Notification {
   userId    String
   title     String
   message   String
+  type      String   @default("info")
   read      Boolean  @default(false)
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)

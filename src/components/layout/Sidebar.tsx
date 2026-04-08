@@ -11,6 +11,8 @@ import {
   BookMarked,
   Users,
   Database,
+  Settings,
+  UserCircle,
   X,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -21,6 +23,11 @@ const navItems = [
   { href: "/materiais", label: "Materiais", icon: BookOpen },
   { href: "/editor", label: "Editor", icon: FileText },
   { href: "/abnt", label: "Normas ABNT", icon: BookMarked },
+];
+
+const bottomNavItems = [
+  { href: "/perfil", label: "Meu Perfil", icon: UserCircle },
+  { href: "/configuracoes", label: "Configurações", icon: Settings },
 ];
 
 interface SidebarProps {
@@ -122,6 +129,32 @@ export function Sidebar({ open, onClose }: SidebarProps) {
               </li>
             )}
           </ul>
+
+          <div className="mt-4 border-t border-gray-100 dark:border-gray-800 pt-3 px-3">
+            <ul className="space-y-1">
+              {bottomNavItems.map((item) => {
+                const Icon = item.icon;
+                const active = pathname === item.href;
+                return (
+                  <li key={item.href}>
+                    <Link
+                      href={item.href}
+                      onClick={onClose}
+                      className={cn(
+                        "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                        active
+                          ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                          : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+                      )}
+                    >
+                      <Icon className="h-5 w-5 flex-shrink-0" />
+                      {item.label}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
         </nav>
 
         <div className="border-t border-gray-200 p-4 dark:border-gray-700">

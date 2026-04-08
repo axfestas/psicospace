@@ -106,11 +106,14 @@ export default function DashboardPage() {
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite";
 
+  const firstName = user?.name?.split(" ")[0] || "";
+  const greetingName = firstName ? `, ${firstName}` : "";
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-          {greeting}, {user?.name?.split(" ")[0]}! 👋
+          {greeting}{greetingName}! 👋
         </h1>
         <p className="text-gray-500 dark:text-gray-400">
           {new Date().toLocaleDateString("pt-BR", {
