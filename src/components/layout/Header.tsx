@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Menu, Bell, Sun, Moon, LogOut } from "lucide-react";
+import { Menu, Bell, Sun, Moon, LogOut, UserCircle, Settings } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/contexts/ThemeContext";
+import Link from "next/link";
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -60,19 +61,39 @@ export function Header({ onMenuClick }: HeaderProps) {
           </button>
 
           {showUserMenu && (
-            <div className="absolute right-0 top-full z-50 mt-1 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
-              <div className="border-b border-gray-200 px-4 py-2 dark:border-gray-700">
-                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{user?.name}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">{user?.email}</p>
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setShowUserMenu(false)} />
+              <div className="absolute right-0 top-full z-50 mt-1 w-52 rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                <div className="border-b border-gray-200 px-4 py-2 dark:border-gray-700">
+                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{user?.name}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{user?.email}</p>
+                </div>
+                <Link
+                  href="/perfil"
+                  onClick={() => setShowUserMenu(false)}
+                  className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700"
+                >
+                  <UserCircle className="h-4 w-4" />
+                  Meu Perfil
+                </Link>
+                <Link
+                  href="/configuracoes"
+                  onClick={() => setShowUserMenu(false)}
+                  className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700"
+                >
+                  <Settings className="h-4 w-4" />
+                  Configurações
+                </Link>
+                <div className="border-t border-gray-200 dark:border-gray-700 mt-1 pt-1" />
+                <button
+                  onClick={handleLogout}
+                  className="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+                >
+                  <LogOut className="h-4 w-4" />
+                  Sair
+                </button>
               </div>
-              <button
-                onClick={handleLogout}
-                className="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
-              >
-                <LogOut className="h-4 w-4" />
-                Sair
-              </button>
-            </div>
+            </>
           )}
         </div>
       </div>
