@@ -1,38 +1,32 @@
 import { PrismaClient } from "@prisma/client";
-import { PrismaNeon } from "@prisma/adapter-neon";
+import { PrismaD1 } from "@prisma/adapter-d1";
+import { getRequestContext } from "@cloudflare/next-on-pages";
 
-declare global {
-  // eslint-disable-next-line no-var
-  var _prisma: PrismaClient | undefined;
-}
+// Cache a PrismaClient per D1 binding instance so a single request reuses the
+// same client, but new requests (with a new D1 binding reference) get a fresh
+// one. The WeakMap ensures entries are garbage-collected with the binding.
+const clientCache = new WeakMap<CfD1Database, PrismaClient>();
 
-function createPrismaClient(): PrismaClient {
-  const connectionString = process.env.DATABASE_URL;
-  if (!connectionString) {
-    throw new Error("DATABASE_URL environment variable is required");
+function getClient(): PrismaClient {
+  const { env } = getRequestContext();
+  const d1 = env.d1_psi;
+  let client = clientCache.get(d1);
+  if (!client) {
+    // PrismaD1 accepts the D1 binding object; our CfD1Database interface is
+    // structurally compatible with what PrismaD1 expects at runtime.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    client = new PrismaClient({ adapter: new PrismaD1(d1 as any) });
+    clientCache.set(d1, client);
   }
-  const adapter = new PrismaNeon({ connectionString });
-  return new PrismaClient({
-    adapter,
-    log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
-  });
-}
-
-// Lazily initialize the Prisma client so that DATABASE_URL is only validated
-// when a real database call is made (not during the static-generation build
-// phase where env vars may be absent). JavaScript's single-threaded event
-// loop means the synchronous check + assignment cannot interleave.
-function getPrismaClient(): PrismaClient {
-  if (!global._prisma) {
-    global._prisma = createPrismaClient();
-  }
-  return global._prisma;
+  return client;
 }
 
 export const prisma = new Proxy({} as PrismaClient, {
   get(_target, prop) {
-    const client = getPrismaClient();
+    const client = getClient();
     const value = (client as unknown as Record<string | symbol, unknown>)[prop];
-    return typeof value === "function" ? (value as (...args: unknown[]) => unknown).bind(client) : value;
+    return typeof value === "function"
+      ? (value as (...args: unknown[]) => unknown).bind(client)
+      : value;
   },
 });

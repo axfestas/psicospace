@@ -8,7 +8,9 @@ export default defineConfig({
   migrations: {
     path: "prisma/migrations",
   },
+  // DATABASE_URL should be "file:./dev.db" for local development.
+  // In production, the Cloudflare D1 binding (d1_psi) is used via @prisma/adapter-d1.
   datasource: {
-    url: process.env["DATABASE_URL"],
+    url: process.env["DATABASE_URL"] ?? "file:./dev.db",
   },
 });
