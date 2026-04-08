@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { comparePassword, signToken, setAuthCookie } from "@/lib/auth";
 
+export const runtime = "edge";
+
 export async function POST(request: NextRequest) {
   try {
     const { email, password } = await request.json();
@@ -29,7 +31,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const token = signToken({ userId: user.id, email: user.email, role: user.role });
+    const token = await signToken({ userId: user.id, email: user.email, role: user.role });
     const cookie = setAuthCookie(token);
 
     const response = NextResponse.json({

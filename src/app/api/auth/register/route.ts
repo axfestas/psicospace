@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { hashPassword, signToken, setAuthCookie } from "@/lib/auth";
 
+export const runtime = "edge";
+
 export async function POST(request: NextRequest) {
   try {
     const { name, email, password } = await request.json();
@@ -33,7 +35,7 @@ export async function POST(request: NextRequest) {
       data: { name, email, password: hashedPassword },
     });
 
-    const token = signToken({ userId: user.id, email: user.email, role: user.role });
+    const token = await signToken({ userId: user.id, email: user.email, role: user.role });
     const cookie = setAuthCookie(token);
 
     const response = NextResponse.json(

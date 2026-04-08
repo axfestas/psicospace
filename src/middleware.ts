@@ -5,7 +5,7 @@ const protectedPaths = ["/dashboard", "/agenda", "/materiais", "/editor", "/abnt
 const adminPaths = ["/admin"];
 const authPaths = ["/login", "/register"];
 
-export function proxy(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const token = request.cookies.get("auth-token")?.value;
 
@@ -17,7 +17,7 @@ export function proxy(request: NextRequest) {
       return NextResponse.redirect(new URL("/login", request.url));
     }
 
-    const payload = verifyToken(token);
+    const payload = await verifyToken(token);
     if (!payload) {
       const response = NextResponse.redirect(new URL("/login", request.url));
       response.cookies.delete("auth-token");
@@ -31,7 +31,7 @@ export function proxy(request: NextRequest) {
   }
 
   if (isAuthPath && token) {
-    const payload = verifyToken(token);
+    const payload = await verifyToken(token);
     if (payload) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }

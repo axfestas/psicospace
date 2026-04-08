@@ -1,4 +1,4 @@
-import jwt from "jsonwebtoken";
+import { SignJWT, jwtVerify } from "jose";
 import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
 
@@ -27,13 +27,19 @@ export async function comparePassword(
   return bcrypt.compare(password, hash);
 }
 
-export function signToken(payload: JWTPayload): string {
-  return jwt.sign(payload, getJwtSecret(), { expiresIn: "7d" });
+export async function signToken(payload: JWTPayload): Promise<string> {
+  const secret = new TextEncoder().encode(getJwtSecret());
+  return new SignJWT({ userId: payload.userId, email: payload.email, role: payload.role })
+    .setProtectedHeader({ alg: "HS256" })
+    .setExpirationTime("7d")
+    .sign(secret);
 }
 
-export function verifyToken(token: string): JWTPayload | null {
+export async function verifyToken(token: string): Promise<JWTPayload | null> {
   try {
-    return jwt.verify(token, getJwtSecret()) as JWTPayload;
+    const secret = new TextEncoder().encode(getJwtSecret());
+    const { payload } = await jwtVerify(token, secret);
+    return payload as unknown as JWTPayload;
   } catch {
     return null;
   }
