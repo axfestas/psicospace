@@ -31,7 +31,8 @@ export async function PUT(
     });
 
     return NextResponse.json({ event: updated });
-  } catch {
+  } catch (error) {
+    console.error("[events/[id]]", error);
     return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 });
   }
 }
@@ -52,7 +53,8 @@ export async function DELETE(
 
     await prisma.event.delete({ where: { id } });
     return NextResponse.json({ message: "Evento excluído com sucesso" });
-  } catch {
+  } catch (error) {
+    console.error("[events/[id]]", error);
     return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 });
   }
 }

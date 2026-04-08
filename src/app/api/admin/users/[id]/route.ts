@@ -24,7 +24,8 @@ export async function PUT(
     });
 
     return NextResponse.json({ user });
-  } catch {
+  } catch (error) {
+    console.error("[admin/users/[id]]", error);
     return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 });
   }
 }
@@ -50,7 +51,8 @@ export async function DELETE(
 
     await prisma.user.delete({ where: { id } });
     return NextResponse.json({ message: "Usuário excluído com sucesso" });
-  } catch {
+  } catch (error) {
+    console.error("[admin/users/[id]]", error);
     return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 });
   }
 }

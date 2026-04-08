@@ -2,3 +2,11 @@ name = "psicospace"
 compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
 pages_build_output_dir = ".vercel/output/static"
+
+# D1 database binding — configure in the Cloudflare Pages dashboard or here.
+# Replace <DATABASE_ID> with the ID shown by: wrangler d1 list
+# Then apply the schema: wrangler d1 execute d1_psi --file=./prisma/migrations/20260408021614_init/migration.sql --remote
+[[d1_databases]]
+binding = "d1_psi"
+database_name = "psicospace"
+database_id = "<DATABASE_ID>"   # format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx  (run: wrangler d1 list)

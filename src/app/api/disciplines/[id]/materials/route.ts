@@ -23,7 +23,8 @@ export async function GET(
     });
 
     return NextResponse.json({ materials });
-  } catch {
+  } catch (error) {
+    console.error("[disciplines/[id]/materials]", error);
     return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 });
   }
 }
@@ -52,7 +53,8 @@ export async function POST(
     });
 
     return NextResponse.json({ material }, { status: 201 });
-  } catch {
+  } catch (error) {
+    console.error("[disciplines/[id]/materials]", error);
     return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 });
   }
 }

@@ -23,7 +23,8 @@ export async function GET() {
     });
 
     return NextResponse.json({ users });
-  } catch {
+  } catch (error) {
+    console.error("[users]", error);
     return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 });
   }
 }

@@ -19,7 +19,8 @@ export async function GET(
     }
 
     return NextResponse.json({ document });
-  } catch {
+  } catch (error) {
+    console.error("[documents/[id]]", error);
     return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 });
   }
 }
@@ -46,7 +47,8 @@ export async function PUT(
     });
 
     return NextResponse.json({ document: updated });
-  } catch {
+  } catch (error) {
+    console.error("[documents/[id]]", error);
     return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 });
   }
 }
@@ -67,7 +69,8 @@ export async function DELETE(
 
     await prisma.document.delete({ where: { id } });
     return NextResponse.json({ message: "Documento excluído com sucesso" });
-  } catch {
+  } catch (error) {
+    console.error("[documents/[id]]", error);
     return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 });
   }
 }

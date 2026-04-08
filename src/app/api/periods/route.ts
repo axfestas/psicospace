@@ -21,7 +21,8 @@ export async function GET() {
     });
 
     return NextResponse.json({ periods });
-  } catch {
+  } catch (error) {
+    console.error("[periods]", error);
     return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 });
   }
 }
@@ -40,7 +41,8 @@ export async function POST(request: NextRequest) {
 
     const period = await prisma.period.create({ data: { name, order } });
     return NextResponse.json({ period }, { status: 201 });
-  } catch {
+  } catch (error) {
+    console.error("[periods]", error);
     return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 });
   }
 }
