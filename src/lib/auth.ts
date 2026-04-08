@@ -39,7 +39,11 @@ export async function verifyToken(token: string): Promise<JWTPayload | null> {
   try {
     const secret = new TextEncoder().encode(getJwtSecret());
     const { payload } = await jwtVerify(token, secret);
-    return payload as unknown as JWTPayload;
+    const { userId, email, role } = payload;
+    if (typeof userId !== "string" || typeof email !== "string" || typeof role !== "string") {
+      return null;
+    }
+    return { userId, email, role };
   } catch {
     return null;
   }
