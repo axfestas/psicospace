@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
     const cookie = setAuthCookie(token);
 
     const response = NextResponse.json({
-      user: { id: user.id, name: user.name, email: user.email, role: user.role },
+      user: { id: user.id, name: user.name, email: user.email, role: user.role, createdAt: user.createdAt },
     });
     response.cookies.set(cookie);
     return response;

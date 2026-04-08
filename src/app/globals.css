@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Use class-based dark mode so OS dark preference doesn't override app theme */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -49,6 +52,67 @@ body {
   float: left;
   height: 0;
   pointer-events: none;
+}
+
+/* ── Word-like page editor ─────────────────────────────────── */
+
+/* Outer scrollable area — grey "desk" */
+.editor-page-area {
+  background: #e0e0e0;
+  padding: 32px 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.dark .editor-page-area {
+  background: #2d2d2d;
+}
+
+/* The A4 "paper" sheet — white card with shadow */
+.editor-page {
+  background: #ffffff;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
+  width: 794px;         /* A4 at 96 dpi ≈ 210 mm */
+  min-height: 1123px;   /* A4 at 96 dpi ≈ 297 mm */
+  margin: 0 auto;
+  padding: 96px 96px;   /* ≈ 1 inch margins */
+  box-sizing: border-box;
+  position: relative;
+}
+
+/* Visual page-break guide lines every ~1027px of content height
+   (1123px total - 96px top - top border) */
+.editor-page::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 1123px;
+  height: 0;
+  border-top: 2px dashed #c0c0c0;
+  pointer-events: none;
+}
+
+.dark .editor-page {
+  background: #1e1e1e;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+}
+
+.dark .editor-page::after {
+  border-top-color: #444;
+}
+
+/* ProseMirror inside the page */
+.editor-page .ProseMirror {
+  min-height: 931px; /* 1123 - 96 top - 96 bottom */
+  outline: none;
+  font-size: 12pt;
+  line-height: 1.6;
+  color: #111;
+}
+
+.dark .editor-page .ProseMirror {
+  color: #e5e5e5;
 }
 
 /* Task list */

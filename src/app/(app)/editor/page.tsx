@@ -288,7 +288,7 @@ function EditorPageInner() {
     content: "",
     editorProps: {
       attributes: {
-        class: "outline-none prose dark:prose-invert max-w-none p-6 min-h-[600px]",
+        class: "outline-none prose dark:prose-invert max-w-none",
       },
     },
     onUpdate: ({ editor: ed }) => {
@@ -518,7 +518,7 @@ function EditorPageInner() {
           </div>
         </div>
 
-        <Card className="flex-1 flex flex-col overflow-hidden">
+        <Card className="flex-1 flex flex-col overflow-hidden min-h-0">
           {/* Toolbar */}
           <div className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 overflow-x-auto">
             {/* Row 1 */}
@@ -709,9 +709,11 @@ function EditorPageInner() {
             </BubbleMenu>
           )}
 
-          <CardContent className="flex-1 p-0 overflow-auto">
-            <EditorContent editor={editor} className="h-full" />
-          </CardContent>
+          <div className="editor-page-area">
+            <div className="editor-page">
+              <EditorContent editor={editor} />
+            </div>
+          </div>
 
           {/* Status bar */}
           <div className="flex items-center justify-between border-t border-gray-100 dark:border-gray-700 px-4 py-1.5 text-xs text-gray-400">
