@@ -72,7 +72,7 @@ export async function PUT(request: NextRequest) {
     }
 
     if (newEmail) {
-      if (typeof newEmail !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
+      if (typeof newEmail !== "string" || !newEmail.includes("@") || !newEmail.slice(newEmail.lastIndexOf("@") + 1).includes(".")) {
         return NextResponse.json({ error: "E-mail inválido" }, { status: 400 });
       }
       if (!currentPassword) {

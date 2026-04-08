@@ -64,7 +64,7 @@ export default function ConfiguracoesPage() {
 
   const handleSaveEmail = async () => {
     setEmailError("");
-    if (!newEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) { setEmailError("E-mail inválido."); return; }
+    if (!newEmail || !newEmail.includes("@") || !newEmail.slice(newEmail.lastIndexOf("@") + 1).includes(".")) { setEmailError("E-mail inválido."); return; }
     if (!currentPasswordEmail) { setEmailError("Informe a senha atual para confirmar."); return; }
     setEmailSaving(true);
     try {
