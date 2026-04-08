@@ -26,15 +26,18 @@ enum ProgressStatus {
 }
 
 model User {
-  id                      String   @id @default(cuid())
+  id                      String    @id @default(cuid())
   name                    String
-  email                   String   @unique
+  email                   String    @unique
   password                String
-  role                    Role     @default(ESTUDANTE)
-  emailVerified           Boolean  @default(false)
+  role                    Role      @default(ESTUDANTE)
+  emailVerified           Boolean   @default(false)
   emailVerificationToken  String?
-  createdAt               DateTime @default(now())
-  updatedAt               DateTime @updatedAt
+  passwordResetToken      String?
+  passwordResetExpires    DateTime?
+  avatarUrl               String?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
 
   events            Event[]
   tasks             Task[]

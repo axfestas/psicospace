@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent } from "@/components/ui/card";
@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Mail, Shield, Calendar, Pencil, KeyRound, Check, X,
-  MailOpen, RefreshCw, Loader2,
+  MailOpen, RefreshCw, Loader2, Camera, Trash2,
 } from "lucide-react";
 
 const roleLabels: Record<string, string> = {
@@ -28,6 +28,7 @@ const roleBadgeColors: Record<string, string> = {
 export default function PerfilPage() {
   const { user, loading: authLoading, refreshUser } = useAuth();
   const router = useRouter();
+  const avatarInputRef = useRef<HTMLInputElement>(null);
 
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
@@ -47,6 +48,9 @@ export default function PerfilPage() {
   const [resendingVerification, setResendingVerification] = useState(false);
   const [resendStatus, setResendStatus] = useState<"idle" | "sent" | "error">("idle");
 
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarError, setAvatarError] = useState("");
+
   useEffect(() => {
     fetch("/api/auth/me")
       .then((r) => r.json())
@@ -65,6 +69,49 @@ export default function PerfilPage() {
       setResendStatus("error");
     } finally {
       setResendingVerification(false);
+    }
+  };
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAvatarError("");
+    setAvatarUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/auth/avatar", { method: "POST", body: formData });
+      const data = await res.json();
+      if (!res.ok) {
+        setAvatarError(data.error || "Erro ao enviar foto.");
+      } else {
+        await refreshUser();
+        showSuccess("Foto de perfil atualizada!");
+      }
+    } catch {
+      setAvatarError("Erro de conexão.");
+    } finally {
+      setAvatarUploading(false);
+      if (avatarInputRef.current) avatarInputRef.current.value = "";
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    setAvatarError("");
+    setAvatarUploading(true);
+    try {
+      const res = await fetch("/api/auth/avatar", { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json();
+        setAvatarError(data.error || "Erro ao remover foto.");
+      } else {
+        await refreshUser();
+        showSuccess("Foto removida.");
+      }
+    } catch {
+      setAvatarError("Erro de conexão.");
+    } finally {
+      setAvatarUploading(false);
     }
   };
 
@@ -239,8 +286,55 @@ export default function PerfilPage() {
         <CardContent className="pt-0 px-6 pb-6">
           {/* Avatar row */}
           <div className="flex items-end justify-between -mt-10 mb-4">
-            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-blue-600 text-white text-2xl font-bold ring-4 ring-white dark:ring-gray-900 flex-shrink-0">
-              {initials}
+            <div className="relative group">
+              {/* Hidden file input */}
+              <input
+                ref={avatarInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/gif,image/webp"
+                className="hidden"
+                onChange={handleAvatarChange}
+              />
+              {/* Avatar circle */}
+              <div className="relative h-20 w-20 rounded-full ring-4 ring-white dark:ring-gray-900 overflow-hidden flex-shrink-0">
+                {user.avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={user.avatarUrl}
+                    alt={user.name}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center bg-blue-600 text-white text-2xl font-bold">
+                    {initials}
+                  </div>
+                )}
+                {/* Overlay on hover */}
+                <button
+                  type="button"
+                  onClick={() => avatarInputRef.current?.click()}
+                  disabled={avatarUploading}
+                  className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-full"
+                  title="Alterar foto"
+                >
+                  {avatarUploading ? (
+                    <Loader2 className="h-6 w-6 text-white animate-spin" />
+                  ) : (
+                    <Camera className="h-6 w-6 text-white" />
+                  )}
+                </button>
+              </div>
+              {/* Remove avatar button */}
+              {user.avatarUrl && !avatarUploading && (
+                <button
+                  type="button"
+                  onClick={handleRemoveAvatar}
+                  className="absolute -bottom-1 -right-1 rounded-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-0.5 text-gray-500 hover:text-red-500 transition-colors"
+                  title="Remover foto"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              )}
             </div>
             {!editing && (
               <Button size="sm" variant="outline" onClick={handleOpenEdit} className="mb-1">
@@ -249,6 +343,10 @@ export default function PerfilPage() {
               </Button>
             )}
           </div>
+
+          {avatarError && (
+            <p className="mb-3 text-xs text-red-500">{avatarError}</p>
+          )}
 
           {/* Name + role */}
           <div className="mb-5">

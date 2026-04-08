@@ -8,6 +8,7 @@ export interface User {
   email: string;
   role: Role;
   createdAt: string;
+  avatarUrl?: string | null;
 }
 
 export interface Period {

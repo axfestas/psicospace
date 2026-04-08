@@ -82,6 +82,56 @@ export async function sendVerificationEmail(opts: {
   return sendWelcomeEmail(opts); // same template, different trigger
 }
 
+/** Send password reset email */
+export async function sendPasswordResetEmail(opts: {
+  to: string;
+  name: string;
+  resetToken: string;
+}) {
+  const resend = getResend();
+  const resetUrl = `${getBaseUrl()}/redefinir-senha?token=${opts.resetToken}`;
+  const safeName = escapeHtml(opts.name);
+
+  return resend.emails.send({
+    from: getFromAddress(),
+    to: opts.to,
+    subject: "PsicoSpace — Redefinição de senha",
+    html: `
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="font-family:Arial,Helvetica,sans-serif;background:#f9fafb;margin:0;padding:0;">
+  <div style="max-width:600px;margin:40px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.1);">
+    <div style="background:#2563eb;padding:32px 40px;text-align:center;">
+      <h1 style="color:#fff;margin:0;font-size:28px;font-weight:700;">Ψ PsicoSpace</h1>
+    </div>
+    <div style="padding:40px;">
+      <h2 style="color:#111827;margin-top:0;">Olá, ${safeName}!</h2>
+      <p style="color:#374151;line-height:1.6;">
+        Recebemos uma solicitação para redefinir a senha da sua conta no PsicoSpace.
+        Clique no botão abaixo para criar uma nova senha:
+      </p>
+      <div style="text-align:center;margin:32px 0;">
+        <a href="${resetUrl}"
+           style="background:#2563eb;color:#fff;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:600;font-size:16px;display:inline-block;">
+          Redefinir senha
+        </a>
+      </div>
+      <p style="color:#6b7280;font-size:14px;">
+        Este link expira em 1 hora. Se você não solicitou a redefinição de senha, ignore este e-mail.
+      </p>
+      <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;">
+      <p style="color:#9ca3af;font-size:12px;text-align:center;">
+        PsicoSpace · Plataforma Acadêmica de Psicologia
+      </p>
+    </div>
+  </div>
+</body>
+</html>
+    `.trim(),
+  });
+}
+
 /** Send email notification about pending/upcoming tasks and events */
 export async function sendPendingItemsEmail(opts: {
   to: string;

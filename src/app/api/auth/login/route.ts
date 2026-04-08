@@ -15,7 +15,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: { id: true, name: true, email: true, password: true, role: true, createdAt: true, avatarUrl: true },
+    });
     if (!user) {
       return NextResponse.json(
         { error: "Credenciais inválidas" },
@@ -35,7 +38,7 @@ export async function POST(request: NextRequest) {
     const cookie = setAuthCookie(token);
 
     const response = NextResponse.json({
-      user: { id: user.id, name: user.name, email: user.email, role: user.role, createdAt: user.createdAt },
+      user: { id: user.id, name: user.name, email: user.email, role: user.role, createdAt: user.createdAt, avatarUrl: user.avatarUrl },
     });
     response.cookies.set(cookie);
     return response;
