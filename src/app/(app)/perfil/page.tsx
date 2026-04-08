@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Mail, Shield, Calendar, Pencil, KeyRound, Check, X,
+  Mail, Shield, Calendar, Pencil, Check, X,
   MailOpen, RefreshCw, Loader2, Camera, Trash2,
 } from "lucide-react";
 
@@ -34,13 +34,6 @@ export default function PerfilPage() {
   const [name, setName] = useState("");
   const [nameError, setNameError] = useState("");
   const [nameSaving, setNameSaving] = useState(false);
-
-  const [showPasswordForm, setShowPasswordForm] = useState(false);
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [passwordError, setPasswordError] = useState("");
-  const [passwordSaving, setPasswordSaving] = useState(false);
 
   const [successMessage, setSuccessMessage] = useState("");
 
@@ -123,7 +116,6 @@ export default function PerfilPage() {
   const handleOpenEdit = () => {
     setName(user?.name || "");
     setNameError("");
-    setShowPasswordForm(false);
     setEditing(true);
   };
 
@@ -159,52 +151,6 @@ export default function PerfilPage() {
     } finally {
       setNameSaving(false);
     }
-  };
-
-  const handleSavePassword = async () => {
-    setPasswordError("");
-    if (!currentPassword) {
-      setPasswordError("Informe a senha atual.");
-      return;
-    }
-    if (newPassword.length < 6) {
-      setPasswordError("Nova senha deve ter pelo menos 6 caracteres.");
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      setPasswordError("As senhas não coincidem.");
-      return;
-    }
-    setPasswordSaving(true);
-    try {
-      const res = await fetch("/api/auth/me", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: user?.name, currentPassword, newPassword }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setPasswordError(data.error || "Erro ao alterar senha.");
-      } else {
-        setShowPasswordForm(false);
-        setCurrentPassword("");
-        setNewPassword("");
-        setConfirmPassword("");
-        showSuccess("Senha alterada com sucesso!");
-      }
-    } catch {
-      setPasswordError("Erro de conexão.");
-    } finally {
-      setPasswordSaving(false);
-    }
-  };
-
-  const handleCancelPassword = () => {
-    setCurrentPassword("");
-    setNewPassword("");
-    setConfirmPassword("");
-    setPasswordError("");
-    setShowPasswordForm(false);
   };
 
   if (authLoading) {
@@ -393,66 +339,6 @@ export default function PerfilPage() {
                 />
                 {nameError && <p className="mt-1 text-xs text-red-500">{nameError}</p>}
               </div>
-
-              {/* Change password toggle */}
-              {!showPasswordForm ? (
-                <button
-                  type="button"
-                  onClick={() => setShowPasswordForm(true)}
-                  className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400"
-                >
-                  <KeyRound className="h-3.5 w-3.5" />
-                  Alterar senha
-                </button>
-              ) : (
-                <div className="space-y-3 rounded-lg border border-gray-100 dark:border-gray-800 p-4">
-                  <h4 className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
-                    <KeyRound className="h-3.5 w-3.5" />
-                    Alterar senha
-                  </h4>
-                  <div>
-                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Senha atual</label>
-                    <Input
-                      type="password"
-                      value={currentPassword}
-                      onChange={(e) => setCurrentPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className="mt-1"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Nova senha</label>
-                    <Input
-                      type="password"
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      placeholder="Mínimo 6 caracteres"
-                      className="mt-1"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Confirmar nova senha</label>
-                    <Input
-                      type="password"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="Repita a nova senha"
-                      className="mt-1"
-                    />
-                  </div>
-                  {passwordError && <p className="text-xs text-red-500">{passwordError}</p>}
-                  <div className="flex gap-2">
-                    <Button size="sm" onClick={handleSavePassword} loading={passwordSaving}>
-                      <Check className="h-3.5 w-3.5 mr-1" />
-                      Alterar
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={handleCancelPassword}>
-                      <X className="h-3.5 w-3.5 mr-1" />
-                      Cancelar
-                    </Button>
-                  </div>
-                </div>
-              )}
 
               {/* Save / cancel edit */}
               <div className="flex gap-2 pt-1">

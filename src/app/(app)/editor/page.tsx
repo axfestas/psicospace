@@ -19,6 +19,7 @@ import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import FontFamily from "@tiptap/extension-font-family";
 import Placeholder from "@tiptap/extension-placeholder";
+import { Extension } from "@tiptap/core";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -29,7 +30,8 @@ import {
   FileText, Save, Undo2, Redo2, Subscript as SubIcon, Superscript as SupIcon,
   Code, Code2, Quote, Minus, Table as TableIcon, Image as ImageIcon,
   ListChecks, Highlighter, Columns, Printer, Download, X, Check,
-  ChevronDown, RemoveFormatting,
+  ChevronDown, RemoveFormatting, Indent, Outdent, Search, BookOpen,
+  FileDown, BookMarked,
 } from "lucide-react";
 
 interface Document {
@@ -39,6 +41,53 @@ interface Document {
   updatedAt: string;
 }
 
+// ── Custom FontSize extension (no extra npm package needed) ──────────────────
+const FontSize = Extension.create({
+  name: "fontSize",
+  addOptions() { return { types: ["textStyle"] }; },
+  addGlobalAttributes() {
+    return [{
+      types: this.options.types,
+      attributes: {
+        fontSize: {
+          default: null,
+          parseHTML: (el) => el.style.fontSize || null,
+          renderHTML: (attrs) => attrs.fontSize ? { style: `font-size: ${attrs.fontSize}` } : {},
+        },
+      },
+    }];
+  },
+  addCommands() {
+    return {
+      setFontSize: (size: string) => ({ chain }: { chain: () => { setMark: (name: string, attrs: Record<string, unknown>) => { run: () => boolean } } }) =>
+        chain().setMark("textStyle", { fontSize: size }).run(),
+      unsetFontSize: () => ({ chain }: { chain: () => { setMark: (name: string, attrs: Record<string, unknown>) => { run: () => boolean } } }) =>
+        chain().setMark("textStyle", { fontSize: null }).run(),
+    };
+  },
+});
+
+// ── Custom Indent extension ──────────────────────────────────────────────────
+const IndentExtension = Extension.create({
+  name: "indent",
+  addKeyboardShortcuts() {
+    return {
+      Tab: () => {
+        if (this.editor.isActive("listItem") || this.editor.isActive("taskItem")) {
+          return this.editor.commands.sinkListItem("listItem");
+        }
+        return this.editor.commands.insertContent("    ");
+      },
+      "Shift-Tab": () => {
+        if (this.editor.isActive("listItem") || this.editor.isActive("taskItem")) {
+          return this.editor.commands.liftListItem("listItem");
+        }
+        return false;
+      },
+    };
+  },
+});
+
 const FONTS = [
   { label: "Padrão", value: "" },
   { label: "Arial", value: "Arial" },
@@ -47,6 +96,23 @@ const FONTS = [
   { label: "Georgia", value: "Georgia" },
   { label: "Verdana", value: "Verdana" },
   { label: "Trebuchet MS", value: "Trebuchet MS" },
+];
+
+const FONT_SIZES = [
+  { label: "8pt", value: "8pt" },
+  { label: "9pt", value: "9pt" },
+  { label: "10pt", value: "10pt" },
+  { label: "11pt", value: "11pt" },
+  { label: "12pt", value: "12pt" },
+  { label: "14pt", value: "14pt" },
+  { label: "16pt", value: "16pt" },
+  { label: "18pt", value: "18pt" },
+  { label: "20pt", value: "20pt" },
+  { label: "24pt", value: "24pt" },
+  { label: "28pt", value: "28pt" },
+  { label: "36pt", value: "36pt" },
+  { label: "48pt", value: "48pt" },
+  { label: "72pt", value: "72pt" },
 ];
 
 const HEADING_OPTIONS = [
@@ -235,6 +301,109 @@ function ImageDialog({ onConfirm, onCancel }: { onConfirm: (url: string, alt?: s
   );
 }
 
+function FindReplacePanel({
+  onClose,
+  onFind,
+  onReplace,
+  onReplaceAll,
+}: {
+  onClose: () => void;
+  onFind: (text: string) => void;
+  onReplace: (find: string, replace: string) => void;
+  onReplaceAll: (find: string, replace: string) => void;
+}) {
+  const [findText, setFindText] = useState("");
+  const [replaceText, setReplaceText] = useState("");
+  const [showReplace, setShowReplace] = useState(false);
+  return (
+    <div className="border-b border-gray-200 dark:border-gray-700 bg-yellow-50 dark:bg-yellow-900/10 px-3 py-2">
+      <div className="flex items-center gap-2 flex-wrap">
+        <Search className="h-3.5 w-3.5 text-gray-500 flex-shrink-0" />
+        <input
+          autoFocus
+          value={findText}
+          onChange={(e) => setFindText(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && onFind(findText)}
+          placeholder="Localizar..."
+          className="h-7 text-xs rounded border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 w-44 focus:outline-none focus:ring-1 focus:ring-blue-500"
+        />
+        <button
+          onClick={() => onFind(findText)}
+          className="h-7 px-2 text-xs rounded bg-blue-600 text-white hover:bg-blue-700"
+        >
+          Encontrar
+        </button>
+        <button
+          onClick={() => setShowReplace(!showReplace)}
+          className="h-7 px-2 text-xs rounded border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+        >
+          {showReplace ? "Ocultar" : "Substituir"}
+        </button>
+        {showReplace && (
+          <>
+            <input
+              value={replaceText}
+              onChange={(e) => setReplaceText(e.target.value)}
+              placeholder="Substituir por..."
+              className="h-7 text-xs rounded border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 w-44 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+            <button
+              onClick={() => onReplace(findText, replaceText)}
+              className="h-7 px-2 text-xs rounded border border-blue-300 text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+            >
+              Substituir
+            </button>
+            <button
+              onClick={() => onReplaceAll(findText, replaceText)}
+              className="h-7 px-2 text-xs rounded border border-blue-300 text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+            >
+              Substituir tudo
+            </button>
+          </>
+        )}
+        <button onClick={onClose} className="ml-auto text-gray-400 hover:text-gray-600 flex-shrink-0">
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+interface TocEntry { level: number; text: string; }
+
+function TableOfContents({ entries, onClose }: { entries: TocEntry[]; onClose: () => void }) {
+  return (
+    <Card className="flex-shrink-0">
+      <CardContent className="p-3">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1">
+            <BookMarked className="h-3.5 w-3.5" />
+            Sumário
+          </span>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+        {entries.length === 0 ? (
+          <p className="text-xs text-gray-400 text-center py-2">Nenhum título encontrado</p>
+        ) : (
+          <ul className="space-y-0.5 max-h-48 overflow-y-auto">
+            {entries.map((e, i) => (
+              <li
+                key={i}
+                className="text-xs text-gray-600 dark:text-gray-400 truncate"
+                style={{ paddingLeft: `${(e.level - 1) * 10}px` }}
+              >
+                {e.level === 1 ? "■" : e.level === 2 ? "▸" : "·"} {e.text}
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function EditorPageInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -249,6 +418,9 @@ function EditorPageInner() {
   const [charCount, setCharCount] = useState(0);
   const [showLinkDialog, setShowLinkDialog] = useState(false);
   const [showImageDialog, setShowImageDialog] = useState(false);
+  const [showFindReplace, setShowFindReplace] = useState(false);
+  const [showToc, setShowToc] = useState(false);
+  const [tocEntries, setTocEntries] = useState<TocEntry[]>([]);
 
   const getHeadingValue = useCallback((ed: ReturnType<typeof useEditor> | null): number => {
     if (!ed) return 0;
@@ -277,12 +449,14 @@ function EditorPageInner() {
       TableHeader,
       TextStyle,
       Color,
+      FontSize,
       Highlight.configure({ multicolor: true }),
       Subscript,
       Superscript,
       TaskList,
       TaskItem.configure({ nested: true }),
       FontFamily,
+      IndentExtension,
       Placeholder.configure({ placeholder: "Comece a escrever seu documento..." }),
     ],
     content: "",
@@ -295,6 +469,14 @@ function EditorPageInner() {
       const text = ed.state.doc.textContent;
       setCharCount(text.length);
       setWordCount(text.trim() ? text.trim().split(/\s+/).length : 0);
+      // Update TOC
+      const entries: TocEntry[] = [];
+      ed.state.doc.descendants((node) => {
+        if (node.type.name === "heading") {
+          entries.push({ level: node.attrs.level as number, text: node.textContent });
+        }
+      });
+      setTocEntries(entries);
     },
   });
 
@@ -412,6 +594,100 @@ function EditorPageInner() {
     URL.revokeObjectURL(a.href);
   };
 
+  const handleExportTXT = () => {
+    if (!editor) return;
+    const blob = new Blob([editor.state.doc.textContent], { type: "text/plain" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `${title}.txt`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
+  const handleExportPDF = async () => {
+    if (!editor) return;
+    const { jsPDF } = await import("jspdf");
+    const doc = new jsPDF({ unit: "pt", format: "a4" });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 60;
+    const maxWidth = pageWidth - margin * 2;
+    doc.setFontSize(16);
+    doc.text(title, margin, margin);
+    doc.setFontSize(11);
+    const lines = doc.splitTextToSize(editor.state.doc.textContent, maxWidth);
+    doc.text(lines, margin, margin + 28);
+    doc.save(`${title}.pdf`);
+  };
+
+  const handleFind = (text: string) => {
+    if (!text || !editor) return;
+    const content = editor.state.doc.textContent;
+    const idx = content.indexOf(text);
+    if (idx === -1) return;
+    // Select the found text in the editor
+    let charPos = 0;
+    let from = -1;
+    editor.state.doc.descendants((node, pos) => {
+      if (from !== -1) return false;
+      if (node.isText && node.text) {
+        const localIdx = node.text.indexOf(text, Math.max(0, idx - charPos));
+        if (localIdx !== -1 && charPos + localIdx === idx) {
+          from = pos + localIdx;
+          return false;
+        }
+        charPos += node.text.length;
+      }
+    });
+    if (from !== -1) {
+      editor.chain().focus().setTextSelection({ from, to: from + text.length }).run();
+    }
+  };
+
+  const handleReplace = (find: string, replace: string) => {
+    if (!find || !editor) return;
+    const { state, dispatch } = editor.view;
+    const text = state.doc.textContent;
+    const idx = text.indexOf(find);
+    if (idx === -1) return;
+    let charPos = 0;
+    let from = -1;
+    state.doc.descendants((node, pos) => {
+      if (from !== -1) return false;
+      if (node.isText && node.text) {
+        const localIdx = node.text.indexOf(find, Math.max(0, idx - charPos));
+        if (localIdx !== -1 && charPos + localIdx === idx) {
+          from = pos + localIdx;
+          return false;
+        }
+        charPos += node.text.length;
+      }
+    });
+    if (from !== -1) {
+      const tr = state.tr.replaceWith(from, from + find.length, state.schema.text(replace));
+      dispatch(tr);
+    }
+  };
+
+  const handleReplaceAll = (find: string, replace: string) => {
+    if (!find || !editor) return;
+    const { state, dispatch } = editor.view;
+    const tr = state.tr;
+    let offset = 0;
+    state.doc.descendants((node, pos) => {
+      if (node.isText && node.text) {
+        let start = 0;
+        let localIdx: number;
+        while ((localIdx = node.text.indexOf(find, start)) !== -1) {
+          const from = pos + localIdx + offset;
+          tr.replaceWith(from, from + find.length, state.schema.text(replace));
+          offset += replace.length - find.length;
+          start = localIdx + find.length;
+        }
+      }
+    });
+    dispatch(tr);
+  };
+
   const handleInsertLink = (url: string) => {
     if (!editor) return;
     setShowLinkDialog(false);
@@ -433,12 +709,16 @@ function EditorPageInner() {
     editor?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
   };
 
-  // Ctrl+S to save
+  // Ctrl+S to save, Ctrl+H or Ctrl+F for find/replace
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "s") {
         e.preventDefault();
         handleSave();
+      }
+      if ((e.ctrlKey || e.metaKey) && (e.key === "f" || e.key === "h")) {
+        e.preventDefault();
+        setShowFindReplace(true);
       }
     };
     document.addEventListener("keydown", handler);
@@ -449,6 +729,7 @@ function EditorPageInner() {
   const currentFont = getCurrentFont(editor);
   const currentColor = editor?.getAttributes("textStyle")?.color || "#000000";
   const currentHighlight = editor?.getAttributes("highlight")?.color || "";
+  const currentFontSize = editor?.getAttributes("textStyle")?.fontSize || "";
 
   return (
     <div className="flex h-full gap-4">
@@ -492,6 +773,9 @@ function EditorPageInner() {
             </div>
           </CardContent>
         </Card>
+        {showToc && (
+          <TableOfContents entries={tocEntries} onClose={() => setShowToc(false)} />
+        )}
       </div>
 
       {/* Main editor area */}
@@ -505,11 +789,23 @@ function EditorPageInner() {
             placeholder="Título do documento"
           />
           <div className="flex items-center gap-1.5 flex-shrink-0">
+            <Button size="sm" onClick={() => setShowFindReplace(!showFindReplace)} variant="outline" title="Localizar/Substituir (Ctrl+F)">
+              <Search className="h-4 w-4" />
+            </Button>
+            <Button size="sm" onClick={() => setShowToc(!showToc)} variant="outline" title="Sumário">
+              <BookOpen className="h-4 w-4" />
+            </Button>
             <Button size="sm" onClick={handlePrint} variant="outline" title="Imprimir">
               <Printer className="h-4 w-4" />
             </Button>
             <Button size="sm" onClick={handleExportHTML} variant="outline" title="Exportar HTML">
               <Download className="h-4 w-4" />
+            </Button>
+            <Button size="sm" onClick={handleExportTXT} variant="outline" title="Exportar TXT">
+              <FileText className="h-4 w-4" />
+            </Button>
+            <Button size="sm" onClick={handleExportPDF} variant="outline" title="Exportar PDF">
+              <FileDown className="h-4 w-4" />
             </Button>
             <Button size="sm" onClick={handleSave} loading={saving}>
               <Save className="h-4 w-4 mr-1" />
@@ -519,6 +815,15 @@ function EditorPageInner() {
         </div>
 
         <Card className="flex-1 flex flex-col overflow-hidden min-h-0">
+          {/* Find & Replace panel */}
+          {showFindReplace && (
+            <FindReplacePanel
+              onClose={() => setShowFindReplace(false)}
+              onFind={handleFind}
+              onReplace={handleReplace}
+              onReplaceAll={handleReplaceAll}
+            />
+          )}
           {/* Toolbar */}
           <div className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 overflow-x-auto">
             {/* Row 1 */}
@@ -552,6 +857,18 @@ function EditorPageInner() {
                 onChange={(v) => {
                   if (!v) editor?.chain().focus().unsetFontFamily().run();
                   else editor?.chain().focus().setFontFamily(String(v)).run();
+                }}
+              />
+
+              <SelectDropdown
+                title="Tamanho de fonte"
+                options={[{ label: "Tam.", value: "" }, ...FONT_SIZES]}
+                value={currentFontSize}
+                onChange={(v) => {
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  const chain = editor?.chain().focus() as any;
+                  if (!v) chain?.unsetFontSize?.();
+                  else chain?.setFontSize?.(String(v));
                 }}
               />
 
@@ -624,6 +941,31 @@ function EditorPageInner() {
               </ToolbarButton>
               <ToolbarButton onClick={() => editor?.chain().focus().setTextAlign("justify").run()} active={editor?.isActive({ textAlign: "justify" })} title="Justificar">
                 <AlignJustify className="h-4 w-4" />
+              </ToolbarButton>
+
+              <Divider />
+
+              <ToolbarButton
+                onClick={() => {
+                  if (editor?.isActive("listItem") || editor?.isActive("taskItem")) {
+                    editor?.chain().focus().sinkListItem("listItem").run();
+                  } else {
+                    editor?.chain().focus().insertContent("    ").run();
+                  }
+                }}
+                title="Aumentar recuo (Tab)"
+              >
+                <Indent className="h-4 w-4" />
+              </ToolbarButton>
+              <ToolbarButton
+                onClick={() => {
+                  if (editor?.isActive("listItem") || editor?.isActive("taskItem")) {
+                    editor?.chain().focus().liftListItem("listItem").run();
+                  }
+                }}
+                title="Diminuir recuo (Shift+Tab)"
+              >
+                <Outdent className="h-4 w-4" />
               </ToolbarButton>
 
               <Divider />
