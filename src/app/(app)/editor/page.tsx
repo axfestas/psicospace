@@ -58,6 +58,16 @@ interface DocMeta {
   margin?: PageMargin;
   orientation?: PageOrientation;
   comments?: Record<string, CommentData>;
+  versions?: VersionSnapshot[];
+}
+
+// ── Version snapshot ─────────────────────────────────────────────────────────
+interface VersionSnapshot {
+  at: string;
+  title: string;
+  html: string;
+  header?: string;
+  footer?: string;
 }
 
 function parseDocContent(raw: string): DocMeta {
@@ -1111,6 +1121,129 @@ function WordGoalBar({
   );
 }
 
+// ── Version History Panel ────────────────────────────────────────────────────
+function VersionHistoryPanel({
+  versions,
+  onRestore,
+  onClose,
+}: {
+  versions: VersionSnapshot[];
+  onRestore: (v: VersionSnapshot) => void;
+  onClose: () => void;
+}) {
+  const [preview, setPreview] = useState<VersionSnapshot | null>(null);
+  const sorted = [...versions].reverse(); // newest first
+  return (
+    <div className="w-72 flex-shrink-0 border-l border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex flex-col overflow-hidden">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+        <span className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+          <Clock className="h-4 w-4 text-blue-500" />
+          Histórico ({versions.length})
+        </span>
+        <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200" title="Fechar">
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+      <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
+        {sorted.length === 0 && (
+          <p className="text-xs text-gray-400 text-center py-8">
+            Nenhuma versão salva ainda.<br />
+            Versões são criadas automaticamente ao salvar.
+          </p>
+        )}
+        {sorted.map((v, i) => (
+          <div
+            key={v.at}
+            className={`rounded-lg border p-2.5 cursor-pointer transition-colors ${
+              preview?.at === v.at
+                ? "border-blue-300 dark:border-blue-600 bg-blue-50 dark:bg-blue-900/20"
+                : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-600"
+            }`}
+            onClick={() => setPreview(preview?.at === v.at ? null : v)}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-medium text-gray-800 dark:text-gray-200 truncate max-w-[140px]">{v.title}</p>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
+                  {new Date(v.at).toLocaleString("pt-BR")}
+                  {i === 0 && <span className="ml-1 text-blue-600 dark:text-blue-400">(mais recente)</span>}
+                </p>
+              </div>
+              <button
+                onClick={(e) => { e.stopPropagation(); onRestore(v); }}
+                className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-200 font-medium flex-shrink-0 ml-2"
+                title="Restaurar esta versão"
+              >
+                Restaurar
+              </button>
+            </div>
+            {preview?.at === v.at && (
+              <div
+                className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-700 text-[11px] text-gray-600 dark:text-gray-400 max-h-32 overflow-hidden prose prose-xs dark:prose-invert"
+                dangerouslySetInnerHTML={{ __html: v.html.slice(0, 600) }}
+              />
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Document Stats Panel ─────────────────────────────────────────────────────
+function DocStatsPanel({
+  wordCount,
+  charCount,
+  html,
+  onClose,
+}: {
+  wordCount: number;
+  charCount: number;
+  html: string;
+  onClose: () => void;
+}) {
+  const text = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  const sentences = text ? text.split(/[.!?]+/).filter((s) => s.trim().length > 0).length : 0;
+  const paragraphs = (html.match(/<p[\s>]/g) || []).length;
+  const readingTime = Math.max(1, Math.ceil(wordCount / 200)); // ~200 wpm
+  const uniqueWords = text
+    ? new Set(text.toLowerCase().replace(/[^a-záàâãéèêíïóôõúüçñ0-9\s]/gi, "").split(/\s+/).filter(Boolean)).size
+    : 0;
+  const avgWordLen = wordCount > 0 ? (text.replace(/\s+/g, "").length / wordCount).toFixed(1) : "0";
+
+  const stats = [
+    { label: "Palavras", value: wordCount.toLocaleString("pt-BR") },
+    { label: "Caracteres", value: charCount.toLocaleString("pt-BR") },
+    { label: "Frases", value: sentences.toLocaleString("pt-BR") },
+    { label: "Parágrafos", value: paragraphs.toLocaleString("pt-BR") },
+    { label: "Palavras únicas", value: uniqueWords.toLocaleString("pt-BR") },
+    { label: "Comprimento médio de palavra", value: `${avgWordLen} letras` },
+    { label: "Tempo de leitura estimado", value: `${readingTime} min` },
+  ];
+
+  return (
+    <div className="w-64 flex-shrink-0 border-l border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex flex-col overflow-hidden">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+        <span className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+          <BookMarked className="h-4 w-4 text-purple-500" />
+          Estatísticas
+        </span>
+        <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200" title="Fechar">
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+      <div className="flex-1 overflow-y-auto p-3 space-y-2">
+        {stats.map((s) => (
+          <div key={s.label} className="flex items-center justify-between py-1.5 border-b border-gray-100 dark:border-gray-800 last:border-0">
+            <span className="text-xs text-gray-500 dark:text-gray-400">{s.label}</span>
+            <span className="text-xs font-semibold text-gray-800 dark:text-gray-200">{s.value}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function EditorPageInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -1148,6 +1281,10 @@ function EditorPageInner() {
   const [readingMode, setReadingMode] = useState(false);
   const [wordGoal, setWordGoal] = useState(0);
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Etapa 5 state
+  const [versions, setVersions] = useState<VersionSnapshot[]>([]);
+  const [showVersionHistory, setShowVersionHistory] = useState(false);
+  const [showDocStats, setShowDocStats] = useState(false);
 
   const getHeadingValue = useCallback((ed: ReturnType<typeof useEditor> | null): number => {
     if (!ed) return 0;
@@ -1199,6 +1336,7 @@ function EditorPageInner() {
       const text = ed.state.doc.textContent;
       setCharCount(text.length);
       setWordCount(text.trim() ? text.trim().split(/\s+/).length : 0);
+      setIsDirty(true);
       // Update TOC
       const entries: TocEntry[] = [];
       const notes: string[] = [];
@@ -1237,6 +1375,9 @@ function EditorPageInner() {
       if (meta.orientation) setPageOrientation(meta.orientation);
       if (meta.comments) setComments(meta.comments);
       else setComments({});
+      if (meta.versions) setVersions(meta.versions);
+      else setVersions([]);
+      setIsDirty(false);
     }
   }, [editor]);
 
@@ -1245,9 +1386,19 @@ function EditorPageInner() {
     if (docId && editor) loadDocument(docId);
   }, [docId, editor, loadDocument]);
 
-  const handleSave = useCallback(async () => {
+  const handleSave = useCallback(async (opts?: { auto?: boolean }) => {
     if (!editor) return;
     setSaving(true);
+    // Create version snapshot before saving (keep last 20)
+    const newSnapshot: VersionSnapshot = {
+      at: new Date().toISOString(),
+      title,
+      html: editor.getHTML(),
+      header: header || undefined,
+      footer: footer || undefined,
+    };
+    const nextVersions = [...versions, newSnapshot].slice(-20);
+    setVersions(nextVersions);
     const content = serializeDocContent({
       html: editor.getHTML(),
       header: header || undefined,
@@ -1255,6 +1406,7 @@ function EditorPageInner() {
       margin: pageMargin,
       orientation: pageOrientation,
       comments: Object.keys(comments).length ? comments : undefined,
+      versions: nextVersions,
     });
     if (currentDoc) {
       await fetch(`/api/documents/${currentDoc.id}`, {
@@ -1275,10 +1427,16 @@ function EditorPageInner() {
       }
     }
     setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    setIsDirty(false);
+    if (opts?.auto) {
+      setAutoSaved(true);
+      setTimeout(() => setAutoSaved(false), 3000);
+    } else {
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    }
     loadDocuments();
-  }, [editor, currentDoc, title, header, footer, pageMargin, pageOrientation, comments, router, loadDocuments]);
+  }, [editor, currentDoc, title, header, footer, pageMargin, pageOrientation, comments, versions, router, loadDocuments]);
 
   const handleNewDocument = () => {
     setCurrentDoc(null);
@@ -1289,7 +1447,45 @@ function EditorPageInner() {
     setPageMargin("normal");
     setPageOrientation("portrait");
     setComments({});
+    setVersions([]);
+    setIsDirty(false);
     router.push("/editor");
+  };
+
+  // Auto-save: save 30s after last change when doc is already persisted
+  useEffect(() => {
+    if (!isDirty || !currentDoc) return;
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    autoSaveTimer.current = setTimeout(() => {
+      handleSave({ auto: true });
+    }, 30_000);
+    return () => {
+      if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    };
+  }, [isDirty, currentDoc, handleSave]);
+
+  const handleNewFromTemplate = (tpl: DocTemplate) => {
+    setShowTemplatePicker(false);
+    setCurrentDoc(null);
+    setTitle(tpl.title);
+    editor?.commands.setContent(tpl.html);
+    setHeader(tpl.header || "");
+    setFooter(tpl.footer || "");
+    setPageMargin("normal");
+    setPageOrientation("portrait");
+    setComments({});
+    setVersions([]);
+    setIsDirty(true);
+    router.push("/editor");
+  };
+
+  const handleRestoreVersion = (v: VersionSnapshot) => {
+    editor?.commands.setContent(v.html);
+    setTitle(v.title);
+    if (v.header !== undefined) setHeader(v.header);
+    if (v.footer !== undefined) setFooter(v.footer);
+    setIsDirty(true);
+    setShowVersionHistory(false);
   };
 
   const handleDeleteDocument = async (id: string) => {
@@ -1525,7 +1721,7 @@ function EditorPageInner() {
     editor?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
   };
 
-  // Ctrl+S to save, Ctrl+H or Ctrl+F for find/replace
+  // Ctrl+S to save, Ctrl+F for find/replace, Escape to exit reading mode
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "s") {
@@ -1535,6 +1731,9 @@ function EditorPageInner() {
       if ((e.ctrlKey || e.metaKey) && (e.key === "f" || e.key === "h")) {
         e.preventDefault();
         setShowFindReplace(true);
+      }
+      if (e.key === "Escape") {
+        setReadingMode(false);
       }
     };
     document.addEventListener("keydown", handler);
@@ -1550,16 +1749,59 @@ function EditorPageInner() {
     editor?.getAttributes("heading")?.lineHeight || "";
 
   return (
-    <div className="flex h-full gap-4">
+    <>
+      {/* ── Reading Mode overlay ─────────────────────────────────────── */}
+      {readingMode && (
+        <div className="fixed inset-0 z-40 bg-white dark:bg-gray-950 overflow-y-auto">
+          <div className="max-w-3xl mx-auto px-8 py-12">
+            <div className="flex items-center justify-between mb-8">
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{title}</h1>
+              <button
+                onClick={() => setReadingMode(false)}
+                className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5"
+                title="Sair do modo leitura (Esc)"
+              >
+                <Minimize2 className="h-3.5 w-3.5" />
+                Sair do modo leitura
+              </button>
+            </div>
+            {header && (
+              <div className="text-sm text-gray-500 dark:text-gray-400 border-b pb-3 mb-6 whitespace-pre-wrap">{header}</div>
+            )}
+            <div
+              className="prose dark:prose-invert max-w-none text-base leading-relaxed"
+              dangerouslySetInnerHTML={{ __html: editor?.getHTML() || "" }}
+            />
+            {footnotes.length > 0 && (
+              <div className="mt-10 pt-4 border-t border-gray-200 dark:border-gray-700 space-y-1">
+                {footnotes.map((note, i) => (
+                  <p key={i} className="text-sm text-gray-500 dark:text-gray-400">
+                    <sup className="text-blue-600 mr-1">{i + 1}</sup>{note}
+                  </p>
+                ))}
+              </div>
+            )}
+            {footer && (
+              <div className="text-sm text-gray-500 dark:text-gray-400 border-t pt-3 mt-10 whitespace-pre-wrap">{footer}</div>
+            )}
+          </div>
+        </div>
+      )}
+      <div className="flex h-full gap-4">
       {/* Document list sidebar */}
       <div className="w-56 flex-shrink-0 hidden lg:flex flex-col gap-2">
         <Card className="flex-1 overflow-hidden">
           <CardContent className="p-3 h-full flex flex-col">
             <div className="flex items-center justify-between mb-3">
               <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Documentos</span>
-              <button onClick={handleNewDocument} className="text-blue-600 hover:text-blue-700" title="Novo documento">
-                <Plus className="h-4 w-4" />
-              </button>
+              <div className="flex items-center gap-1">
+                <button onClick={() => setShowTemplatePicker(true)} className="text-gray-400 hover:text-blue-600" title="Novo a partir de template">
+                  <LayoutTemplate className="h-3.5 w-3.5" />
+                </button>
+                <button onClick={handleNewDocument} className="text-blue-600 hover:text-blue-700" title="Novo documento em branco">
+                  <Plus className="h-4 w-4" />
+                </button>
+              </div>
             </div>
             <div className="space-y-1 overflow-y-auto flex-1">
               {documents.length === 0 && (
@@ -1602,11 +1844,24 @@ function EditorPageInner() {
         <div className="mb-2 flex items-center gap-2 flex-wrap">
           <Input
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            onChange={(e) => { setTitle(e.target.value); setIsDirty(true); }}
             className="flex-1 min-w-40 text-lg font-semibold border-0 border-b rounded-none px-0 focus:ring-0 bg-transparent"
             placeholder="Título do documento"
           />
           <div className="flex items-center gap-1.5 flex-shrink-0">
+            <Button size="sm" onClick={() => setShowTemplatePicker(true)} variant="outline" title="Novo a partir de template">
+              <LayoutTemplate className="h-4 w-4" />
+            </Button>
+            <Button size="sm" onClick={() => setShowVersionHistory(!showVersionHistory)} variant={showVersionHistory ? "default" : "outline"} title="Histórico de versões">
+              <Clock className="h-4 w-4" />
+              {versions.length > 0 && <span className="ml-1 text-xs">{versions.length}</span>}
+            </Button>
+            <Button size="sm" onClick={() => setShowDocStats(!showDocStats)} variant={showDocStats ? "default" : "outline"} title="Estatísticas do documento">
+              <BookMarked className="h-4 w-4" />
+            </Button>
+            <Button size="sm" onClick={() => setReadingMode(!readingMode)} variant={readingMode ? "default" : "outline"} title={readingMode ? "Sair do modo leitura (Esc)" : "Modo leitura"}>
+              {readingMode ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </Button>
             <Button size="sm" onClick={() => setShowComments(!showComments)} variant={showComments ? "default" : "outline"} title="Comentários">
               <MessageSquare className="h-4 w-4" />
               {Object.keys(comments).length > 0 && (
@@ -1637,9 +1892,9 @@ function EditorPageInner() {
             <Button size="sm" onClick={handleExportPDF} variant="outline" title="Exportar PDF">
               <FileDown className="h-4 w-4" />
             </Button>
-            <Button size="sm" onClick={handleSave} loading={saving}>
+            <Button size="sm" onClick={() => handleSave()} loading={saving}>
               <Save className="h-4 w-4 mr-1" />
-              {saved ? "Salvo!" : "Salvar"}
+              {saved ? "Salvo!" : isDirty ? "Salvar•" : "Salvar"}
             </Button>
           </div>
         </div>
@@ -1965,11 +2220,18 @@ function EditorPageInner() {
           </div>
 
           {/* Status bar */}
-          <div className="flex items-center justify-between border-t border-gray-100 dark:border-gray-700 px-4 py-1.5 text-xs text-gray-400">
-            <span>{wordCount} palavras · {charCount} caracteres</span>
-            {currentDoc && (
-              <span>Última edição: {formatDate(currentDoc.updatedAt)}</span>
-            )}
+          <div className="flex items-center justify-between border-t border-gray-100 dark:border-gray-700 px-4 py-1.5 text-xs text-gray-400 flex-wrap gap-2">
+            <div className="flex items-center gap-3">
+              <span>{wordCount} palavras · {charCount} caracteres</span>
+              <WordGoalBar wordCount={wordCount} goal={wordGoal} onSetGoal={setWordGoal} />
+            </div>
+            <div className="flex items-center gap-3">
+              {autoSaved && <span className="text-green-600 dark:text-green-400 flex items-center gap-1"><Clock className="h-3 w-3" />Salvo automaticamente</span>}
+              {isDirty && !saving && <span className="text-orange-500 dark:text-orange-400">● não salvo</span>}
+              {currentDoc && (
+                <span>Última edição: {formatDate(currentDoc.updatedAt)}</span>
+              )}
+            </div>
           </div>
         </Card>
 
@@ -1980,6 +2242,23 @@ function EditorPageInner() {
             editor={editor}
             onDelete={handleDeleteComment}
             onClose={() => setShowComments(false)}
+          />
+        )}
+        {/* Version history panel */}
+        {showVersionHistory && (
+          <VersionHistoryPanel
+            versions={versions}
+            onRestore={handleRestoreVersion}
+            onClose={() => setShowVersionHistory(false)}
+          />
+        )}
+        {/* Document stats panel */}
+        {showDocStats && (
+          <DocStatsPanel
+            wordCount={wordCount}
+            charCount={charCount}
+            html={editor?.getHTML() || ""}
+            onClose={() => setShowDocStats(false)}
           />
         )}
         </div>
@@ -2019,7 +2298,14 @@ function EditorPageInner() {
           onCancel={() => setShowAddCommentDialog(false)}
         />
       )}
+      {showTemplatePicker && (
+        <TemplatePickerDialog
+          onConfirm={handleNewFromTemplate}
+          onCancel={() => setShowTemplatePicker(false)}
+        />
+      )}
     </div>
+    </>
   );
 }
 
