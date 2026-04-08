@@ -94,7 +94,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                   onClick={onClose}
                   className={cn(
                     "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                    pathname === "/admin"
+                    pathname.startsWith("/admin") && !pathname.startsWith("/admin/migrations")
                       ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
                       : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
                   )}
