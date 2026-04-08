@@ -3,12 +3,12 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  User, Mail, Shield, Calendar, Pencil, KeyRound, Check, X,
-  MailOpen, RefreshCw, Loader2, FileText, ListChecks, CalendarDays, StickyNote,
+  Mail, Shield, Calendar, Pencil, KeyRound, Check, X,
+  MailOpen, RefreshCw, Loader2,
 } from "lucide-react";
 
 const roleLabels: Record<string, string> = {
@@ -25,38 +25,28 @@ const roleBadgeColors: Record<string, string> = {
   SUPERADMIN: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
 };
 
-interface Stats {
-  documents: number;
-  tasksTotal: number;
-  tasksDone: number;
-  events: number;
-  notes: number;
-}
-
 export default function PerfilPage() {
   const { user, loading: authLoading, refreshUser } = useAuth();
   const router = useRouter();
 
-  const [editingName, setEditingName] = useState(false);
-  const [name, setName] = useState(user?.name || "");
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState("");
   const [nameError, setNameError] = useState("");
   const [nameSaving, setNameSaving] = useState(false);
 
-  const [changingPassword, setChangingPassword] = useState(false);
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [passwordSaving, setPasswordSaving] = useState(false);
+
   const [successMessage, setSuccessMessage] = useState("");
 
   const [emailVerified, setEmailVerified] = useState<boolean | null>(null);
   const [resendingVerification, setResendingVerification] = useState(false);
   const [resendStatus, setResendStatus] = useState<"idle" | "sent" | "error">("idle");
 
-  const [stats, setStats] = useState<Stats | null>(null);
-
-  // Fetch full profile (includes emailVerified)
   useEffect(() => {
     fetch("/api/auth/me")
       .then((r) => r.json())
@@ -64,38 +54,6 @@ export default function PerfilPage() {
         if (data.user) setEmailVerified(data.user.emailVerified);
       })
       .catch(() => {});
-  }, []);
-
-  // Fetch usage stats
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const [docsRes, tasksRes, eventsRes, notesRes] = await Promise.all([
-          fetch("/api/documents"),
-          fetch("/api/tasks"),
-          fetch("/api/events"),
-          fetch("/api/notes"),
-        ]);
-        const [docsData, tasksData, eventsData, notesData] = await Promise.all([
-          docsRes.ok ? docsRes.json() : { documents: [] },
-          tasksRes.ok ? tasksRes.json() : { tasks: [] },
-          eventsRes.ok ? eventsRes.json() : { events: [] },
-          notesRes.ok ? notesRes.json() : { notes: [] },
-        ]);
-        const tasks: { completed: boolean }[] = tasksData.tasks || [];
-        setStats({
-          documents: (docsData.documents || []).length,
-          tasksTotal: tasks.length,
-          tasksDone: tasks.filter((t) => t.completed).length,
-          events: (eventsData.events || []).length,
-          notes: (notesData.notes || []).length,
-        });
-      } catch (err) {
-        console.error("[perfil] Failed to load stats:", err);
-        // stats are non-critical; UI remains functional
-      }
-    };
-    fetchStats();
   }, []);
 
   const handleResendVerification = async () => {
@@ -113,6 +71,19 @@ export default function PerfilPage() {
   const showSuccess = (msg: string) => {
     setSuccessMessage(msg);
     setTimeout(() => setSuccessMessage(""), 3000);
+  };
+
+  const handleOpenEdit = () => {
+    setName(user?.name || "");
+    setNameError("");
+    setShowPasswordForm(false);
+    setEditing(true);
+  };
+
+  const handleCancelEdit = () => {
+    setName(user?.name || "");
+    setNameError("");
+    setEditing(false);
   };
 
   const handleSaveName = async () => {
@@ -133,20 +104,14 @@ export default function PerfilPage() {
         setNameError(data.error || "Erro ao salvar nome.");
       } else {
         await refreshUser();
-        setEditingName(false);
-        showSuccess("Nome atualizado com sucesso!");
+        setEditing(false);
+        showSuccess("Perfil atualizado com sucesso!");
       }
     } catch {
       setNameError("Erro de conexão.");
     } finally {
       setNameSaving(false);
     }
-  };
-
-  const handleCancelName = () => {
-    setName(user?.name || "");
-    setNameError("");
-    setEditingName(false);
   };
 
   const handleSavePassword = async () => {
@@ -174,7 +139,7 @@ export default function PerfilPage() {
       if (!res.ok) {
         setPasswordError(data.error || "Erro ao alterar senha.");
       } else {
-        setChangingPassword(false);
+        setShowPasswordForm(false);
         setCurrentPassword("");
         setNewPassword("");
         setConfirmPassword("");
@@ -192,7 +157,7 @@ export default function PerfilPage() {
     setNewPassword("");
     setConfirmPassword("");
     setPasswordError("");
-    setChangingPassword(false);
+    setShowPasswordForm(false);
   };
 
   if (authLoading) {
@@ -228,12 +193,8 @@ export default function PerfilPage() {
     : "—";
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Meu Perfil</h1>
-        <p className="text-gray-500 dark:text-gray-400">Gerencie suas informações pessoais</p>
-      </div>
-
+    <div className="max-w-xl mx-auto space-y-4">
+      {/* Success toast */}
       {successMessage && (
         <div className="flex items-center gap-2 rounded-lg bg-green-50 border border-green-200 px-4 py-3 text-green-700 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400">
           <Check className="h-4 w-4 flex-shrink-0" />
@@ -270,208 +231,143 @@ export default function PerfilPage() {
         </div>
       )}
 
-      {/* Avatar & Role */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex items-center gap-5">
-            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-blue-600 text-white text-2xl font-bold flex-shrink-0">
+      {/* Profile card */}
+      <Card className="overflow-hidden">
+        {/* Cover banner */}
+        <div className="h-24 bg-gradient-to-r from-blue-500 to-blue-700 dark:from-blue-700 dark:to-blue-900" />
+
+        <CardContent className="pt-0 px-6 pb-6">
+          {/* Avatar row */}
+          <div className="flex items-end justify-between -mt-10 mb-4">
+            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-blue-600 text-white text-2xl font-bold ring-4 ring-white dark:ring-gray-900 flex-shrink-0">
               {initials}
             </div>
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">{user.name}</h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400">{user.email}</p>
-              <span
-                className={`mt-2 inline-block rounded-full px-3 py-0.5 text-xs font-medium ${roleBadgeColors[user.role] || ""}`}
-              >
-                {roleLabels[user.role] || user.role}
-              </span>
+            {!editing && (
+              <Button size="sm" variant="outline" onClick={handleOpenEdit} className="mb-1">
+                <Pencil className="h-3.5 w-3.5 mr-1.5" />
+                Editar perfil
+              </Button>
+            )}
+          </div>
+
+          {/* Name + role */}
+          <div className="mb-5">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">{user.name}</h2>
+            <span
+              className={`mt-1.5 inline-block rounded-full px-3 py-0.5 text-xs font-medium ${roleBadgeColors[user.role] || ""}`}
+            >
+              {roleLabels[user.role] || user.role}
+            </span>
+          </div>
+
+          {/* Info rows */}
+          <div className="space-y-3 text-sm">
+            <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+              <Mail className="h-4 w-4 flex-shrink-0" />
+              <span>{user.email}</span>
+            </div>
+            <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+              <Shield className="h-4 w-4 flex-shrink-0" />
+              <span>{roleLabels[user.role] || user.role}</span>
+            </div>
+            <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+              <Calendar className="h-4 w-4 flex-shrink-0" />
+              <span>Membro desde {memberSince}</span>
             </div>
           </div>
-        </CardContent>
-      </Card>
 
-      {/* Usage stats */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Minha atividade</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {stats === null ? (
-            <div className="flex items-center gap-2 text-gray-400 text-sm">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Carregando estatísticas…
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <div className="flex flex-col items-center gap-1 rounded-xl bg-blue-50 dark:bg-blue-900/20 p-4">
-                <FileText className="h-6 w-6 text-blue-500" />
-                <span className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats.documents}</span>
-                <span className="text-xs text-gray-500 dark:text-gray-400 text-center">Documentos</span>
-              </div>
-              <div className="flex flex-col items-center gap-1 rounded-xl bg-green-50 dark:bg-green-900/20 p-4">
-                <ListChecks className="h-6 w-6 text-green-500" />
-                <span className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats.tasksDone}/{stats.tasksTotal}</span>
-                <span className="text-xs text-gray-500 dark:text-gray-400 text-center">Tarefas concluídas</span>
-              </div>
-              <div className="flex flex-col items-center gap-1 rounded-xl bg-purple-50 dark:bg-purple-900/20 p-4">
-                <CalendarDays className="h-6 w-6 text-purple-500" />
-                <span className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats.events}</span>
-                <span className="text-xs text-gray-500 dark:text-gray-400 text-center">Eventos</span>
-              </div>
-              <div className="flex flex-col items-center gap-1 rounded-xl bg-amber-50 dark:bg-amber-900/20 p-4">
-                <StickyNote className="h-6 w-6 text-amber-500" />
-                <span className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats.notes}</span>
-                <span className="text-xs text-gray-500 dark:text-gray-400 text-center">Notas</span>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+          {/* Edit form */}
+          {editing && (
+            <div className="mt-6 border-t border-gray-100 dark:border-gray-800 pt-5 space-y-4">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Editar perfil</h3>
 
-      {/* Info */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <User className="h-4 w-4" />
-            Informações da conta
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Name */}
-          <div>
-            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-              Nome completo
-            </label>
-            {editingName ? (
-              <div className="mt-1 space-y-2">
+              {/* Name field */}
+              <div>
+                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                  Nome completo
+                </label>
                 <Input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Seu nome completo"
+                  className="mt-1"
                   autoFocus
                 />
-                {nameError && <p className="text-xs text-red-500">{nameError}</p>}
-                <div className="flex gap-2">
-                  <Button size="sm" onClick={handleSaveName} loading={nameSaving}>
-                    <Check className="h-3.5 w-3.5 mr-1" />
-                    Salvar
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={handleCancelName}>
-                    <X className="h-3.5 w-3.5 mr-1" />
-                    Cancelar
-                  </Button>
-                </div>
+                {nameError && <p className="mt-1 text-xs text-red-500">{nameError}</p>}
               </div>
-            ) : (
-              <div className="mt-1 flex items-center justify-between">
-                <p className="text-sm text-gray-900 dark:text-gray-100">{user.name}</p>
+
+              {/* Change password toggle */}
+              {!showPasswordForm ? (
                 <button
-                  onClick={() => { setName(user.name); setEditingName(true); }}
-                  className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400"
+                  type="button"
+                  onClick={() => setShowPasswordForm(true)}
+                  className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400"
                 >
-                  <Pencil className="h-3 w-3" />
-                  Editar
-                </button>
-              </div>
-            )}
-          </div>
-
-          <div className="border-t border-gray-100 dark:border-gray-800" />
-
-          {/* Email (read-only) */}
-          <div>
-            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide flex items-center gap-1">
-              <Mail className="h-3.5 w-3.5" />
-              E-mail
-            </label>
-            <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">{user.email}</p>
-          </div>
-
-          <div className="border-t border-gray-100 dark:border-gray-800" />
-
-          {/* Role */}
-          <div>
-            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide flex items-center gap-1">
-              <Shield className="h-3.5 w-3.5" />
-              Função
-            </label>
-            <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">
-              {roleLabels[user.role] || user.role}
-            </p>
-          </div>
-
-          <div className="border-t border-gray-100 dark:border-gray-800" />
-
-          {/* Member since */}
-          <div>
-            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide flex items-center gap-1">
-              <Calendar className="h-3.5 w-3.5" />
-              Membro desde
-            </label>
-            <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">{memberSince}</p>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Change password */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <KeyRound className="h-4 w-4" />
-            Alterar senha
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {changingPassword ? (
-            <div className="space-y-3">
-              <div>
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Senha atual</label>
-                <Input
-                  type="password"
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="mt-1"
-                  autoFocus
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Nova senha</label>
-                <Input
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Mínimo 6 caracteres"
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Confirmar nova senha</label>
-                <Input
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Repita a nova senha"
-                  className="mt-1"
-                />
-              </div>
-              {passwordError && <p className="text-xs text-red-500">{passwordError}</p>}
-              <div className="flex gap-2">
-                <Button size="sm" onClick={handleSavePassword} loading={passwordSaving}>
-                  <Check className="h-3.5 w-3.5 mr-1" />
+                  <KeyRound className="h-3.5 w-3.5" />
                   Alterar senha
+                </button>
+              ) : (
+                <div className="space-y-3 rounded-lg border border-gray-100 dark:border-gray-800 p-4">
+                  <h4 className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+                    <KeyRound className="h-3.5 w-3.5" />
+                    Alterar senha
+                  </h4>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Senha atual</label>
+                    <Input
+                      type="password"
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Nova senha</label>
+                    <Input
+                      type="password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="Mínimo 6 caracteres"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Confirmar nova senha</label>
+                    <Input
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Repita a nova senha"
+                      className="mt-1"
+                    />
+                  </div>
+                  {passwordError && <p className="text-xs text-red-500">{passwordError}</p>}
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={handleSavePassword} loading={passwordSaving}>
+                      <Check className="h-3.5 w-3.5 mr-1" />
+                      Alterar
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={handleCancelPassword}>
+                      <X className="h-3.5 w-3.5 mr-1" />
+                      Cancelar
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Save / cancel edit */}
+              <div className="flex gap-2 pt-1">
+                <Button size="sm" onClick={handleSaveName} loading={nameSaving}>
+                  <Check className="h-3.5 w-3.5 mr-1" />
+                  Salvar
                 </Button>
-                <Button size="sm" variant="outline" onClick={handleCancelPassword}>
+                <Button size="sm" variant="outline" onClick={handleCancelEdit}>
                   <X className="h-3.5 w-3.5 mr-1" />
                   Cancelar
                 </Button>
               </div>
             </div>
-          ) : (
-            <Button variant="outline" size="sm" onClick={() => setChangingPassword(true)}>
-              <KeyRound className="h-3.5 w-3.5 mr-1.5" />
-              Alterar senha
-            </Button>
           )}
         </CardContent>
       </Card>
