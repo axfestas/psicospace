@@ -9,10 +9,7 @@ import Underline from "@tiptap/extension-underline";
 import TextAlign from "@tiptap/extension-text-align";
 import Link from "@tiptap/extension-link";
 import Image from "@tiptap/extension-image";
-import { Table } from "@tiptap/extension-table";
-import { TableRow } from "@tiptap/extension-table";
-import { TableCell } from "@tiptap/extension-table";
-import { TableHeader } from "@tiptap/extension-table";
+import { Table, TableRow, TableCell, TableHeader } from "@tiptap/extension-table";
 import { TextStyle } from "@tiptap/extension-text-style";
 import Color from "@tiptap/extension-color";
 import Highlight from "@tiptap/extension-highlight";
@@ -31,7 +28,7 @@ import {
   AlignRight, AlignJustify, List, ListOrdered, Link2, Plus, Trash2,
   FileText, Save, Undo2, Redo2, Subscript as SubIcon, Superscript as SupIcon,
   Code, Code2, Quote, Minus, Table as TableIcon, Image as ImageIcon,
-  ListChecks, Highlighter, Type, Printer, Download, X, Check,
+  ListChecks, Highlighter, Columns, Printer, Download, X, Check,
   ChevronDown, RemoveFormatting,
 } from "lucide-react";
 
@@ -370,7 +367,12 @@ function EditorPageInner() {
     const content = editor.getHTML();
     const win = window.open("", "_blank");
     if (!win) return;
-    win.document.write(`<!DOCTYPE html><html><head><title>${title}</title>
+    const safeTitle = title
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+    win.document.write(`<!DOCTYPE html><html><head><title>${safeTitle}</title>
       <style>
         body{font-family:Arial,sans-serif;max-width:800px;margin:40px auto;padding:20px;line-height:1.6;}
         h1,h2,h3,h4,h5,h6{margin-top:1.5em;}
@@ -382,7 +384,7 @@ function EditorPageInner() {
         @media print{body{margin:0;padding:15mm;}}
       </style>
       </head><body>
-        <h1 style="font-size:1.5em;border-bottom:1px solid #eee;padding-bottom:0.5em;">${title}</h1>
+        <h1 style="font-size:1.5em;border-bottom:1px solid #eee;padding-bottom:0.5em;">${safeTitle}</h1>
         ${content}
       </body></html>`);
     win.document.close();
@@ -392,8 +394,13 @@ function EditorPageInner() {
 
   const handleExportHTML = () => {
     if (!editor) return;
+    const safeTitle = title
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
     const blob = new Blob(
-      [`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title></head><body><h1>${title}</h1>${editor.getHTML()}</body></html>`],
+      [`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${safeTitle}</title></head><body><h1>${safeTitle}</h1>${editor.getHTML()}</body></html>`],
       { type: "text/html" }
     );
     const a = document.createElement("a");
@@ -654,7 +661,7 @@ function EditorPageInner() {
                   <Divider />
                   <span className="text-xs text-gray-500 dark:text-gray-400 px-1 flex-shrink-0">Tabela:</span>
                   <ToolbarButton onClick={() => editor.chain().focus().addColumnBefore().run()} title="Inserir coluna antes">
-                    <Type className="h-3 w-3" />
+                    <Columns className="h-3 w-3" />
                   </ToolbarButton>
                   <ToolbarButton onClick={() => editor.chain().focus().addRowAfter().run()} title="Inserir linha abaixo">
                     <Plus className="h-3 w-3" />
@@ -666,10 +673,10 @@ function EditorPageInner() {
                     <Trash2 className="h-3 w-3" />
                   </ToolbarButton>
                   <ToolbarButton onClick={() => editor.chain().focus().mergeCells().run()} title="Mesclar células">
-                    <span className="text-xs font-mono">⊞</span>
+                    <span className="text-xs font-mono" aria-label="Mesclar células">⊞</span>
                   </ToolbarButton>
                   <ToolbarButton onClick={() => editor.chain().focus().splitCell().run()} title="Dividir célula">
-                    <span className="text-xs font-mono">⊟</span>
+                    <span className="text-xs font-mono" aria-label="Dividir célula">⊟</span>
                   </ToolbarButton>
                 </>
               )}
