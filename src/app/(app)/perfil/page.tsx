@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -34,6 +35,7 @@ interface Stats {
 
 export default function PerfilPage() {
   const { user, loading: authLoading, refreshUser } = useAuth();
+  const router = useRouter();
 
   const [editingName, setEditingName] = useState(false);
   const [name, setName] = useState(user?.name || "");
@@ -201,7 +203,14 @@ export default function PerfilPage() {
     );
   }
 
-  if (!user) return null;
+  if (!user) {
+    router.replace("/login");
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
 
   const initials = user.name
     .split(" ")
