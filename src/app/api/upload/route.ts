@@ -63,7 +63,8 @@ export async function POST(request: NextRequest) {
       { url: `/api/files/${key}`, key },
       { status: 201 }
     );
-  } catch {
+  } catch (err) {
+    console.error("[/api/upload] Unexpected error:", err);
     return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 });
   }
 }

@@ -12,8 +12,10 @@ function getClient(): PrismaClient {
   const d1 = env.d1_psi;
   let client = clientCache.get(d1);
   if (!client) {
-    // PrismaD1 accepts the D1 binding object; our CfD1Database interface is
-    // structurally compatible with what PrismaD1 expects at runtime.
+    // PrismaD1 expects the D1Database type from @cloudflare/workers-types, but
+    // importing that package globally pollutes DOM types (Response.json becomes
+    // Promise<unknown>). Our inline CfD1Database is structurally compatible at
+    // runtime; the cast is safe because D1 satisfies all methods PrismaD1 calls.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     client = new PrismaClient({ adapter: new PrismaD1(d1 as any) });
     clientCache.set(d1, client);

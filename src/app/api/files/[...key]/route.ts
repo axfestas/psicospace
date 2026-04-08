@@ -27,7 +27,8 @@ export async function GET(
     headers.set("cache-control", "private, max-age=31536000, immutable");
 
     return new NextResponse(object.body, { headers });
-  } catch {
+  } catch (err) {
+    console.error("[/api/files] Unexpected error:", err);
     return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 });
   }
 }

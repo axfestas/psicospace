@@ -40,6 +40,12 @@ const progressLabels: Record<string, string> = {
   COMPLETED: "Concluído",
 };
 
+const FILE_ACCEPT: Record<"PDF" | "SLIDE", string> = {
+  PDF: ".pdf,application/pdf",
+  SLIDE:
+    ".ppt,.pptx,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation",
+};
+
 export default function MateriaisPage() {
   const [periods, setPeriods] = useState<Period[]>([]);
   const [expandedPeriod, setExpandedPeriod] = useState<string | null>(null);
@@ -48,6 +54,7 @@ export default function MateriaisPage() {
   const [showAddMaterial, setShowAddMaterial] = useState<string | null>(null);
   const [materialForm, setMaterialForm] = useState<{ title: string; type: "PDF" | "SLIDE" | "LINK"; url: string }>({ title: "", type: "LINK", url: "" });
   const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadPeriods = useCallback(async () => {
@@ -98,12 +105,16 @@ export default function MateriaisPage() {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
+    setUploadError(null);
     const formData = new FormData();
     formData.append("file", file);
     const res = await fetch("/api/upload", { method: "POST", body: formData });
     if (res.ok) {
       const data = await res.json();
       setMaterialForm((prev) => ({ ...prev, url: data.url }));
+    } else {
+      const data = await res.json().catch(() => ({}));
+      setUploadError(data.error ?? "Falha ao enviar arquivo. Tente novamente.");
     }
     setUploading(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -275,7 +286,7 @@ export default function MateriaisPage() {
                                     <input
                                       ref={fileInputRef}
                                       type="file"
-                                      accept={materialForm.type === "PDF" ? ".pdf,application/pdf" : ".ppt,.pptx,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"}
+                                      accept={materialForm.type in FILE_ACCEPT ? FILE_ACCEPT[materialForm.type as "PDF" | "SLIDE"] : undefined}
                                       onChange={handleFileUpload}
                                       className="hidden"
                                       id="file-upload"
@@ -289,9 +300,14 @@ export default function MateriaisPage() {
                                       <Upload className="h-3 w-3 mr-1" />
                                       {uploading ? "Enviando..." : "Escolher arquivo"}
                                     </Button>
-                                    {materialForm.url && (
+                                    {materialForm.url && !uploadError && (
                                       <span className="text-xs text-green-600 dark:text-green-400 truncate max-w-[120px]">
                                         ✓ Arquivo enviado
+                                      </span>
+                                    )}
+                                    {uploadError && (
+                                      <span className="text-xs text-red-600 dark:text-red-400 truncate max-w-[180px]">
+                                        {uploadError}
                                       </span>
                                     )}
                                   </div>
