@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Menu, Bell, Sun, Moon, LogOut, UserCircle, Settings } from "lucide-react";
+import { Menu, Sun, Moon, LogOut, UserCircle, Settings } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { Button } from "@/components/ui/button";
 import { useTheme } from "@/contexts/ThemeContext";
+import { NotificationPanel } from "@/components/notifications/NotificationPanel";
 import Link from "next/link";
 
 interface HeaderProps {
@@ -43,9 +43,7 @@ export function Header({ onMenuClick }: HeaderProps) {
           {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
         </button>
 
-        <button className="relative rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800">
-          <Bell className="h-5 w-5" />
-        </button>
+        <NotificationPanel />
 
         <div className="relative">
           <button

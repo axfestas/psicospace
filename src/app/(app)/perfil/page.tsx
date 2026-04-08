@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { User, Mail, Shield, Calendar, Pencil, KeyRound, Check, X } from "lucide-react";
+import { User, Mail, Shield, Calendar, Pencil, KeyRound, Check, X, MailOpen, RefreshCw, Loader2 } from "lucide-react";
 
 const roleLabels: Record<string, string> = {
   ESTUDANTE: "Estudante",
@@ -36,6 +36,32 @@ export default function PerfilPage() {
   const [passwordError, setPasswordError] = useState("");
   const [passwordSaving, setPasswordSaving] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
+
+  const [emailVerified, setEmailVerified] = useState<boolean | null>(null);
+  const [resendingVerification, setResendingVerification] = useState(false);
+  const [resendStatus, setResendStatus] = useState<"idle" | "sent" | "error">("idle");
+
+  // Fetch full profile (includes emailVerified)
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.user) setEmailVerified(data.user.emailVerified);
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleResendVerification = async () => {
+    setResendingVerification(true);
+    try {
+      const res = await fetch("/api/auth/resend-verification", { method: "POST" });
+      setResendStatus(res.ok ? "sent" : "error");
+    } catch {
+      setResendStatus("error");
+    } finally {
+      setResendingVerification(false);
+    }
+  };
 
   const showSuccess = (msg: string) => {
     setSuccessMessage(msg);
@@ -142,6 +168,35 @@ export default function PerfilPage() {
         <div className="flex items-center gap-2 rounded-lg bg-green-50 border border-green-200 px-4 py-3 text-green-700 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400">
           <Check className="h-4 w-4 flex-shrink-0" />
           <span className="text-sm">{successMessage}</span>
+        </div>
+      )}
+
+      {/* Email verification banner */}
+      {emailVerified === false && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-800 dark:bg-amber-900/20">
+          <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
+            <MailOpen className="h-4 w-4 flex-shrink-0" />
+            <span className="text-sm font-medium">
+              Seu e-mail ainda não foi confirmado. Verifique sua caixa de entrada.
+            </span>
+          </div>
+          {resendStatus === "sent" ? (
+            <span className="text-sm text-green-600 dark:text-green-400 font-medium whitespace-nowrap">✅ E-mail enviado!</span>
+          ) : resendStatus === "error" ? (
+            <span className="text-sm text-red-600 dark:text-red-400 whitespace-nowrap">Erro ao enviar.</span>
+          ) : (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleResendVerification}
+              disabled={resendingVerification}
+              className="flex-shrink-0 border-amber-300 text-amber-700 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-900/30"
+            >
+              {resendingVerification
+                ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />Enviando...</>
+                : <><RefreshCw className="h-3.5 w-3.5 mr-1.5" />Reenviar</>}
+            </Button>
+          )}
         </div>
       )}
 
