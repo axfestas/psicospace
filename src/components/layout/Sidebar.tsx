@@ -10,6 +10,7 @@ import {
   FileText,
   BookMarked,
   Users,
+  Database,
   X,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -32,6 +33,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   const { user } = useAuth();
 
   const isAdmin = user?.role === "ADMIN" || user?.role === "SUPERADMIN";
+  const isSuperAdmin = user?.role === "SUPERADMIN";
 
   return (
     <>
@@ -92,13 +94,30 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                   onClick={onClose}
                   className={cn(
                     "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                    pathname.startsWith("/admin")
+                    pathname.startsWith("/admin") && !pathname.startsWith("/admin/migrations")
                       ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
                       : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
                   )}
                 >
                   <Users className="h-5 w-5 flex-shrink-0" />
                   Administração
+                </Link>
+              </li>
+            )}
+            {isSuperAdmin && (
+              <li>
+                <Link
+                  href="/admin/migrations"
+                  onClick={onClose}
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                    pathname.startsWith("/admin/migrations")
+                      ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                      : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+                  )}
+                >
+                  <Database className="h-5 w-5 flex-shrink-0" />
+                  Migrações DB
                 </Link>
               </li>
             )}
