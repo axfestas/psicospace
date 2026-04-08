@@ -47,7 +47,7 @@ export async function verifyToken(token: string): Promise<JWTPayload | null> {
       typeof userId !== "string" ||
       typeof email !== "string" ||
       typeof role !== "string" ||
-      !(VALID_ROLES as string[]).includes(role)
+      !VALID_ROLES.includes(role as Role)
     ) {
       return null;
     }
