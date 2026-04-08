@@ -5,7 +5,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { User, Mail, Shield, Calendar, Pencil, KeyRound, Check, X, MailOpen, RefreshCw, Loader2 } from "lucide-react";
+import {
+  User, Mail, Shield, Calendar, Pencil, KeyRound, Check, X,
+  MailOpen, RefreshCw, Loader2, FileText, ListChecks, CalendarDays, StickyNote,
+} from "lucide-react";
 
 const roleLabels: Record<string, string> = {
   ESTUDANTE: "Estudante",
@@ -21,8 +24,16 @@ const roleBadgeColors: Record<string, string> = {
   SUPERADMIN: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
 };
 
+interface Stats {
+  documents: number;
+  tasksTotal: number;
+  tasksDone: number;
+  events: number;
+  notes: number;
+}
+
 export default function PerfilPage() {
-  const { user, refreshUser } = useAuth();
+  const { user, loading: authLoading, refreshUser } = useAuth();
 
   const [editingName, setEditingName] = useState(false);
   const [name, setName] = useState(user?.name || "");
@@ -41,6 +52,8 @@ export default function PerfilPage() {
   const [resendingVerification, setResendingVerification] = useState(false);
   const [resendStatus, setResendStatus] = useState<"idle" | "sent" | "error">("idle");
 
+  const [stats, setStats] = useState<Stats | null>(null);
+
   // Fetch full profile (includes emailVerified)
   useEffect(() => {
     fetch("/api/auth/me")
@@ -49,6 +62,38 @@ export default function PerfilPage() {
         if (data.user) setEmailVerified(data.user.emailVerified);
       })
       .catch(() => {});
+  }, []);
+
+  // Fetch usage stats
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const [docsRes, tasksRes, eventsRes, notesRes] = await Promise.all([
+          fetch("/api/documents"),
+          fetch("/api/tasks"),
+          fetch("/api/events"),
+          fetch("/api/notes"),
+        ]);
+        const [docsData, tasksData, eventsData, notesData] = await Promise.all([
+          docsRes.ok ? docsRes.json() : { documents: [] },
+          tasksRes.ok ? tasksRes.json() : { tasks: [] },
+          eventsRes.ok ? eventsRes.json() : { events: [] },
+          notesRes.ok ? notesRes.json() : { notes: [] },
+        ]);
+        const tasks: { completed: boolean }[] = tasksData.tasks || [];
+        setStats({
+          documents: (docsData.documents || []).length,
+          tasksTotal: tasks.length,
+          tasksDone: tasks.filter((t) => t.completed).length,
+          events: (eventsData.events || []).length,
+          notes: (notesData.notes || []).length,
+        });
+      } catch (err) {
+        console.error("[perfil] Failed to load stats:", err);
+        // stats are non-critical; UI remains functional
+      }
+    };
+    fetchStats();
   }, []);
 
   const handleResendVerification = async () => {
@@ -148,6 +193,14 @@ export default function PerfilPage() {
     setChangingPassword(false);
   };
 
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
+
   if (!user) return null;
 
   const initials = user.name
@@ -156,6 +209,14 @@ export default function PerfilPage() {
     .slice(0, 2)
     .join("")
     .toUpperCase();
+
+  const memberSince = user.createdAt
+    ? new Date(user.createdAt).toLocaleDateString("pt-BR", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      })
+    : "—";
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -217,6 +278,44 @@ export default function PerfilPage() {
               </span>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Usage stats */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Minha atividade</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {stats === null ? (
+            <div className="flex items-center gap-2 text-gray-400 text-sm">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Carregando estatísticas…
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="flex flex-col items-center gap-1 rounded-xl bg-blue-50 dark:bg-blue-900/20 p-4">
+                <FileText className="h-6 w-6 text-blue-500" />
+                <span className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats.documents}</span>
+                <span className="text-xs text-gray-500 dark:text-gray-400 text-center">Documentos</span>
+              </div>
+              <div className="flex flex-col items-center gap-1 rounded-xl bg-green-50 dark:bg-green-900/20 p-4">
+                <ListChecks className="h-6 w-6 text-green-500" />
+                <span className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats.tasksDone}/{stats.tasksTotal}</span>
+                <span className="text-xs text-gray-500 dark:text-gray-400 text-center">Tarefas concluídas</span>
+              </div>
+              <div className="flex flex-col items-center gap-1 rounded-xl bg-purple-50 dark:bg-purple-900/20 p-4">
+                <CalendarDays className="h-6 w-6 text-purple-500" />
+                <span className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats.events}</span>
+                <span className="text-xs text-gray-500 dark:text-gray-400 text-center">Eventos</span>
+              </div>
+              <div className="flex flex-col items-center gap-1 rounded-xl bg-amber-50 dark:bg-amber-900/20 p-4">
+                <StickyNote className="h-6 w-6 text-amber-500" />
+                <span className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats.notes}</span>
+                <span className="text-xs text-gray-500 dark:text-gray-400 text-center">Notas</span>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -300,13 +399,7 @@ export default function PerfilPage() {
               <Calendar className="h-3.5 w-3.5" />
               Membro desde
             </label>
-            <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">
-              {new Date(user.createdAt).toLocaleDateString("pt-BR", {
-                day: "numeric",
-                month: "long",
-                year: "numeric",
-              })}
-            </p>
+            <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">{memberSince}</p>
           </div>
         </CardContent>
       </Card>
