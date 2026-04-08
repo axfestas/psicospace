@@ -1,6 +1,7 @@
 import { SignJWT, jwtVerify } from "jose";
 import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
+import type { Role } from "@/types";
 
 function getJwtSecret(): string {
   const secret = process.env.JWT_SECRET;
@@ -13,7 +14,7 @@ function getJwtSecret(): string {
 export interface JWTPayload {
   userId: string;
   email: string;
-  role: string;
+  role: Role;
 }
 
 export async function hashPassword(password: string): Promise<string> {
@@ -35,7 +36,7 @@ export async function signToken(payload: JWTPayload): Promise<string> {
     .sign(secret);
 }
 
-const VALID_ROLES = ["ESTUDANTE", "DOCENTE", "ADMIN", "SUPERADMIN"];
+const VALID_ROLES: Role[] = ["ESTUDANTE", "DOCENTE", "ADMIN", "SUPERADMIN"];
 
 export async function verifyToken(token: string): Promise<JWTPayload | null> {
   try {
@@ -46,11 +47,11 @@ export async function verifyToken(token: string): Promise<JWTPayload | null> {
       typeof userId !== "string" ||
       typeof email !== "string" ||
       typeof role !== "string" ||
-      !VALID_ROLES.includes(role)
+      !(VALID_ROLES as string[]).includes(role)
     ) {
       return null;
     }
-    return { userId, email, role };
+    return { userId, email, role: role as Role };
   } catch {
     return null;
   }

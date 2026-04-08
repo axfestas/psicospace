@@ -1,9 +1,10 @@
 import { PrismaClient } from "@prisma/client";
 import { PrismaNeon } from "@prisma/adapter-neon";
 
-const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined;
-};
+declare global {
+  // eslint-disable-next-line no-var
+  var _prisma: PrismaClient | undefined;
+}
 
 function createPrismaClient(): PrismaClient {
   const connectionString = process.env.DATABASE_URL;
@@ -17,15 +18,21 @@ function createPrismaClient(): PrismaClient {
   });
 }
 
-// Lazily creates the Prisma client on first use so DATABASE_URL is only
-// validated at runtime (when an actual database call is made), not during
-// the Next.js static-generation build phase where env vars may be absent.
-export const prisma: PrismaClient = new Proxy({} as PrismaClient, {
+// Lazily initialise the Prisma client so that DATABASE_URL is only validated
+// when a real database call is made (not during the static-generation build
+// phase where env vars may be absent). JavaScript's single-threaded event
+// loop means the synchronous check + assignment cannot interleave.
+function getPrismaClient(): PrismaClient {
+  if (!global._prisma) {
+    global._prisma = createPrismaClient();
+  }
+  return global._prisma;
+}
+
+export const prisma = new Proxy({} as PrismaClient, {
   get(_target, prop) {
-    if (!globalForPrisma.prisma) {
-      globalForPrisma.prisma = createPrismaClient();
-    }
-    const value = (globalForPrisma.prisma as unknown as Record<string | symbol, unknown>)[prop];
-    return typeof value === "function" ? value.bind(globalForPrisma.prisma) : value;
+    const client = getPrismaClient();
+    const value = (client as unknown as Record<string | symbol, unknown>)[prop];
+    return typeof value === "function" ? (value as Function).bind(client) : value;
   },
 });
