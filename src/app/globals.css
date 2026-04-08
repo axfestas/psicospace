@@ -64,6 +64,15 @@ body {
   flex: 1;
 }
 
+@media (max-width: 860px) {
+  .editor-page-area {
+    padding: 16px 8px;
+  }
+  .editor-page {
+    padding: 48px 32px;
+  }
+}
+
 .dark .editor-page-area {
   background: #2d2d2d;
 }
@@ -73,6 +82,7 @@ body {
   background: #ffffff;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
   width: 794px;         /* A4 at 96 dpi ≈ 210 mm */
+  max-width: 100%;
   min-height: 1123px;   /* A4 at 96 dpi ≈ 297 mm */
   margin: 0 auto;
   padding: 96px 96px;   /* ≈ 1 inch margins */

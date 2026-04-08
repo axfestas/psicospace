@@ -88,8 +88,9 @@ export default function PerfilPage() {
           events: (eventsData.events || []).length,
           notes: (notesData.notes || []).length,
         });
-      } catch {
-        // stats are non-critical
+      } catch (err) {
+        console.error("[perfil] Failed to load stats:", err);
+        // stats are non-critical; UI remains functional
       }
     };
     fetchStats();
