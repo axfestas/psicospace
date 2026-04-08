@@ -35,12 +35,19 @@ export async function signToken(payload: JWTPayload): Promise<string> {
     .sign(secret);
 }
 
+const VALID_ROLES = ["ESTUDANTE", "DOCENTE", "ADMIN", "SUPERADMIN"];
+
 export async function verifyToken(token: string): Promise<JWTPayload | null> {
   try {
     const secret = new TextEncoder().encode(getJwtSecret());
     const { payload } = await jwtVerify(token, secret);
     const { userId, email, role } = payload;
-    if (typeof userId !== "string" || typeof email !== "string" || typeof role !== "string") {
+    if (
+      typeof userId !== "string" ||
+      typeof email !== "string" ||
+      typeof role !== "string" ||
+      !VALID_ROLES.includes(role)
+    ) {
       return null;
     }
     return { userId, email, role };
