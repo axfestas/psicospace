@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { X, ExternalLink } from "lucide-react";
+import { useEffect } from "react";
+import { X } from "lucide-react";
 
 interface DocumentViewerModalProps {
   url: string;
@@ -10,20 +10,7 @@ interface DocumentViewerModalProps {
   onClose: () => void;
 }
 
-export function DocumentViewerModal({ url, title, type, onClose }: DocumentViewerModalProps) {
-  const [iframeSrc, setIframeSrc] = useState<string>("");
-
-  useEffect(() => {
-    if (type === "SLIDE") {
-      const absolute = url.startsWith("http") ? url : window.location.origin + url;
-      setIframeSrc(
-        `https://docs.google.com/viewer?embedded=true&url=${encodeURIComponent(absolute)}`
-      );
-    } else {
-      setIframeSrc(url);
-    }
-  }, [url, type]);
-
+export function DocumentViewerModal({ url, title, onClose }: DocumentViewerModalProps) {
   // Close on Escape
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -38,37 +25,24 @@ export function DocumentViewerModal({ url, title, type, onClose }: DocumentViewe
     >
       {/* Header bar */}
       <div className="flex items-center justify-between bg-gray-900 px-4 py-2 flex-shrink-0">
-        <span className="text-sm font-medium text-white truncate max-w-[70%]">{title}</span>
-        <div className="flex items-center gap-2">
-          <a
-            href={url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-gray-300 hover:text-white p-1"
-            title="Abrir em nova aba"
-          >
-            <ExternalLink className="h-5 w-5" />
-          </a>
-          <button
-            onClick={onClose}
-            className="text-gray-300 hover:text-white p-1"
-            title="Fechar"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
+        <span className="text-sm font-medium text-white truncate max-w-[90%]">{title}</span>
+        <button
+          onClick={onClose}
+          className="text-gray-300 hover:text-white p-1"
+          title="Fechar"
+        >
+          <X className="h-5 w-5" />
+        </button>
       </div>
 
-      {/* Iframe */}
+      {/* Iframe — loads the URL directly within the site */}
       <div className="flex-1 overflow-hidden">
-        {iframeSrc ? (
-          <iframe
-            src={iframeSrc}
-            className="w-full h-full border-0"
-            title={title}
-            allow="fullscreen"
-          />
-        ) : null}
+        <iframe
+          src={url}
+          className="w-full h-full border-0"
+          title={title}
+          allow="fullscreen"
+        />
       </div>
     </div>
   );
