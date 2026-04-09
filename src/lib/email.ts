@@ -7,7 +7,11 @@ function getResend(): Resend {
 }
 
 function getFromAddress(): string {
-  return process.env.EMAIL_FROM || "PsicoSpace <noreply@psicospace.app>";
+  const raw = process.env.EMAIL_FROM;
+  if (!raw) return "PsicoSpace <noreply@psicospace.app>";
+  // If value has no '@', treat it as a display name and append the default address
+  if (!raw.includes("@")) return `${raw} <noreply@psicospace.app>`;
+  return raw;
 }
 
 function getBaseUrl(): string {
