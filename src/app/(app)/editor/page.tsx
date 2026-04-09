@@ -2285,13 +2285,12 @@ function EditorPageInner() {
   // ── Etapa 4: Accept/Reject all track changes ────────────────────────────────
   const handleAcceptAllChanges = useCallback(() => {
     if (!editor) return;
-    // Remove trackAdd marks (accept = keep text, remove mark)
-    // Remove trackDelete marks + their text (reject deletions = remove deleted text)
+    // Accept = keep added text (remove trackAdd mark), delete marked-for-deletion text (remove trackDelete)
     const { state, view } = editor;
     const { tr, doc } = state;
     const trackAddMark = state.schema.marks.trackAdd;
     const trackDeleteMark = state.schema.marks.trackDelete;
-    let offset = 0;
+    // Collect deletion ranges first (positions in original doc)
     const deletions: Array<{ from: number; to: number }> = [];
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     doc.descendants((node: any, pos: number) => {
@@ -2299,16 +2298,15 @@ function EditorPageInner() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       node.marks.forEach((mark: any) => {
         if (mark.type === trackDeleteMark) {
-          deletions.push({ from: pos + offset, to: pos + node.nodeSize + offset });
+          deletions.push({ from: pos, to: pos + node.nodeSize });
         }
       });
     });
-    // Delete in reverse to keep positions valid
+    // Delete in reverse order so earlier positions are not invalidated
     for (let i = deletions.length - 1; i >= 0; i--) {
       tr.delete(deletions[i].from, deletions[i].to);
-      offset -= (deletions[i].to - deletions[i].from);
     }
-    // Remove all trackAdd marks
+    // Remove all remaining trackAdd marks (text stays, mark goes)
     if (trackAddMark) tr.removeMark(0, tr.doc.content.size, trackAddMark);
     view.dispatch(tr);
     setTrackChanges(false);
@@ -2316,11 +2314,11 @@ function EditorPageInner() {
 
   const handleRejectAllChanges = useCallback(() => {
     if (!editor) return;
+    // Reject = delete added text (trackAdd), keep deleted text (remove trackDelete mark)
     const { state, view } = editor;
     const { tr, doc } = state;
     const trackAddMark = state.schema.marks.trackAdd;
     const trackDeleteMark = state.schema.marks.trackDelete;
-    let offset = 0;
     const additions: Array<{ from: number; to: number }> = [];
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     doc.descendants((node: any, pos: number) => {
@@ -2328,14 +2326,14 @@ function EditorPageInner() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       node.marks.forEach((mark: any) => {
         if (mark.type === trackAddMark) {
-          additions.push({ from: pos + offset, to: pos + node.nodeSize + offset });
+          additions.push({ from: pos, to: pos + node.nodeSize });
         }
       });
     });
     for (let i = additions.length - 1; i >= 0; i--) {
       tr.delete(additions[i].from, additions[i].to);
-      offset -= (additions[i].to - additions[i].from);
     }
+    // Remove trackDelete marks (text stays, strikethrough mark goes)
     if (trackDeleteMark) tr.removeMark(0, tr.doc.content.size, trackDeleteMark);
     view.dispatch(tr);
     setTrackChanges(false);
