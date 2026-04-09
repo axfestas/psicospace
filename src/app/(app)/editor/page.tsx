@@ -33,7 +33,7 @@ import {
   ChevronDown, RemoveFormatting, Indent, Outdent, Search, BookOpen,
   FileDown, BookMarked, Type, Settings, StickyNote, PanelTop, PanelBottom,
   MessageSquare, Upload, LayoutTemplate, Eye, EyeOff, Target, Clock,
-  Maximize2, Minimize2, Tag, Keyboard, Hash, Filter, ChevronRight,
+  Maximize2, Minimize2, Tag, Keyboard, Hash, Filter, ChevronRight, Pencil,
 } from "lucide-react";
 
 interface Document {
@@ -1348,6 +1348,116 @@ function WordGoalBar({
   );
 }
 
+// ── Document Viewer Modal (read-only, Google Drive–style) ────────────────────
+interface ViewDocData {
+  id: string;
+  title: string;
+  html: string;
+  header?: string;
+  footer?: string;
+  updatedAt: string;
+}
+
+function DocumentViewerModal({
+  data,
+  loading,
+  onClose,
+  onEdit,
+}: {
+  data: ViewDocData | null;
+  loading: boolean;
+  onClose: () => void;
+  onEdit: (id: string) => void;
+}) {
+  // Close on Escape key
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl flex flex-col w-full max-w-3xl max-h-[90vh] overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header bar */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <FileText className="h-5 w-5 text-blue-600 flex-shrink-0" />
+            <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100 truncate">
+              {loading ? "Carregando…" : (data?.title || "Documento")}
+            </h2>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0 ml-4">
+            {data && (
+              <Button
+                size="sm"
+                onClick={() => onEdit(data.id)}
+                className="gap-1.5"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+                Editar
+              </Button>
+            )}
+            <button
+              onClick={onClose}
+              aria-label="Fechar visualizador"
+              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto">
+          {loading && (
+            <div className="flex items-center justify-center h-40">
+              <div className="h-7 w-7 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+            </div>
+          )}
+          {!loading && !data && (
+            <p className="text-center text-gray-400 py-16">Não foi possível carregar o documento.</p>
+          )}
+          {!loading && data && (
+            <div className="px-10 py-8">
+              {data.header && (
+                <div className="text-sm text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700 pb-3 mb-6 whitespace-pre-wrap">
+                  {data.header}
+                </div>
+              )}
+              <div
+                className="prose dark:prose-invert max-w-none text-base leading-relaxed"
+                dangerouslySetInnerHTML={{ __html: data.html }}
+              />
+              {data.footer && (
+                <div className="text-sm text-gray-500 dark:text-gray-400 border-t border-gray-200 dark:border-gray-700 pt-3 mt-10 whitespace-pre-wrap">
+                  {data.footer}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Footer meta */}
+        {data && (
+          <div className="px-6 py-2 border-t border-gray-100 dark:border-gray-800 flex-shrink-0 flex items-center justify-between">
+            <span className="text-xs text-gray-400">
+              Atualizado em {new Date(data.updatedAt).toLocaleString("pt-BR")}
+            </span>
+            <span className="text-xs text-gray-400">Somente leitura</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Version History Panel ────────────────────────────────────────────────────
 function VersionHistoryPanel({
   versions,
@@ -1519,6 +1629,10 @@ function EditorPageInner() {
   const [docSearch, setDocSearch] = useState("");
   const [tagFilter, setTagFilter] = useState("");
   const [showShortcuts, setShowShortcuts] = useState(false);
+  // Document viewer state
+  const [viewDocId, setViewDocId] = useState<string | null>(null);
+  const [viewDocData, setViewDocData] = useState<ViewDocData | null>(null);
+  const [viewDocLoading, setViewDocLoading] = useState(false);
 
   const getHeadingValue = useCallback((ed: ReturnType<typeof useEditor> | null): number => {
     if (!ed) return 0;
@@ -1533,6 +1647,32 @@ function EditorPageInner() {
     const attrs = ed.getAttributes("textStyle");
     return attrs?.fontFamily || "";
   }, []);
+
+  const handleViewDocument = useCallback(async (id: string) => {
+    setViewDocId(id);
+    setViewDocData(null);
+    setViewDocLoading(true);
+    const res = await fetch(`/api/documents/${id}`);
+    if (res.ok) {
+      const data = await res.json();
+      const meta = parseDocContent(data.document.content || "");
+      setViewDocData({
+        id: data.document.id,
+        title: data.document.title,
+        html: meta.html || "",
+        header: meta.header,
+        footer: meta.footer,
+        updatedAt: data.document.updatedAt,
+      });
+    }
+    setViewDocLoading(false);
+  }, []);
+
+  const handleEditFromViewer = useCallback((id: string) => {
+    setViewDocId(null);
+    setViewDocData(null);
+    router.push(`/editor?id=${id}`);
+  }, [router]);
 
   const editor = useEditor({
     extensions: [
@@ -2151,19 +2291,28 @@ function EditorPageInner() {
                       ? "bg-blue-50 dark:bg-blue-900/20"
                       : "hover:bg-gray-50 dark:hover:bg-gray-800"
                   }`}
-                  onClick={() => router.push(`/editor?id=${doc.id}`)}
+                  onClick={() => handleViewDocument(doc.id)}
                 >
                   <div className="flex items-center gap-1.5 min-w-0">
                     <FileText className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
                     <span className="truncate text-xs text-gray-700 dark:text-gray-300">{doc.title}</span>
                   </div>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handleDeleteDocument(doc.id); }}
-                    className="hidden group-hover:block text-gray-400 hover:text-red-500 flex-shrink-0 ml-1"
-                    title="Excluir"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </button>
+                  <div className="hidden group-hover:flex items-center gap-0.5 flex-shrink-0 ml-1">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); router.push(`/editor?id=${doc.id}`); }}
+                      className="text-gray-400 hover:text-blue-600"
+                      title="Editar"
+                    >
+                      <Pencil className="h-3 w-3" />
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDeleteDocument(doc.id); }}
+                      className="text-gray-400 hover:text-red-500"
+                      title="Excluir"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -2677,6 +2826,14 @@ function EditorPageInner() {
           coords={slashMenu.coords}
           onSelect={handleSlashSelect}
           onClose={() => setSlashMenu(null)}
+        />
+      )}
+      {viewDocId && (
+        <DocumentViewerModal
+          data={viewDocData}
+          loading={viewDocLoading}
+          onClose={() => { setViewDocId(null); setViewDocData(null); }}
+          onEdit={handleEditFromViewer}
         />
       )}
     </div>
