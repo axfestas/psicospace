@@ -8,12 +8,13 @@ export const runtime = "edge";
 // Embedded migrations — add new entries here whenever the schema changes.
 // Each entry maps to a file under prisma/migrations/<name>/migration.sql.
 // The `sql` field contains the exact contents of that file.
+// All CREATE TABLE statements use IF NOT EXISTS so they are safe to re-run
+// if a migration was previously applied outside the admin panel.
 // ---------------------------------------------------------------------------
 const MIGRATIONS: { name: string; sql: string }[] = [
   {
     name: "20260408021614_init",
-    sql: `-- CreateTable
-CREATE TABLE "User" (
+    sql: `CREATE TABLE IF NOT EXISTS "User" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "name" TEXT NOT NULL,
     "email" TEXT NOT NULL,
@@ -22,17 +23,13 @@ CREATE TABLE "User" (
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" DATETIME NOT NULL
 );
-
--- CreateTable
-CREATE TABLE "Period" (
+CREATE TABLE IF NOT EXISTS "Period" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "name" TEXT NOT NULL,
     "order" INTEGER NOT NULL,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
-
--- CreateTable
-CREATE TABLE "Discipline" (
+CREATE TABLE IF NOT EXISTS "Discipline" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "name" TEXT NOT NULL,
     "periodId" TEXT NOT NULL,
@@ -40,9 +37,7 @@ CREATE TABLE "Discipline" (
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "Discipline_periodId_fkey" FOREIGN KEY ("periodId") REFERENCES "Period" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
-
--- CreateTable
-CREATE TABLE "Material" (
+CREATE TABLE IF NOT EXISTS "Material" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "title" TEXT NOT NULL,
     "type" TEXT NOT NULL,
@@ -53,9 +48,7 @@ CREATE TABLE "Material" (
     CONSTRAINT "Material_disciplineId_fkey" FOREIGN KEY ("disciplineId") REFERENCES "Discipline" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT "Material_uploadedById_fkey" FOREIGN KEY ("uploadedById") REFERENCES "User" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
-
--- CreateTable
-CREATE TABLE "MaterialProgress" (
+CREATE TABLE IF NOT EXISTS "MaterialProgress" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "userId" TEXT NOT NULL,
     "materialId" TEXT NOT NULL,
@@ -63,9 +56,7 @@ CREATE TABLE "MaterialProgress" (
     CONSTRAINT "MaterialProgress_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT "MaterialProgress_materialId_fkey" FOREIGN KEY ("materialId") REFERENCES "Material" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
-
--- CreateTable
-CREATE TABLE "Event" (
+CREATE TABLE IF NOT EXISTS "Event" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "title" TEXT NOT NULL,
     "description" TEXT,
@@ -75,9 +66,7 @@ CREATE TABLE "Event" (
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "Event_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
-
--- CreateTable
-CREATE TABLE "Task" (
+CREATE TABLE IF NOT EXISTS "Task" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "title" TEXT NOT NULL,
     "completed" BOOLEAN NOT NULL DEFAULT false,
@@ -86,9 +75,7 @@ CREATE TABLE "Task" (
     "dueDate" DATETIME,
     CONSTRAINT "Task_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
-
--- CreateTable
-CREATE TABLE "Note" (
+CREATE TABLE IF NOT EXISTS "Note" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "content" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
@@ -96,9 +83,7 @@ CREATE TABLE "Note" (
     "updatedAt" DATETIME NOT NULL,
     CONSTRAINT "Note_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
-
--- CreateTable
-CREATE TABLE "Document" (
+CREATE TABLE IF NOT EXISTS "Document" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "title" TEXT NOT NULL,
     "content" TEXT NOT NULL,
@@ -107,9 +92,7 @@ CREATE TABLE "Document" (
     "updatedAt" DATETIME NOT NULL,
     CONSTRAINT "Document_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
-
--- CreateTable
-CREATE TABLE "Notification" (
+CREATE TABLE IF NOT EXISTS "Notification" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "userId" TEXT NOT NULL,
     "title" TEXT NOT NULL,
@@ -118,17 +101,28 @@ CREATE TABLE "Notification" (
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "Notification_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
-
--- CreateIndex
-CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
-
--- CreateIndex
-CREATE UNIQUE INDEX "MaterialProgress_userId_materialId_key" ON "MaterialProgress"("userId", "materialId");`,
+CREATE UNIQUE INDEX IF NOT EXISTS "User_email_key" ON "User"("email");
+CREATE UNIQUE INDEX IF NOT EXISTS "MaterialProgress_userId_materialId_key" ON "MaterialProgress"("userId", "materialId");`,
+  },
+  {
+    name: "20260408032243_add_email_verification_notifications",
+    sql: `ALTER TABLE "User" ADD COLUMN "emailVerified" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "User" ADD COLUMN "emailVerificationToken" TEXT;
+ALTER TABLE "Notification" ADD COLUMN "type" TEXT NOT NULL DEFAULT 'info';`,
+  },
+  {
+    name: "20260408220000_add_reset_token_avatar",
+    sql: `ALTER TABLE "User" ADD COLUMN "passwordResetToken" TEXT;
+ALTER TABLE "User" ADD COLUMN "passwordResetExpires" DATETIME;
+ALTER TABLE "User" ADD COLUMN "avatarUrl" TEXT;`,
+  },
+  {
+    name: "20260408220100_apply_avatar_superadmin",
+    sql: `UPDATE "User" SET "role" = 'SUPERADMIN' WHERE "email" = 'alexmattinelli@outlook.com';`,
   },
   {
     name: "20260409000000_add_library_item",
-    sql: `-- CreateTable
-CREATE TABLE "LibraryItem" (
+    sql: `CREATE TABLE IF NOT EXISTS "LibraryItem" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "title" TEXT NOT NULL,
     "description" TEXT,
@@ -138,8 +132,6 @@ CREATE TABLE "LibraryItem" (
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "LibraryItem_uploadedById_fkey" FOREIGN KEY ("uploadedById") REFERENCES "User" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
-
--- AlterTable: add libraryItemId to Material
 ALTER TABLE "Material" ADD COLUMN "libraryItemId" TEXT REFERENCES "LibraryItem"("id") ON DELETE SET NULL ON UPDATE CASCADE;`,
   },
 ];
@@ -147,6 +139,28 @@ ALTER TABLE "Material" ADD COLUMN "libraryItemId" TEXT REFERENCES "LibraryItem"(
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+// Split a migration SQL string into individual statements so each can be
+// executed and error-checked independently. This is necessary because D1's
+// exec() stops at the first failing statement and we need to distinguish
+// "already exists / duplicate column" (safe to skip) from real errors.
+function splitSqlStatements(sql: string): string[] {
+  return sql
+    .split(";")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0 && !s.startsWith("--"));
+}
+
+// Returns true if the error message represents an idempotency-safe condition
+// (table/index already exists, or column already exists).
+function isAlreadyExistsError(message: string): boolean {
+  const lower = message.toLowerCase();
+  return (
+    lower.includes("already exists") ||
+    lower.includes("duplicate column name") ||
+    lower.includes("duplicate column")
+  );
+}
 
 async function getD1(): Promise<CfD1Database> {
   const { env } = getRequestContext();
@@ -236,7 +250,21 @@ export async function POST() {
 
     for (const migration of pending) {
       try {
-        await d1.exec(migration.sql);
+        // Execute each statement individually so that idempotency-safe errors
+        // (table/column already exists) do not abort the whole migration.
+        const statements = splitSqlStatements(migration.sql);
+        for (const stmt of statements) {
+          try {
+            await d1.exec(stmt + ";");
+          } catch (stmtErr) {
+            const msg = stmtErr instanceof Error ? stmtErr.message : String(stmtErr);
+            if (isAlreadyExistsError(msg)) {
+              // Column or table already exists — safe to continue.
+              continue;
+            }
+            throw stmtErr;
+          }
+        }
         await d1
           .prepare(
             "INSERT INTO _psico_migrations (name, applied_at) VALUES (?, datetime('now'))"
@@ -247,7 +275,7 @@ export async function POST() {
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         results.push({ name: migration.name, success: false, error: message });
-        // Stop on first failure to preserve order integrity
+        // Stop on first real failure to preserve order integrity
         break;
       }
     }
