@@ -50,8 +50,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     if (!res.ok) {
-      const data = await res.json();
-      throw new Error(data.error || "Erro ao fazer login");
+      let errorMessage = "Erro ao fazer login";
+      try {
+        const data = await res.json();
+        errorMessage = data.error || errorMessage;
+      } catch {
+        // response was not JSON (e.g., an HTML error page from the server)
+      }
+      throw new Error(errorMessage);
     }
 
     const data = await res.json();
@@ -66,8 +72,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     if (!res.ok) {
-      const data = await res.json();
-      throw new Error(data.error || "Erro ao criar conta");
+      let errorMessage = "Erro ao criar conta";
+      try {
+        const data = await res.json();
+        errorMessage = data.error || errorMessage;
+      } catch {
+        // response was not JSON (e.g., an HTML error page from the server)
+      }
+      throw new Error(errorMessage);
     }
 
     const data = await res.json();
