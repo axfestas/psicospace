@@ -66,7 +66,8 @@ export function Sidebar({ open, onClose }: SidebarProps) {
       >
         <div className="flex h-16 items-center justify-between px-6 border-b border-gray-200 dark:border-gray-700">
           <Link href="/dashboard" className="flex items-center gap-2" onClick={onClose}>
-            <span className="text-2xl font-bold text-blue-600">Ψ</span>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.svg" alt="PsicoSpace" width={32} height={32} className="rounded-lg" />
             <span className="text-lg font-bold text-gray-900 dark:text-gray-100">
               PsicoSpace
             </span>
