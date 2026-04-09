@@ -46,6 +46,7 @@ model User {
   notifications     Notification[]
   materialProgress  MaterialProgress[]
   uploadedMaterials Material[]
+  libraryItems      LibraryItem[]
 }
 
 model Period {
@@ -73,10 +74,24 @@ model Material {
   url          String
   disciplineId String
   uploadedById String
+  libraryItemId String?
   createdAt    DateTime         @default(now())
   discipline   Discipline       @relation(fields: [disciplineId], references: [id], onDelete: Cascade)
   uploadedBy   User             @relation(fields: [uploadedById], references: [id])
+  libraryItem  LibraryItem?     @relation(fields: [libraryItemId], references: [id], onDelete: SetNull)
   progress     MaterialProgress[]
+}
+
+model LibraryItem {
+  id           String       @id @default(cuid())
+  title        String
+  description  String?
+  type         MaterialType
+  url          String
+  uploadedById String
+  createdAt    DateTime     @default(now())
+  uploadedBy   User         @relation(fields: [uploadedById], references: [id])
+  materials    Material[]
 }
 
 model MaterialProgress {
