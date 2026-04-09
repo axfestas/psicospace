@@ -3,6 +3,9 @@ compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
 pages_build_output_dir = ".vercel/output/static"
 
+[vars]
+EMAIL_FROM = "PsicoSpace <onboarding@resend.dev>"
+
 [[d1_databases]]
 binding = "d1_psi"
 database_name = "d1_psi"
