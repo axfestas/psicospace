@@ -34,7 +34,7 @@ import {
   FileDown, BookMarked, Type, Settings, StickyNote, PanelTop, PanelBottom,
   MessageSquare, Upload, LayoutTemplate, Eye, EyeOff, Target, Clock,
   Maximize2, Minimize2, Tag, Keyboard, Hash, Filter, ChevronRight, Pencil,
-  Scissors, GitMerge, SpellCheck, BookText, GraduationCap, Sparkles,
+  Scissors, GitMerge, SpellCheck, BookText, GraduationCap,
   AlignHorizontalDistributeCenter, Ruler, FilePlus2,
 } from "lucide-react";
 
@@ -149,67 +149,6 @@ const DOCUMENT_TEMPLATES: DocTemplate[] = [
 <p>Sintetize as principais conclusões do trabalho.</p>
 <h2>Referências</h2>
 <p>SOBRENOME, Nome. <em>Título da obra</em>. Cidade: Editora, Ano.</p>`,
-  },
-  {
-    id: "relatorio_clinico",
-    label: "Relatório Clínico",
-    description: "Relatório de acompanhamento psicológico",
-    title: "Relatório Clínico Psicológico",
-    html: `<h1>Relatório Clínico Psicológico</h1>
-<p><strong>Data:</strong> ___/___/______</p>
-<p><strong>Psicólogo(a):</strong> _____________________________ &nbsp;&nbsp; <strong>CRP:</strong> __________</p>
-<h2>1. Identificação do Paciente</h2>
-<p><strong>Nome:</strong> _____________________________</p>
-<p><strong>Data de Nascimento:</strong> ___/___/______ &nbsp;&nbsp; <strong>Idade:</strong> ______</p>
-<p><strong>Encaminhado por:</strong> _____________________________</p>
-<h2>2. Motivo do Atendimento</h2>
-<p>Descreva aqui a queixa principal e o motivo do encaminhamento.</p>
-<h2>3. Histórico Clínico Relevante</h2>
-<p>Descreva o histórico clínico, tratamentos anteriores e informações relevantes.</p>
-<h2>4. Procedimentos Utilizados</h2>
-<p>Descreva os instrumentos e técnicas utilizadas no processo avaliativo/terapêutico.</p>
-<h2>5. Observações e Resultados</h2>
-<p>Descreva as observações clínicas e os resultados obtidos.</p>
-<h2>6. Hipótese Diagnóstica</h2>
-<p>Apresente a hipótese diagnóstica conforme CID/DSM (se aplicável).</p>
-<h2>7. Conduta e Recomendações</h2>
-<p>Descreva a conduta adotada e as recomendações para continuidade do tratamento.</p>
-<p style="margin-top: 3em">_____________________________</p>
-<p>Psicólogo(a) Responsável</p>`,
-  },
-  {
-    id: "prontuario",
-    label: "Prontuário",
-    description: "Prontuário psicológico completo",
-    title: "Prontuário Psicológico",
-    html: `<h1>Prontuário Psicológico</h1>
-<h2>Dados de Identificação</h2>
-<p><strong>Nome:</strong> _____________________________</p>
-<p><strong>Data de Nascimento:</strong> ___/___/______</p>
-<p><strong>Gênero:</strong> ____________ &nbsp;&nbsp; <strong>Estado Civil:</strong> ____________</p>
-<p><strong>Profissão:</strong> _____________________________</p>
-<p><strong>Endereço:</strong> _____________________________</p>
-<p><strong>Telefone:</strong> ____________ &nbsp;&nbsp; <strong>E-mail:</strong> _____________________________</p>
-<p><strong>Responsável (se menor):</strong> _____________________________</p>
-<h2>Anamnese</h2>
-<p><strong>Queixa Principal:</strong></p>
-<p>_________________________________________________________</p>
-<p><strong>História do Problema:</strong></p>
-<p>_________________________________________________________</p>
-<p><strong>Histórico Familiar:</strong></p>
-<p>_________________________________________________________</p>
-<p><strong>Histórico de Saúde:</strong></p>
-<p>_________________________________________________________</p>
-<p><strong>Medicações em Uso:</strong></p>
-<p>_________________________________________________________</p>
-<h2>Evolução do Atendimento</h2>
-<p><strong>Sessão 1 — Data:</strong> ___/___/______</p>
-<p>_________________________________________________________</p>
-<p><strong>Sessão 2 — Data:</strong> ___/___/______</p>
-<p>_________________________________________________________</p>
-<h2>Encerramento</h2>
-<p><strong>Data de encerramento:</strong> ___/___/______</p>
-<p><strong>Motivo:</strong> _____________________________</p>`,
   },
   {
     id: "ata",
@@ -1475,72 +1414,6 @@ function AbntCitationModal({
   );
 }
 
-// ── AI Writing Assistant Panel ───────────────────────────────────────────────
-function AiAssistantPanel({
-  onAction,
-  loading,
-  result,
-  onApply,
-  onClose,
-}: {
-  onAction: (a: "summarize" | "rewrite" | "abnt" | "neutral") => void;
-  loading: boolean;
-  result: string;
-  onApply: (text: string) => void;
-  onClose: () => void;
-}) {
-  const actions: { key: "summarize" | "rewrite" | "abnt" | "neutral"; label: string; desc: string }[] = [
-    { key: "summarize", label: "Resumir", desc: "Cria um resumo conciso do texto selecionado" },
-    { key: "rewrite", label: "Reescrever (formal)", desc: "Reescreve em linguagem acadêmica formal" },
-    { key: "abnt", label: "Corrigir ABNT", desc: "Ajusta para normas ABNT (3ª pessoa)" },
-    { key: "neutral", label: "Linguagem neutra", desc: "Converte para linguagem neutra de gênero" },
-  ];
-  return (
-    <div className="ai-panel">
-      <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
-        <span className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
-          <Sparkles className="h-4 w-4 text-purple-500" />
-          Assistente de Escrita
-        </span>
-        <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
-          <X className="h-4 w-4" />
-        </button>
-      </div>
-      <div className="flex-1 overflow-y-auto p-3 space-y-2">
-        <p className="text-xs text-gray-500 dark:text-gray-400">Selecione um trecho do texto e escolha uma ação:</p>
-        {actions.map((a) => (
-          <button
-            key={a.key}
-            disabled={loading}
-            onClick={() => onAction(a.key)}
-            className="w-full text-left rounded-lg border border-gray-200 dark:border-gray-700 p-2.5 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:border-purple-300 transition-colors disabled:opacity-50"
-          >
-            <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{a.label}</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">{a.desc}</p>
-          </button>
-        ))}
-        {loading && (
-          <div className="flex items-center gap-2 py-4 justify-center">
-            <span className="h-4 w-4 animate-spin rounded-full border-2 border-purple-500 border-t-transparent" />
-            <span className="text-xs text-gray-500">Processando...</span>
-          </div>
-        )}
-        {result && !loading && (
-          <div className="mt-3 space-y-2">
-            <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">Resultado:</p>
-            <div className="text-sm text-gray-800 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 max-h-48 overflow-y-auto whitespace-pre-wrap">
-              {result}
-            </div>
-            <Button size="sm" className="w-full" onClick={() => onApply(result)}>
-              <Check className="h-3.5 w-3.5 mr-1" />Substituir seleção
-            </Button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
 // ── Ruler ────────────────────────────────────────────────────────────────────
 function HorizontalRuler({ marginLeft, marginRight, pageWidth = 794 }: { marginLeft: string; marginRight: string; pageWidth?: number }) {
   const parseCm = (val: string) => {
@@ -1948,9 +1821,6 @@ function EditorPageInner() {
   const [trackChanges, setTrackChanges] = useState(false);
   const [spellcheck, setSpellcheck] = useState(false);
   const [showAbntCitation, setShowAbntCitation] = useState(false);
-  const [showAiPanel, setShowAiPanel] = useState(false);
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiResult, setAiResult] = useState("");
   const [showRuler, setShowRuler] = useState(true);
   const [savingStatus, setSavingStatus] = useState<"idle" | "saving" | "saved">("idle");
   const savingStatusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -2349,41 +2219,6 @@ function EditorPageInner() {
     if (trackDeleteMark) tr.removeMark(0, tr.doc.content.size, trackDeleteMark);
     view.dispatch(tr);
     setTrackChanges(false);
-  }, [editor]);
-
-  // ── Etapa 5: AI assistant ────────────────────────────────────────────────────
-  const handleAiAction = useCallback(async (action: "summarize" | "rewrite" | "abnt" | "neutral") => {
-    if (!editor) return;
-    const selectedText = editor.state.doc.cut(
-      editor.state.selection.from,
-      editor.state.selection.to
-    ).textContent || editor.state.doc.textContent;
-    if (!selectedText.trim()) return;
-    setAiLoading(true);
-    setAiResult("");
-    try {
-      const prompts: Record<string, string> = {
-        summarize: `Resuma o seguinte texto de forma concisa em português:\n\n${selectedText}`,
-        rewrite: `Reescreva o seguinte texto em linguagem acadêmica formal em português:\n\n${selectedText}`,
-        abnt: `Corrija o seguinte texto para estar em conformidade com as normas ABNT (linguagem acadêmica, terceira pessoa):\n\n${selectedText}`,
-        neutral: `Reescreva o seguinte texto usando linguagem neutra de gênero em português:\n\n${selectedText}`,
-      };
-      const res = await fetch("/api/ai/assist", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: prompts[action] }),
-      });
-      if (res.ok) {
-        const data = await res.json() as { result?: string; text?: string };
-        setAiResult(data.result || data.text || "Sem resultado.");
-      } else {
-        setAiResult("Erro ao chamar assistente de IA.");
-      }
-    } catch {
-      setAiResult("Erro de rede ao chamar assistente de IA.");
-    } finally {
-      setAiLoading(false);
-    }
   }, [editor]);
 
   // ── TOC navigation ──────────────────────────────────────────────────────────
@@ -3341,9 +3176,6 @@ function EditorPageInner() {
                     <MessageSquare className="h-4 w-4" />
                     {Object.keys(comments).length > 0 && <span className="ml-0.5 text-[10px]">{Object.keys(comments).length}</span>}
                   </ToolbarButton>
-                  <ToolbarButton onClick={() => setShowAiPanel(!showAiPanel)} active={showAiPanel} title="Assistente de escrita com IA">
-                    <Sparkles className="h-4 w-4" />
-                  </ToolbarButton>
                   <Divider />
                   <ToolbarButton onClick={handleAbntMode} title="Modo ABNT (Times 12pt, espaçamento 1.5, margens ABNT)">
                     <GraduationCap className="h-4 w-4" />
@@ -3611,25 +3443,6 @@ function EditorPageInner() {
             charCount={charCount}
             html={editor?.getHTML() || ""}
             onClose={() => setShowDocStats(false)}
-          />
-        )}
-        {showAiPanel && (
-          <AiAssistantPanel
-            onAction={handleAiAction}
-            loading={aiLoading}
-            result={aiResult}
-            onApply={(text) => {
-              if (!editor) return;
-              const { from, to } = editor.state.selection;
-              if (from !== to) {
-                editor.chain().focus().deleteRange({ from, to }).insertContentAt(from, text).run();
-              } else {
-                editor.chain().focus().insertContent(text).run();
-              }
-              setAiResult("");
-              setIsDirty(true);
-            }}
-            onClose={() => { setShowAiPanel(false); setAiResult(""); }}
           />
         )}
         </div>
