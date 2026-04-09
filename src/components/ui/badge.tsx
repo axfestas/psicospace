@@ -34,7 +34,7 @@ export function UserRoleBadge({ role }: { role: string }) {
   const config: Record<string, { label: string; variant: BadgeProps["variant"] }> = {
     ESTUDANTE: { label: "Estudante", variant: "info" },
     DOCENTE: { label: "Docente", variant: "success" },
-    ADMIN: { label: "Administradore", variant: "warning" },
+    ADMIN: { label: "Administrador", variant: "warning" },
     SUPERADMIN: { label: "Super Admin", variant: "danger" },
   };
 
