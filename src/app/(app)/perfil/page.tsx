@@ -14,8 +14,8 @@ import {
 const roleLabels: Record<string, string> = {
   ESTUDANTE: "Estudante",
   DOCENTE: "Docente",
-  ADMIN: "Administrador",
-  SUPERADMIN: "Super Administrador",
+  ADMIN: "Administradore",
+  SUPERADMIN: "Super Administradore",
 };
 
 const roleBadgeColors: Record<string, string> = {

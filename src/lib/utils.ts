@@ -27,8 +27,8 @@ export function getRoleLabel(role: string): string {
   const labels: Record<string, string> = {
     ESTUDANTE: "Estudante",
     DOCENTE: "Docente",
-    ADMIN: "Administrador",
-    SUPERADMIN: "Super Admin",
+    ADMIN: "Administradore",
+    SUPERADMIN: "Super Administradore",
   };
   return labels[role] || role;
 }

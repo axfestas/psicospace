@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
       data: {
         userId: user.id,
         title: "E-mail confirmado ✅",
-        message: "Seu e-mail foi verificado com sucesso. Aproveite todos os recursos do PsicoSpace!",
+        message: "Seu e-mail foi verificado com sucesso. Aproveite todes os recursos do PsicoSpace!",
         type: "success",
       },
     });

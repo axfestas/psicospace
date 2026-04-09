@@ -17,10 +17,8 @@ export async function GET() {
     });
 
     if (!user) {
-      return NextResponse.json({ error: "Usuário não encontrado" }, { status: 404 });
+      return NextResponse.json({ error: "Usuárie não encontrade" }, { status: 404 });
     }
-
-    return NextResponse.json({ user });
   } catch (error) {
     console.error("[auth/me]", error);
     return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 });
@@ -43,7 +41,7 @@ export async function PUT(request: NextRequest) {
 
     const dbUser = await prisma.user.findUnique({ where: { id: auth.userId } });
     if (!dbUser) {
-      return NextResponse.json({ error: "Usuário não encontrado" }, { status: 404 });
+      return NextResponse.json({ error: "Usuárie não encontrade" }, { status: 404 });
     }
 
     const updateData: {

@@ -53,8 +53,8 @@ export async function POST(request: NextRequest) {
     await prisma.notification.create({
       data: {
         userId: user.id,
-        title: "Bem-vindo ao PsicoSpace! 🎉",
-        message: `Olá, ${user.name}! Sua conta foi criada com sucesso. Confirme seu e-mail para aproveitar todos os recursos.`,
+        title: "Bem-vinde ao PsicoSpace! 🎉",
+        message: `Olá, ${user.name}! Sua conta foi criada com sucesso. Confirme seu e-mail para aproveitar todes os recursos.`,
         type: "info",
       },
     });

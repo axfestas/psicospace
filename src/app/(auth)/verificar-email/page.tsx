@@ -36,7 +36,7 @@ function VerifyEmailContent() {
           E-mail confirmado! ✅
         </h1>
         <p className="text-gray-500 dark:text-gray-400 mb-6">
-          Sua conta está verificada. Aproveite todos os recursos do PsicoSpace!
+          Sua conta está verificada. Aproveite todes os recursos do PsicoSpace!
         </p>
         <Link href="/dashboard">
           <Button className="w-full">Ir para o Dashboard</Button>
@@ -126,7 +126,7 @@ function VerifyEmailContent() {
         </p>
       ) : resendStatus === "error" ? (
         <p className="text-sm text-red-600 dark:text-red-400">
-          Não foi possível reenviar. Verifique se você está logado.
+          Não foi possível reenviar. Verifique se você está logade.
         </p>
       ) : (
         <Button onClick={handleResend} disabled={resending} variant="outline" className="w-full">
