@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
       data: {
         userId: user.id,
         title: "Bem-vinde ao PsicoSpace! 🎉",
-        message: `Olá, ${user.name}! Sua conta foi criada com sucesso. Confirme seu e-mail para aproveitar todes os recursos.`,
+        message: `Olá, ${user.name}! Sua conta foi criada com sucesso. Confirme seu e-mail para aproveitar todos os recursos.`,
         type: "info",
       },
     });
