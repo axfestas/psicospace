@@ -15,7 +15,7 @@ const roleLabels: Record<string, string> = {
   ESTUDANTE: "Estudante",
   DOCENTE: "Docente",
   ADMIN: "Administrador",
-  SUPERADMIN: "Super Administrador",
+  SUPERADMIN: "Super Administradore",
 };
 
 const roleBadgeColors: Record<string, string> = {
