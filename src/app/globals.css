@@ -57,16 +57,6 @@ body {
   pointer-events: none;
 }
 
-/* ── Margin presets ─────────────────────────────────────────── */
-.editor-page[data-margin="narrow"] {
-  padding: 48px 48px;
-}
-.editor-page[data-margin="normal"] {
-  padding: 96px 96px;
-}
-.editor-page[data-margin="wide"] {
-  padding: 96px 144px;
-}
 
 /* ── Landscape orientation ──────────────────────────────────── */
 .editor-page[data-orientation="landscape"] {
@@ -132,15 +122,6 @@ body {
   flex: 1;
 }
 
-@media (max-width: 860px) {
-  .editor-page-area {
-    padding: 16px 8px;
-  }
-  .editor-page {
-    padding: 48px 32px;
-  }
-}
-
 .dark .editor-page-area {
   background: #2d2d2d;
 }
@@ -153,13 +134,16 @@ body {
   max-width: 100%;
   min-height: 1123px;   /* A4 at 96 dpi ≈ 297 mm */
   margin: 0 auto;
-  padding: 96px 96px;   /* ≈ 1 inch margins */
+  /* Margins applied via CSS custom properties set from React state */
+  padding-top:    var(--doc-margin-top,    2.5cm);
+  padding-bottom: var(--doc-margin-bottom, 2.5cm);
+  padding-left:   var(--doc-margin-left,   2.5cm);
+  padding-right:  var(--doc-margin-right,  2.5cm);
   box-sizing: border-box;
   position: relative;
 }
 
-/* Visual page-break guide lines every ~1027px of content height
-   (1123px total - 96px top - top border) */
+/* Visual page-break guide line at A4 height */
 .editor-page::after {
   content: "";
   position: absolute;
@@ -182,7 +166,7 @@ body {
 
 /* ProseMirror inside the page */
 .editor-page .ProseMirror {
-  min-height: 931px; /* 1123 - 96 top - 96 bottom */
+  min-height: 700px;
   outline: none;
   font-size: 12pt;
   line-height: 1.6;
@@ -191,6 +175,24 @@ body {
 
 .dark .editor-page .ProseMirror {
   color: #e5e5e5;
+}
+
+/* ── Mobile responsive: cap margins so content is readable ──── */
+@media (max-width: 860px) {
+  .editor-page-area {
+    padding: 16px 8px;
+  }
+  /* Cap margins to prevent content from being squished on narrow screens.
+     Using min() so user settings > mobile cap are gracefully reduced. */
+  .editor-page {
+    padding-top:    min(var(--doc-margin-top,    2.5cm), 1.5cm) !important;
+    padding-bottom: min(var(--doc-margin-bottom, 2.5cm), 1.5cm) !important;
+    padding-left:   min(var(--doc-margin-left,   2.5cm), 1.2cm) !important;
+    padding-right:  min(var(--doc-margin-right,  2.5cm), 1.2cm) !important;
+  }
+  .editor-page .ProseMirror {
+    min-height: 400px;
+  }
 }
 
 /* Task list */

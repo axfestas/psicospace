@@ -43,7 +43,25 @@ interface Document {
   updatedAt: string;
 }
 
-type PageMargin = "narrow" | "normal" | "wide";
+interface PageMargin {
+  top: string;
+  bottom: string;
+  left: string;
+  right: string;
+}
+
+const DEFAULT_MARGIN: PageMargin = { top: "2.5cm", bottom: "2.5cm", left: "2.5cm", right: "2.5cm" };
+
+/** Convert legacy preset strings saved by older versions */
+function normalizeLegacyMargin(m: unknown): PageMargin {
+  if (m && typeof m === "object" && "top" in m) return m as PageMargin;
+  const map: Record<string, PageMargin> = {
+    narrow: { top: "1.2cm", bottom: "1.2cm", left: "1.2cm", right: "1.2cm" },
+    normal: DEFAULT_MARGIN,
+    wide: { top: "2.5cm", bottom: "2.5cm", left: "3.8cm", right: "3.8cm" },
+  };
+  return map[m as string] ?? DEFAULT_MARGIN;
+}
 type PageOrientation = "portrait" | "landscape";
 
 interface CommentData {
@@ -910,14 +928,21 @@ function PageSettingsPanel({
   onOrientationChange: (o: PageOrientation) => void;
   onClose: () => void;
 }) {
-  const margins: { label: string; value: PageMargin }[] = [
-    { label: "Estreito (12mm)", value: "narrow" },
-    { label: "Normal (25mm)", value: "normal" },
-    { label: "Largo (38mm)", value: "wide" },
+  const presets: { label: string; value: PageMargin }[] = [
+    { label: "Estreito", value: { top: "1.2cm", bottom: "1.2cm", left: "1.2cm", right: "1.2cm" } },
+    { label: "Normal",   value: DEFAULT_MARGIN },
+    { label: "Largo",    value: { top: "2.5cm", bottom: "2.5cm", left: "3.8cm", right: "3.8cm" } },
+    { label: "ABNT",     value: { top: "3cm",   bottom: "2cm",   left: "3cm",   right: "2cm" } },
+  ];
+  const sides: { key: keyof PageMargin; label: string }[] = [
+    { key: "top",    label: "Superior" },
+    { key: "bottom", label: "Inferior" },
+    { key: "left",   label: "Esquerda" },
+    { key: "right",  label: "Direita" },
   ];
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 w-80 space-y-5">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 w-96 space-y-5">
         <div className="flex items-center justify-between">
           <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
             <Settings className="h-4 w-4" />
@@ -925,24 +950,44 @@ function PageSettingsPanel({
           </h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="h-4 w-4" /></button>
         </div>
+
+        {/* Margin presets */}
         <div>
-          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Margens</p>
-          <div className="space-y-1">
-            {margins.map((m) => (
+          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Preset de Margens</p>
+          <div className="flex gap-1 flex-wrap">
+            {presets.map((p) => (
               <button
-                key={m.value}
-                onClick={() => onMarginChange(m.value)}
-                className={`w-full text-left text-sm px-3 py-2 rounded-lg transition-colors ${
-                  margin === m.value
-                    ? "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 font-medium"
-                    : "hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
-                }`}
+                key={p.label}
+                onClick={() => onMarginChange(p.value)}
+                className="text-xs px-2.5 py-1.5 rounded border border-gray-200 dark:border-gray-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-400 text-gray-700 dark:text-gray-300 transition-colors"
               >
-                {m.label}
+                {p.label}
               </button>
             ))}
           </div>
         </div>
+
+        {/* Individual margin inputs */}
+        <div>
+          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Margens Personalizadas</p>
+          <div className="grid grid-cols-2 gap-3">
+            {sides.map(({ key, label }) => (
+              <div key={key}>
+                <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">{label}</label>
+                <input
+                  type="text"
+                  value={margin[key]}
+                  onChange={(e) => onMarginChange({ ...margin, [key]: e.target.value })}
+                  placeholder="ex: 2.5cm"
+                  className="w-full text-sm px-2 py-1.5 border border-gray-200 dark:border-gray-600 rounded-lg bg-transparent text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                />
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-gray-400 mt-2">Aceita: cm, mm, in, px (ex: 2.5cm, 25mm)</p>
+        </div>
+
+        {/* Orientation */}
         <div>
           <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Orientação</p>
           <div className="flex gap-2">
@@ -961,6 +1006,7 @@ function PageSettingsPanel({
             ))}
           </div>
         </div>
+
         <div className="flex justify-end">
           <Button size="sm" onClick={onClose}>
             <Check className="h-3.5 w-3.5 mr-1" />Aplicar
@@ -1601,7 +1647,7 @@ function EditorPageInner() {
   // Etapa 2 state
   const [header, setHeader] = useState("");
   const [footer, setFooter] = useState("");
-  const [pageMargin, setPageMargin] = useState<PageMargin>("normal");
+  const [pageMargin, setPageMargin] = useState<PageMargin>(DEFAULT_MARGIN);
   const [pageOrientation, setPageOrientation] = useState<PageOrientation>("portrait");
   const [showPageSettings, setShowPageSettings] = useState(false);
   const [showHeaderFooter, setShowHeaderFooter] = useState(false);
@@ -1762,7 +1808,7 @@ function EditorPageInner() {
       editor?.commands.setContent(meta.html || "");
       if (meta.header !== undefined) setHeader(meta.header);
       if (meta.footer !== undefined) setFooter(meta.footer);
-      if (meta.margin) setPageMargin(meta.margin);
+      if (meta.margin) setPageMargin(normalizeLegacyMargin(meta.margin));
       if (meta.orientation) setPageOrientation(meta.orientation);
       if (meta.comments) setComments(meta.comments);
       else setComments({});
@@ -1838,7 +1884,7 @@ function EditorPageInner() {
     editor?.commands.setContent("");
     setHeader("");
     setFooter("");
-    setPageMargin("normal");
+    setPageMargin(DEFAULT_MARGIN);
     setPageOrientation("portrait");
     setComments({});
     setVersions([]);
@@ -1866,7 +1912,7 @@ function EditorPageInner() {
     editor?.commands.setContent(tpl.html);
     setHeader(tpl.header || "");
     setFooter(tpl.footer || "");
-    setPageMargin("normal");
+    setPageMargin(DEFAULT_MARGIN);
     setPageOrientation("portrait");
     setComments({});
     setVersions([]);
@@ -1931,12 +1977,10 @@ function EditorPageInner() {
       .replace(/'/g, "&#39;");
     const safeHeader = header.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     const safeFooter = footer.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    const marginMap = { narrow: "12mm", normal: "25mm", wide: "38mm" };
-    const m = marginMap[pageMargin];
     const isLandscape = pageOrientation === "landscape";
     win.document.write(`<!DOCTYPE html><html><head><title>${safeTitle}</title>
       <style>
-        @page{size:${isLandscape ? "landscape" : "portrait"};margin:${m};}
+        @page{size:${isLandscape ? "landscape" : "portrait"};margin-top:${pageMargin.top};margin-bottom:${pageMargin.bottom};margin-left:${pageMargin.left};margin-right:${pageMargin.right};}
         body{font-family:Arial,sans-serif;line-height:1.6;}
         h1,h2,h3,h4,h5,h6{margin-top:1.5em;}
         table{border-collapse:collapse;width:100%;}
@@ -1993,15 +2037,30 @@ function EditorPageInner() {
   const handleExportPDF = async () => {
     if (!editor) return;
     const { jsPDF } = await import("jspdf");
-    const doc = new jsPDF({ unit: "pt", format: "a4" });
+    const isLandscape = pageOrientation === "landscape";
+    const doc = new jsPDF({ unit: "pt", format: "a4", orientation: isLandscape ? "landscape" : "portrait" });
     const pageWidth = doc.internal.pageSize.getWidth();
-    const margin = 60;
-    const maxWidth = pageWidth - margin * 2;
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const cssToP = (val: string) => {
+      const m = val.match(/^([\d.]+)(cm|mm|in|px)?$/);
+      if (!m) return 56.7; // fallback ~2cm
+      const n = parseFloat(m[1]);
+      switch (m[2]) {
+        case "cm": return n * 28.35;
+        case "mm": return n * 2.835;
+        case "in": return n * 72;
+        case "px": return n * 0.75;
+        default:   return n * 28.35;
+      }
+    };
+    const mTop  = cssToP(pageMargin.top);
+    const mLeft = cssToP(pageMargin.left);
+    const maxWidth = pageWidth - mLeft - cssToP(pageMargin.right);
     doc.setFontSize(16);
-    doc.text(title, margin, margin);
+    doc.text(title, mLeft, mTop);
     doc.setFontSize(11);
     const lines = doc.splitTextToSize(editor.state.doc.textContent, maxWidth);
-    doc.text(lines, margin, margin + 28);
+    doc.text(lines, mLeft, mTop + 28);
     doc.save(`${title}.pdf`);
   };
 
@@ -2679,8 +2738,13 @@ function EditorPageInner() {
           <div className="editor-page-area">
             <div
               className="editor-page"
-              data-margin={pageMargin}
               data-orientation={pageOrientation}
+              style={{
+                "--doc-margin-top":    pageMargin.top,
+                "--doc-margin-bottom": pageMargin.bottom,
+                "--doc-margin-left":   pageMargin.left,
+                "--doc-margin-right":  pageMargin.right,
+              } as React.CSSProperties}
             >
               {/* Cabeçalho */}
               {showHeaderFooter && (
