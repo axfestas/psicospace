@@ -1954,6 +1954,9 @@ function EditorPageInner() {
   const [showRuler, setShowRuler] = useState(true);
   const [savingStatus, setSavingStatus] = useState<"idle" | "saving" | "saved">("idle");
   const savingStatusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [activeToolbarTab, setActiveToolbarTab] = useState<"inicio" | "inserir" | "layout" | "revisao" | "exibir">("inicio");
+  const mode: "list" | "editor" = (docId || editorOpen) ? "editor" : "list";
 
   const getHeadingValue = useCallback((ed: ReturnType<typeof useEditor> | null): number => {
     if (!ed) return 0;
@@ -2178,6 +2181,7 @@ function EditorPageInner() {
     setVersions([]);
     setDocTags([]);
     setIsDirty(false);
+    setEditorOpen(true);
     router.push("/editor");
   };
 
@@ -2206,6 +2210,7 @@ function EditorPageInner() {
     setComments({});
     setVersions([]);
     setIsDirty(true);
+    setEditorOpen(true);
     router.push("/editor");
   };
 
@@ -2256,6 +2261,13 @@ function EditorPageInner() {
     setDocTags((prev) => prev.filter((t) => t !== tag));
     setIsDirty(true);
   };
+
+  const handleBackToList = useCallback(() => {
+    setEditorOpen(false);
+    setCurrentDoc(null);
+    router.push("/editor");
+    loadDocuments();
+  }, [router, loadDocuments]);
 
   // ── Etapa 1: Modo ABNT ──────────────────────────────────────────────────────
   const handleAbntMode = useCallback(() => {
@@ -2667,7 +2679,104 @@ function EditorPageInner() {
 
   return (
     <>
-      {/* ── Reading Mode overlay ─────────────────────────────────────── */}
+      {/* Template picker – available in both list and editor modes */}
+      {showTemplatePicker && (
+        <TemplatePickerDialog
+          onConfirm={handleNewFromTemplate}
+          onCancel={() => setShowTemplatePicker(false)}
+        />
+      )}
+
+      {/* ── Document List Home ───────────────────────────────────────── */}
+      {mode === "list" && (
+        <div className="flex flex-col h-full">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-6 flex-shrink-0">
+            <div className="flex items-center gap-3">
+              <FileText className="h-6 w-6 text-blue-600" />
+              <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">Meus Documentos</h1>
+              {documents.length > 0 && (
+                <span className="text-sm text-gray-400 dark:text-gray-500">({documents.length})</span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => setShowTemplatePicker(true)}>
+                <LayoutTemplate className="h-4 w-4 mr-1.5" />
+                A partir de template
+              </Button>
+              <Button size="sm" onClick={handleNewDocument}>
+                <Plus className="h-4 w-4 mr-1.5" />
+                Novo Documento
+              </Button>
+            </div>
+          </div>
+          {/* Search */}
+          <div className="relative mb-5 max-w-sm flex-shrink-0">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <input
+              value={docSearch}
+              onChange={(e) => setDocSearch(e.target.value)}
+              placeholder="Buscar documentos..."
+              className="w-full pl-9 pr-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-700 dark:text-gray-300"
+            />
+            {docSearch && (
+              <button onClick={() => setDocSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+          {/* Document grid */}
+          <div className="flex-1 overflow-y-auto">
+            {documents.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-24 text-center">
+                <div className="w-16 h-16 rounded-full bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center mb-4">
+                  <FileText className="h-8 w-8 text-blue-400" />
+                </div>
+                <p className="text-gray-600 dark:text-gray-400 font-medium mb-1">Nenhum documento ainda</p>
+                <p className="text-gray-400 dark:text-gray-500 text-sm mb-4">Crie seu primeiro documento para começar.</p>
+                <Button size="sm" onClick={handleNewDocument}>
+                  <Plus className="h-4 w-4 mr-1.5" />
+                  Novo Documento
+                </Button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {documents
+                  .filter((doc) => !docSearch || doc.title.toLowerCase().includes(docSearch.toLowerCase()))
+                  .map((doc) => (
+                    <div
+                      key={doc.id}
+                      className="group relative bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-md transition-all"
+                      onClick={() => router.push(`/editor?id=${doc.id}`)}
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="w-10 h-10 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center flex-shrink-0">
+                          <FileText className="h-5 w-5 text-blue-500" />
+                        </div>
+                        <div className="hidden group-hover:flex items-center gap-1 -mt-0.5 -mr-0.5">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleDeleteDocument(doc.id); }}
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                            title="Excluir documento"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100 line-clamp-2 mb-2 leading-snug">{doc.title}</p>
+                      <p className="text-xs text-gray-400 dark:text-gray-500">{formatDate(doc.updatedAt)}</p>
+                    </div>
+                  ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Editor View ──────────────────────────────────────────────── */}
+      {mode === "editor" && (
+      <>
+      {/* Reading Mode overlay */}
       {readingMode && (
         <div className="fixed inset-0 z-40 bg-white dark:bg-gray-950 overflow-y-auto">
           <div className="max-w-3xl mx-auto px-8 py-12">
@@ -2705,7 +2814,7 @@ function EditorPageInner() {
         </div>
       )}
       <div className="flex h-full gap-4">
-      {/* Document list sidebar */}
+      {/* Document list sidebar (lg+) */}
       <div className="w-56 flex-shrink-0 hidden lg:flex flex-col gap-2">
         <Card className="flex-1 overflow-hidden">
           <CardContent className="p-3 h-full flex flex-col gap-2">
@@ -2813,8 +2922,16 @@ function EditorPageInner() {
 
       {/* Main editor area */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Title + tags + action buttons */}
+        {/* Title + Back button + Save row */}
         <div className="mb-2 flex items-center gap-2 flex-wrap">
+          <button
+            onClick={handleBackToList}
+            className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 flex-shrink-0 px-2 py-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            title="Voltar para a lista de documentos"
+          >
+            <ChevronRight className="h-4 w-4 rotate-180 flex-shrink-0" />
+            <span className="hidden sm:inline text-xs">Documentos</span>
+          </button>
           <div className="flex-1 min-w-40 flex flex-col gap-1">
             <Input
               value={title}
@@ -2847,113 +2964,6 @@ function EditorPageInner() {
             </div>
           </div>
           <div className="flex items-center gap-1.5 flex-shrink-0">
-            <Button size="sm" onClick={() => setShowShortcuts(true)} variant="outline" title="Atalhos de teclado (Ctrl+/)">
-              <Keyboard className="h-4 w-4" />
-            </Button>
-            <Button size="sm" onClick={() => setShowTemplatePicker(true)} variant="outline" title="Novo a partir de template">
-              <LayoutTemplate className="h-4 w-4" />
-            </Button>
-            <Button size="sm" onClick={() => setShowVersionHistory(!showVersionHistory)} variant={showVersionHistory ? "default" : "outline"} title="Histórico de versões">
-              <Clock className="h-4 w-4" />
-              {versions.length > 0 && <span className="ml-1 text-xs">{versions.length}</span>}
-            </Button>
-            <Button size="sm" onClick={() => setShowDocStats(!showDocStats)} variant={showDocStats ? "default" : "outline"} title="Estatísticas do documento">
-              <BookMarked className="h-4 w-4" />
-            </Button>
-            <Button size="sm" onClick={() => setReadingMode(!readingMode)} variant={readingMode ? "default" : "outline"} title={readingMode ? "Sair do modo leitura (Esc)" : "Modo leitura"}>
-              {readingMode ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </Button>
-            <Button size="sm" onClick={() => setShowComments(!showComments)} variant={showComments ? "default" : "outline"} title="Comentários">
-              <MessageSquare className="h-4 w-4" />
-              {Object.keys(comments).length > 0 && (
-                <span className="ml-1 text-xs">{Object.keys(comments).length}</span>
-              )}
-            </Button>
-            <Button size="sm" onClick={() => setShowFindReplace(!showFindReplace)} variant="outline" title="Localizar/Substituir (Ctrl+F)">
-              <Search className="h-4 w-4" />
-            </Button>
-            <Button size="sm" onClick={() => setShowToc(!showToc)} variant="outline" title="Sumário">
-              <BookOpen className="h-4 w-4" />
-            </Button>
-            <Button size="sm" onClick={() => setShowHeaderFooter(!showHeaderFooter)} variant={showHeaderFooter ? "default" : "outline"} title="Cabeçalho e Rodapé">
-              <PanelTop className="h-4 w-4" />
-            </Button>
-            <Button size="sm" onClick={() => setShowPageSettings(true)} variant="outline" title="Configurações de Página">
-              <Settings className="h-4 w-4" />
-            </Button>
-            {/* Etapa 1: ABNT Mode */}
-            <Button size="sm" onClick={handleAbntMode} variant="outline" title="Modo ABNT (Times 12pt, espaçamento 1.5, margens ABNT)">
-              <GraduationCap className="h-4 w-4" />
-            </Button>
-            {/* Etapa 3: Heading Numbers */}
-            <Button
-              size="sm"
-              onClick={() => setHeadingNumbers(!headingNumbers)}
-              variant={headingNumbers ? "default" : "outline"}
-              title="Numeração de títulos (1, 1.1, 1.1.1)"
-            >
-              <Hash className="h-4 w-4" />
-            </Button>
-            {/* Etapa 4: Track Changes */}
-            <Button
-              size="sm"
-              onClick={() => setTrackChanges(!trackChanges)}
-              variant={trackChanges ? "default" : "outline"}
-              title={trackChanges ? "Modo revisão ATIVO — clique para desativar" : "Ativar modo de revisão"}
-              className={trackChanges ? "bg-orange-500 hover:bg-orange-600 text-white border-orange-500" : ""}
-            >
-              <GitMerge className="h-4 w-4" />
-            </Button>
-            {trackChanges && (
-              <>
-                <Button size="sm" onClick={handleAcceptAllChanges} variant="outline" title="Aceitar todas as alterações" className="text-green-600 border-green-300 hover:bg-green-50">
-                  <Check className="h-4 w-4" />
-                </Button>
-                <Button size="sm" onClick={handleRejectAllChanges} variant="outline" title="Rejeitar todas as alterações" className="text-red-600 border-red-300 hover:bg-red-50">
-                  <X className="h-4 w-4" />
-                </Button>
-              </>
-            )}
-            {/* Etapa 5: Spellcheck */}
-            <Button
-              size="sm"
-              onClick={() => setSpellcheck(!spellcheck)}
-              variant={spellcheck ? "default" : "outline"}
-              title={spellcheck ? "Correção ortográfica ATIVA" : "Ativar correção ortográfica PT-BR"}
-            >
-              <SpellCheck className="h-4 w-4" />
-            </Button>
-            {/* Etapa 5: AI Assistant */}
-            <Button
-              size="sm"
-              onClick={() => setShowAiPanel(!showAiPanel)}
-              variant={showAiPanel ? "default" : "outline"}
-              title="Assistente de escrita com IA"
-              className={showAiPanel ? "bg-purple-600 hover:bg-purple-700 text-white border-purple-600" : ""}
-            >
-              <Sparkles className="h-4 w-4" />
-            </Button>
-            {/* Etapa 2: Ruler toggle */}
-            <Button
-              size="sm"
-              onClick={() => setShowRuler(!showRuler)}
-              variant={showRuler ? "default" : "outline"}
-              title="Régua"
-            >
-              <Ruler className="h-4 w-4" />
-            </Button>
-            <Button size="sm" onClick={handlePrint} variant="outline" title="Imprimir">
-              <Printer className="h-4 w-4" />
-            </Button>
-            <Button size="sm" onClick={handleExportHTML} variant="outline" title="Exportar HTML">
-              <Download className="h-4 w-4" />
-            </Button>
-            <Button size="sm" onClick={handleExportTXT} variant="outline" title="Exportar TXT">
-              <FileText className="h-4 w-4" />
-            </Button>
-            <Button size="sm" onClick={handleExportPDF} variant="outline" title="Exportar PDF">
-              <FileDown className="h-4 w-4" />
-            </Button>
             <Button size="sm" onClick={() => handleSave()} loading={saving}>
               <Save className="h-4 w-4 mr-1" />
               {saved ? "Salvo!" : isDirty ? "Salvar•" : "Salvar"}
@@ -2961,7 +2971,7 @@ function EditorPageInner() {
           </div>
         </div>
 
-        {/* Card + optional Comments panel side-by-side */}
+        {/* Card + optional side panels */}
         <div className="flex-1 flex gap-2 min-h-0">
         <Card className="flex-1 flex flex-col overflow-hidden min-h-0">
           {/* Find & Replace panel */}
@@ -2973,252 +2983,353 @@ function EditorPageInner() {
               onReplaceAll={handleReplaceAll}
             />
           )}
-          {/* Toolbar */}
-          <div className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 overflow-x-auto">
-            {/* Row 1 */}
-            <div className="flex items-center gap-0.5 px-2 py-1 border-b border-gray-100 dark:border-gray-700 min-w-max">
-              <ToolbarButton onClick={() => editor?.chain().focus().undo().run()} title="Desfazer (Ctrl+Z)" disabled={!editor?.can().undo()}>
-                <Undo2 className="h-4 w-4" />
-              </ToolbarButton>
-              <ToolbarButton onClick={() => editor?.chain().focus().redo().run()} title="Refazer (Ctrl+Y)" disabled={!editor?.can().redo()}>
-                <Redo2 className="h-4 w-4" />
-              </ToolbarButton>
-
-              <Divider />
-
-              <SelectDropdown
-                title="Estilo de parágrafo"
-                options={HEADING_OPTIONS}
-                value={headingValue}
-                onChange={(v) => {
-                  const level = Number(v);
-                  if (level === 0) editor?.chain().focus().setParagraph().run();
-                  else editor?.chain().focus().toggleHeading({ level: level as 1|2|3|4|5|6 }).run();
-                }}
-              />
-
-              <Divider />
-
-              <SelectDropdown
-                title="Família de fonte"
-                options={FONTS}
-                value={currentFont}
-                onChange={(v) => {
-                  if (!v) editor?.chain().focus().unsetFontFamily().run();
-                  else editor?.chain().focus().setFontFamily(String(v)).run();
-                }}
-              />
-
-              <SelectDropdown
-                title="Tamanho de fonte"
-                options={[{ label: "Tam.", value: "" }, ...FONT_SIZES]}
-                value={currentFontSize}
-                onChange={(v) => {
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  const chain = editor?.chain().focus() as any;
-                  if (!v) chain?.unsetFontSize?.();
-                  else chain?.setFontSize?.(String(v));
-                }}
-              />
-
-              <SelectDropdown
-                title="Espaçamento de linha"
-                options={[{ label: "↕", value: "" }, ...LINE_HEIGHTS]}
-                value={currentLineHeight}
-                onChange={(v) => handleSetLineHeight(String(v))}
-              />
-
-              <Divider />
-
-              <ColorPicker
-                colors={TEXT_COLORS}
-                value={currentColor}
-                onChange={(c) => editor?.chain().focus().setColor(c).run()}
-                title="Cor do texto"
-              />
-
-              <ColorPicker
-                colors={HIGHLIGHT_COLORS}
-                value={currentHighlight}
-                onChange={(c) => editor?.chain().focus().setHighlight({ color: c }).run()}
-                title="Cor de destaque"
-              />
-              <ToolbarButton
-                onClick={() => editor?.chain().focus().unsetHighlight().run()}
-                title="Remover destaque"
-              >
-                <Highlighter className="h-4 w-4 opacity-50" />
-              </ToolbarButton>
-
-              <Divider />
-
-              <ToolbarButton
-                onClick={() => editor?.chain().focus().clearNodes().unsetAllMarks().run()}
-                title="Remover formatação"
-              >
-                <RemoveFormatting className="h-4 w-4" />
-              </ToolbarButton>
+          {/* ── Tabbed Toolbar ─────────────────────────────────────────── */}
+          <div className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex-shrink-0">
+            {/* Tab headers */}
+            <div className="flex items-center border-b border-gray-100 dark:border-gray-700 overflow-x-auto">
+              {(
+                [
+                  { id: "inicio",  label: "Início" },
+                  { id: "inserir", label: "Inserir" },
+                  { id: "layout",  label: "Layout" },
+                  { id: "revisao", label: "Revisão" },
+                  { id: "exibir",  label: "Exibir" },
+                ] as const
+              ).map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveToolbarTab(tab.id)}
+                  className={`px-4 py-2 text-xs font-medium border-b-2 -mb-px transition-colors flex-shrink-0 ${
+                    activeToolbarTab === tab.id
+                      ? "border-blue-500 text-blue-600 dark:text-blue-400 bg-white dark:bg-gray-800"
+                      : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
             </div>
+            {/* Tab content */}
+            <div className="flex items-center flex-wrap gap-0.5 px-2 py-1 min-h-[40px]">
 
-            {/* Row 2 */}
-            <div className="flex items-center gap-0.5 px-2 py-1 min-w-max">
-              <ToolbarButton onClick={() => editor?.chain().focus().toggleBold().run()} active={editor?.isActive("bold")} title="Negrito (Ctrl+B)">
-                <Bold className="h-4 w-4" />
-              </ToolbarButton>
-              <ToolbarButton onClick={() => editor?.chain().focus().toggleItalic().run()} active={editor?.isActive("italic")} title="Itálico (Ctrl+I)">
-                <Italic className="h-4 w-4" />
-              </ToolbarButton>
-              <ToolbarButton onClick={() => editor?.chain().focus().toggleUnderline().run()} active={editor?.isActive("underline")} title="Sublinhado (Ctrl+U)">
-                <UnderlineIcon className="h-4 w-4" />
-              </ToolbarButton>
-              <ToolbarButton onClick={() => editor?.chain().focus().toggleStrike().run()} active={editor?.isActive("strike")} title="Tachado">
-                <Strikethrough className="h-4 w-4" />
-              </ToolbarButton>
-              <ToolbarButton onClick={() => editor?.chain().focus().toggleSubscript().run()} active={editor?.isActive("subscript")} title="Subscrito">
-                <SubIcon className="h-4 w-4" />
-              </ToolbarButton>
-              <ToolbarButton onClick={() => editor?.chain().focus().toggleSuperscript().run()} active={editor?.isActive("superscript")} title="Sobrescrito">
-                <SupIcon className="h-4 w-4" />
-              </ToolbarButton>
-              <ToolbarButton onClick={() => editor?.chain().focus().toggleCode().run()} active={editor?.isActive("code")} title="Código inline">
-                <Code className="h-4 w-4" />
-              </ToolbarButton>
-
-              <Divider />
-
-              <ToolbarButton onClick={() => handleCapitalize("upper")} title="MAIÚSCULAS">
-                <span className="text-xs font-bold tracking-tight">AA</span>
-              </ToolbarButton>
-              <ToolbarButton onClick={() => handleCapitalize("lower")} title="minúsculas">
-                <span className="text-xs font-normal tracking-tight">aa</span>
-              </ToolbarButton>
-              <ToolbarButton onClick={() => handleCapitalize("title")} title="Título (Cada Palavra)">
-                <Type className="h-4 w-4" />
-              </ToolbarButton>
-              <ToolbarButton onClick={() => setShowFootnoteDialog(true)} title="Inserir nota de rodapé">
-                <StickyNote className="h-4 w-4" />
-              </ToolbarButton>
-
-              <Divider />
-
-              <ToolbarButton onClick={() => editor?.chain().focus().setTextAlign("left").run()} active={editor?.isActive({ textAlign: "left" })} title="Alinhar à esquerda">
-                <AlignLeft className="h-4 w-4" />
-              </ToolbarButton>
-              <ToolbarButton onClick={() => editor?.chain().focus().setTextAlign("center").run()} active={editor?.isActive({ textAlign: "center" })} title="Centralizar">
-                <AlignCenter className="h-4 w-4" />
-              </ToolbarButton>
-              <ToolbarButton onClick={() => editor?.chain().focus().setTextAlign("right").run()} active={editor?.isActive({ textAlign: "right" })} title="Alinhar à direita">
-                <AlignRight className="h-4 w-4" />
-              </ToolbarButton>
-              <ToolbarButton onClick={() => editor?.chain().focus().setTextAlign("justify").run()} active={editor?.isActive({ textAlign: "justify" })} title="Justificar">
-                <AlignJustify className="h-4 w-4" />
-              </ToolbarButton>
-
-              <Divider />
-
-              <ToolbarButton
-                onClick={() => {
-                  if (editor?.isActive("listItem") || editor?.isActive("taskItem")) {
-                    editor?.chain().focus().sinkListItem("listItem").run();
-                  } else {
-                    editor?.chain().focus().insertContent("    ").run();
-                  }
-                }}
-                title="Aumentar recuo (Tab)"
-              >
-                <Indent className="h-4 w-4" />
-              </ToolbarButton>
-              <ToolbarButton
-                onClick={() => {
-                  if (editor?.isActive("listItem") || editor?.isActive("taskItem")) {
-                    editor?.chain().focus().liftListItem("listItem").run();
-                  }
-                }}
-                title="Diminuir recuo (Shift+Tab)"
-              >
-                <Outdent className="h-4 w-4" />
-              </ToolbarButton>
-
-              <Divider />
-
-              <ToolbarButton onClick={() => editor?.chain().focus().toggleBulletList().run()} active={editor?.isActive("bulletList")} title="Lista de marcadores">
-                <List className="h-4 w-4" />
-              </ToolbarButton>
-              <ToolbarButton onClick={() => editor?.chain().focus().toggleOrderedList().run()} active={editor?.isActive("orderedList")} title="Lista numerada">
-                <ListOrdered className="h-4 w-4" />
-              </ToolbarButton>
-              <ToolbarButton onClick={() => editor?.chain().focus().toggleTaskList().run()} active={editor?.isActive("taskList")} title="Lista de tarefas">
-                <ListChecks className="h-4 w-4" />
-              </ToolbarButton>
-              <ToolbarButton onClick={() => editor?.chain().focus().toggleBlockquote().run()} active={editor?.isActive("blockquote")} title="Citação em bloco">
-                <Quote className="h-4 w-4" />
-              </ToolbarButton>
-              <ToolbarButton onClick={() => editor?.chain().focus().toggleCodeBlock().run()} active={editor?.isActive("codeBlock")} title="Bloco de código">
-                <Code2 className="h-4 w-4" />
-              </ToolbarButton>
-
-              <Divider />
-
-              <ToolbarButton onClick={() => setShowLinkDialog(true)} active={editor?.isActive("link")} title="Inserir link (Ctrl+K)">
-                <Link2 className="h-4 w-4" />
-              </ToolbarButton>
-              <ToolbarButton onClick={() => setShowImageDialog(true)} title="Inserir imagem">
-                <ImageIcon className="h-4 w-4" />
-              </ToolbarButton>
-              <ToolbarButton onClick={handleInsertTable} active={editor?.isActive("table")} title="Inserir tabela">
-                <TableIcon className="h-4 w-4" />
-              </ToolbarButton>
-              <ToolbarButton onClick={() => editor?.chain().focus().setHorizontalRule().run()} title="Linha separadora">
-                <Minus className="h-4 w-4" />
-              </ToolbarButton>
-              <ToolbarButton onClick={() => (editor as unknown as { commands: { insertPageBreak: () => boolean } } | null)?.commands?.insertPageBreak()} title="Quebra de página (Ctrl+Enter)">
-                <FilePlus2 className="h-4 w-4" />
-              </ToolbarButton>
-              <ToolbarButton onClick={() => setShowAbntCitation(true)} title="Inserir citação ABNT">
-                <GraduationCap className="h-4 w-4" />
-              </ToolbarButton>
-
-              {editor?.isActive("table") && (
+              {/* ── Início ──────────────────────────────────────────────── */}
+              {activeToolbarTab === "inicio" && (
                 <>
+                  <ToolbarButton onClick={() => editor?.chain().focus().undo().run()} title="Desfazer (Ctrl+Z)" disabled={!editor?.can().undo()}>
+                    <Undo2 className="h-4 w-4" />
+                  </ToolbarButton>
+                  <ToolbarButton onClick={() => editor?.chain().focus().redo().run()} title="Refazer (Ctrl+Y)" disabled={!editor?.can().redo()}>
+                    <Redo2 className="h-4 w-4" />
+                  </ToolbarButton>
                   <Divider />
-                  <span className="text-xs text-gray-500 dark:text-gray-400 px-1 flex-shrink-0">Tabela:</span>
-                  <ToolbarButton onClick={() => editor.chain().focus().addColumnBefore().run()} title="Inserir coluna antes">
-                    <Columns className="h-3 w-3" />
+                  <SelectDropdown
+                    title="Estilo de parágrafo"
+                    options={HEADING_OPTIONS}
+                    value={headingValue}
+                    onChange={(v) => {
+                      const level = Number(v);
+                      if (level === 0) editor?.chain().focus().setParagraph().run();
+                      else editor?.chain().focus().toggleHeading({ level: level as 1|2|3|4|5|6 }).run();
+                    }}
+                  />
+                  <SelectDropdown
+                    title="Família de fonte"
+                    options={FONTS}
+                    value={currentFont}
+                    onChange={(v) => {
+                      if (!v) editor?.chain().focus().unsetFontFamily().run();
+                      else editor?.chain().focus().setFontFamily(String(v)).run();
+                    }}
+                  />
+                  <SelectDropdown
+                    title="Tamanho de fonte"
+                    options={[{ label: "Tam.", value: "" }, ...FONT_SIZES]}
+                    value={currentFontSize}
+                    onChange={(v) => {
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      const chain = editor?.chain().focus() as any;
+                      if (!v) chain?.unsetFontSize?.();
+                      else chain?.setFontSize?.(String(v));
+                    }}
+                  />
+                  <Divider />
+                  <ToolbarButton onClick={() => editor?.chain().focus().toggleBold().run()} active={editor?.isActive("bold")} title="Negrito (Ctrl+B)">
+                    <Bold className="h-4 w-4" />
                   </ToolbarButton>
-                  <ToolbarButton onClick={() => editor.chain().focus().addRowAfter().run()} title="Inserir linha abaixo">
-                    <Plus className="h-3 w-3" />
+                  <ToolbarButton onClick={() => editor?.chain().focus().toggleItalic().run()} active={editor?.isActive("italic")} title="Itálico (Ctrl+I)">
+                    <Italic className="h-4 w-4" />
                   </ToolbarButton>
-                  <ToolbarButton onClick={() => editor.chain().focus().deleteRow().run()} title="Excluir linha">
-                    <Minus className="h-3 w-3" />
+                  <ToolbarButton onClick={() => editor?.chain().focus().toggleUnderline().run()} active={editor?.isActive("underline")} title="Sublinhado (Ctrl+U)">
+                    <UnderlineIcon className="h-4 w-4" />
                   </ToolbarButton>
-                  <ToolbarButton onClick={() => editor.chain().focus().deleteTable().run()} title="Excluir tabela">
-                    <Trash2 className="h-3 w-3" />
+                  <ToolbarButton onClick={() => editor?.chain().focus().toggleStrike().run()} active={editor?.isActive("strike")} title="Tachado">
+                    <Strikethrough className="h-4 w-4" />
                   </ToolbarButton>
-                  <ToolbarButton onClick={() => editor.chain().focus().mergeCells().run()} title="Mesclar células">
-                    <span className="text-xs font-mono" aria-label="Mesclar células">⊞</span>
+                  <ToolbarButton onClick={() => editor?.chain().focus().toggleSubscript().run()} active={editor?.isActive("subscript")} title="Subscrito">
+                    <SubIcon className="h-4 w-4" />
                   </ToolbarButton>
-                  <ToolbarButton onClick={() => editor.chain().focus().splitCell().run()} title="Dividir célula">
-                    <span className="text-xs font-mono" aria-label="Dividir célula">⊟</span>
+                  <ToolbarButton onClick={() => editor?.chain().focus().toggleSuperscript().run()} active={editor?.isActive("superscript")} title="Sobrescrito">
+                    <SupIcon className="h-4 w-4" />
                   </ToolbarButton>
-                  <div className="w-px h-5 bg-gray-200 dark:bg-gray-600 mx-0.5 self-center flex-shrink-0" />
-                  <span className="text-xs text-gray-500 dark:text-gray-400 px-1 flex-shrink-0">Estilo:</span>
-                  {(["", "table-striped", "table-bordered", "table-minimal"] as const).map((style) => (
-                    <ToolbarButton
-                      key={style || "default"}
-                      onClick={() => {
-                        const node = editor.view.dom.querySelector("table.ProseMirror-table, .ProseMirror table") as HTMLElement | null;
-                        if (node) {
-                          node.classList.remove("table-striped", "table-bordered", "table-minimal");
-                          if (style) node.classList.add(style);
-                        }
-                      }}
-                      title={style || "Padrão"}
-                    >
-                      <span className="text-[10px]">{style ? style.replace("table-", "") : "std"}</span>
-                    </ToolbarButton>
-                  ))}
+                  <ToolbarButton onClick={() => editor?.chain().focus().toggleCode().run()} active={editor?.isActive("code")} title="Código inline">
+                    <Code className="h-4 w-4" />
+                  </ToolbarButton>
+                  <Divider />
+                  <ColorPicker
+                    colors={TEXT_COLORS}
+                    value={currentColor}
+                    onChange={(c) => editor?.chain().focus().setColor(c).run()}
+                    title="Cor do texto"
+                  />
+                  <ColorPicker
+                    colors={HIGHLIGHT_COLORS}
+                    value={currentHighlight}
+                    onChange={(c) => editor?.chain().focus().setHighlight({ color: c }).run()}
+                    title="Cor de destaque"
+                  />
+                  <ToolbarButton onClick={() => editor?.chain().focus().unsetHighlight().run()} title="Remover destaque">
+                    <Highlighter className="h-4 w-4 opacity-50" />
+                  </ToolbarButton>
+                  <Divider />
+                  <ToolbarButton onClick={() => handleCapitalize("upper")} title="MAIÚSCULAS">
+                    <span className="text-xs font-bold tracking-tight">AA</span>
+                  </ToolbarButton>
+                  <ToolbarButton onClick={() => handleCapitalize("lower")} title="minúsculas">
+                    <span className="text-xs font-normal tracking-tight">aa</span>
+                  </ToolbarButton>
+                  <ToolbarButton onClick={() => handleCapitalize("title")} title="Título (Cada Palavra)">
+                    <Type className="h-4 w-4" />
+                  </ToolbarButton>
+                  <Divider />
+                  <ToolbarButton onClick={() => editor?.chain().focus().clearNodes().unsetAllMarks().run()} title="Remover formatação">
+                    <RemoveFormatting className="h-4 w-4" />
+                  </ToolbarButton>
                 </>
               )}
+
+              {/* ── Inserir ─────────────────────────────────────────────── */}
+              {activeToolbarTab === "inserir" && (
+                <>
+                  <ToolbarButton onClick={() => setShowLinkDialog(true)} active={editor?.isActive("link")} title="Inserir link (Ctrl+K)">
+                    <Link2 className="h-4 w-4" />
+                  </ToolbarButton>
+                  <ToolbarButton onClick={() => setShowImageDialog(true)} title="Inserir imagem">
+                    <ImageIcon className="h-4 w-4" />
+                  </ToolbarButton>
+                  <ToolbarButton onClick={handleInsertTable} active={editor?.isActive("table")} title="Inserir tabela">
+                    <TableIcon className="h-4 w-4" />
+                  </ToolbarButton>
+                  <ToolbarButton onClick={() => editor?.chain().focus().setHorizontalRule().run()} title="Linha separadora">
+                    <Minus className="h-4 w-4" />
+                  </ToolbarButton>
+                  <ToolbarButton onClick={() => (editor as unknown as { commands: { insertPageBreak: () => boolean } } | null)?.commands?.insertPageBreak()} title="Quebra de página (Ctrl+Enter)">
+                    <FilePlus2 className="h-4 w-4" />
+                  </ToolbarButton>
+                  <Divider />
+                  <ToolbarButton onClick={() => editor?.chain().focus().toggleBulletList().run()} active={editor?.isActive("bulletList")} title="Lista de marcadores">
+                    <List className="h-4 w-4" />
+                  </ToolbarButton>
+                  <ToolbarButton onClick={() => editor?.chain().focus().toggleOrderedList().run()} active={editor?.isActive("orderedList")} title="Lista numerada">
+                    <ListOrdered className="h-4 w-4" />
+                  </ToolbarButton>
+                  <ToolbarButton onClick={() => editor?.chain().focus().toggleTaskList().run()} active={editor?.isActive("taskList")} title="Lista de tarefas">
+                    <ListChecks className="h-4 w-4" />
+                  </ToolbarButton>
+                  <ToolbarButton onClick={() => editor?.chain().focus().toggleBlockquote().run()} active={editor?.isActive("blockquote")} title="Citação em bloco">
+                    <Quote className="h-4 w-4" />
+                  </ToolbarButton>
+                  <ToolbarButton onClick={() => editor?.chain().focus().toggleCodeBlock().run()} active={editor?.isActive("codeBlock")} title="Bloco de código">
+                    <Code2 className="h-4 w-4" />
+                  </ToolbarButton>
+                  <Divider />
+                  <ToolbarButton onClick={() => setShowFootnoteDialog(true)} title="Inserir nota de rodapé">
+                    <StickyNote className="h-4 w-4" />
+                  </ToolbarButton>
+                  <ToolbarButton onClick={() => setShowAbntCitation(true)} title="Inserir citação ABNT">
+                    <GraduationCap className="h-4 w-4" />
+                  </ToolbarButton>
+                  {editor?.isActive("table") && (
+                    <>
+                      <Divider />
+                      <span className="text-xs text-gray-500 dark:text-gray-400 px-1 flex-shrink-0">Tabela:</span>
+                      <ToolbarButton onClick={() => editor.chain().focus().addColumnBefore().run()} title="Inserir coluna antes">
+                        <Columns className="h-3 w-3" />
+                      </ToolbarButton>
+                      <ToolbarButton onClick={() => editor.chain().focus().addRowAfter().run()} title="Inserir linha abaixo">
+                        <Plus className="h-3 w-3" />
+                      </ToolbarButton>
+                      <ToolbarButton onClick={() => editor.chain().focus().deleteRow().run()} title="Excluir linha">
+                        <Minus className="h-3 w-3" />
+                      </ToolbarButton>
+                      <ToolbarButton onClick={() => editor.chain().focus().deleteTable().run()} title="Excluir tabela">
+                        <Trash2 className="h-3 w-3" />
+                      </ToolbarButton>
+                      <ToolbarButton onClick={() => editor.chain().focus().mergeCells().run()} title="Mesclar células">
+                        <span className="text-xs font-mono" aria-label="Mesclar células">⊞</span>
+                      </ToolbarButton>
+                      <ToolbarButton onClick={() => editor.chain().focus().splitCell().run()} title="Dividir célula">
+                        <span className="text-xs font-mono" aria-label="Dividir célula">⊟</span>
+                      </ToolbarButton>
+                      <div className="w-px h-5 bg-gray-200 dark:bg-gray-600 mx-0.5 self-center flex-shrink-0" />
+                      <span className="text-xs text-gray-500 dark:text-gray-400 px-1 flex-shrink-0">Estilo:</span>
+                      {(["", "table-striped", "table-bordered", "table-minimal"] as const).map((style) => (
+                        <ToolbarButton
+                          key={style || "default"}
+                          onClick={() => {
+                            const node = editor.view.dom.querySelector("table.ProseMirror-table, .ProseMirror table") as HTMLElement | null;
+                            if (node) {
+                              node.classList.remove("table-striped", "table-bordered", "table-minimal");
+                              if (style) node.classList.add(style);
+                            }
+                          }}
+                          title={style || "Padrão"}
+                        >
+                          <span className="text-[10px]">{style ? style.replace("table-", "") : "std"}</span>
+                        </ToolbarButton>
+                      ))}
+                    </>
+                  )}
+                </>
+              )}
+
+              {/* ── Layout ──────────────────────────────────────────────── */}
+              {activeToolbarTab === "layout" && (
+                <>
+                  <ToolbarButton onClick={() => editor?.chain().focus().setTextAlign("left").run()} active={editor?.isActive({ textAlign: "left" })} title="Alinhar à esquerda">
+                    <AlignLeft className="h-4 w-4" />
+                  </ToolbarButton>
+                  <ToolbarButton onClick={() => editor?.chain().focus().setTextAlign("center").run()} active={editor?.isActive({ textAlign: "center" })} title="Centralizar">
+                    <AlignCenter className="h-4 w-4" />
+                  </ToolbarButton>
+                  <ToolbarButton onClick={() => editor?.chain().focus().setTextAlign("right").run()} active={editor?.isActive({ textAlign: "right" })} title="Alinhar à direita">
+                    <AlignRight className="h-4 w-4" />
+                  </ToolbarButton>
+                  <ToolbarButton onClick={() => editor?.chain().focus().setTextAlign("justify").run()} active={editor?.isActive({ textAlign: "justify" })} title="Justificar">
+                    <AlignJustify className="h-4 w-4" />
+                  </ToolbarButton>
+                  <Divider />
+                  <ToolbarButton
+                    onClick={() => {
+                      if (editor?.isActive("listItem") || editor?.isActive("taskItem")) {
+                        editor?.chain().focus().sinkListItem("listItem").run();
+                      } else {
+                        editor?.chain().focus().insertContent("    ").run();
+                      }
+                    }}
+                    title="Aumentar recuo (Tab)"
+                  >
+                    <Indent className="h-4 w-4" />
+                  </ToolbarButton>
+                  <ToolbarButton
+                    onClick={() => {
+                      if (editor?.isActive("listItem") || editor?.isActive("taskItem")) {
+                        editor?.chain().focus().liftListItem("listItem").run();
+                      }
+                    }}
+                    title="Diminuir recuo (Shift+Tab)"
+                  >
+                    <Outdent className="h-4 w-4" />
+                  </ToolbarButton>
+                  <Divider />
+                  <SelectDropdown
+                    title="Espaçamento de linha"
+                    options={[{ label: "Linha", value: "" }, ...LINE_HEIGHTS]}
+                    value={currentLineHeight}
+                    onChange={(v) => handleSetLineHeight(String(v))}
+                  />
+                </>
+              )}
+
+              {/* ── Revisão ─────────────────────────────────────────────── */}
+              {activeToolbarTab === "revisao" && (
+                <>
+                  <ToolbarButton onClick={() => setShowFindReplace(!showFindReplace)} active={showFindReplace} title="Localizar/Substituir (Ctrl+F)">
+                    <Search className="h-4 w-4" />
+                  </ToolbarButton>
+                  <Divider />
+                  <ToolbarButton onClick={() => setTrackChanges(!trackChanges)} active={trackChanges} title={trackChanges ? "Modo revisão ATIVO — clique para desativar" : "Ativar modo de revisão"}>
+                    <GitMerge className="h-4 w-4" />
+                  </ToolbarButton>
+                  {trackChanges && (
+                    <>
+                      <ToolbarButton onClick={handleAcceptAllChanges} title="Aceitar todas as alterações">
+                        <Check className="h-4 w-4 text-green-600" />
+                      </ToolbarButton>
+                      <ToolbarButton onClick={handleRejectAllChanges} title="Rejeitar todas as alterações">
+                        <X className="h-4 w-4 text-red-600" />
+                      </ToolbarButton>
+                    </>
+                  )}
+                  <Divider />
+                  <ToolbarButton onClick={() => setSpellcheck(!spellcheck)} active={spellcheck} title={spellcheck ? "Correção ortográfica ATIVA" : "Ativar correção ortográfica PT-BR"}>
+                    <SpellCheck className="h-4 w-4" />
+                  </ToolbarButton>
+                  <ToolbarButton onClick={() => setShowComments(!showComments)} active={showComments} title="Comentários">
+                    <MessageSquare className="h-4 w-4" />
+                    {Object.keys(comments).length > 0 && <span className="ml-0.5 text-[10px]">{Object.keys(comments).length}</span>}
+                  </ToolbarButton>
+                  <ToolbarButton onClick={() => setShowAiPanel(!showAiPanel)} active={showAiPanel} title="Assistente de escrita com IA">
+                    <Sparkles className="h-4 w-4" />
+                  </ToolbarButton>
+                  <Divider />
+                  <ToolbarButton onClick={handleAbntMode} title="Modo ABNT (Times 12pt, espaçamento 1.5, margens ABNT)">
+                    <GraduationCap className="h-4 w-4" />
+                  </ToolbarButton>
+                </>
+              )}
+
+              {/* ── Exibir ──────────────────────────────────────────────── */}
+              {activeToolbarTab === "exibir" && (
+                <>
+                  <ToolbarButton onClick={() => setShowToc(!showToc)} active={showToc} title="Sumário">
+                    <BookOpen className="h-4 w-4" />
+                  </ToolbarButton>
+                  <ToolbarButton onClick={() => setShowHeaderFooter(!showHeaderFooter)} active={showHeaderFooter} title="Cabeçalho e Rodapé">
+                    <PanelTop className="h-4 w-4" />
+                  </ToolbarButton>
+                  <ToolbarButton onClick={() => setReadingMode(!readingMode)} active={readingMode} title={readingMode ? "Sair do modo leitura (Esc)" : "Modo leitura"}>
+                    {readingMode ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </ToolbarButton>
+                  <ToolbarButton onClick={() => setShowRuler(!showRuler)} active={showRuler} title="Régua">
+                    <Ruler className="h-4 w-4" />
+                  </ToolbarButton>
+                  <ToolbarButton onClick={() => setHeadingNumbers(!headingNumbers)} active={headingNumbers} title="Numeração de títulos (1, 1.1, 1.1.1)">
+                    <Hash className="h-4 w-4" />
+                  </ToolbarButton>
+                  <ToolbarButton onClick={() => setShowPageSettings(true)} title="Configurações de Página">
+                    <Settings className="h-4 w-4" />
+                  </ToolbarButton>
+                  <Divider />
+                  <ToolbarButton onClick={() => setShowVersionHistory(!showVersionHistory)} active={showVersionHistory} title="Histórico de versões">
+                    <Clock className="h-4 w-4" />
+                    {versions.length > 0 && <span className="ml-0.5 text-[10px]">{versions.length}</span>}
+                  </ToolbarButton>
+                  <ToolbarButton onClick={() => setShowDocStats(!showDocStats)} active={showDocStats} title="Estatísticas do documento">
+                    <BookMarked className="h-4 w-4" />
+                  </ToolbarButton>
+                  <Divider />
+                  <ToolbarButton onClick={handlePrint} title="Imprimir">
+                    <Printer className="h-4 w-4" />
+                  </ToolbarButton>
+                  <ToolbarButton onClick={handleExportHTML} title="Exportar HTML">
+                    <Download className="h-4 w-4" />
+                  </ToolbarButton>
+                  <ToolbarButton onClick={handleExportTXT} title="Exportar TXT">
+                    <FileText className="h-4 w-4" />
+                  </ToolbarButton>
+                  <ToolbarButton onClick={handleExportPDF} title="Exportar PDF">
+                    <FileDown className="h-4 w-4" />
+                  </ToolbarButton>
+                  <Divider />
+                  <ToolbarButton onClick={() => setShowTemplatePicker(true)} title="Novo a partir de template">
+                    <LayoutTemplate className="h-4 w-4" />
+                  </ToolbarButton>
+                  <ToolbarButton onClick={() => setShowShortcuts(true)} title="Atalhos de teclado (Ctrl+/)">
+                    <Keyboard className="h-4 w-4" />
+                  </ToolbarButton>
+                </>
+              )}
+
             </div>
           </div>
 
@@ -3226,7 +3337,6 @@ function EditorPageInner() {
           {editor && (
             <BubbleMenu editor={editor}>
               <div className="flex items-center gap-0.5 rounded-lg border border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-700 shadow-lg p-1">
-                {/* Image controls when image is selected */}
                 {editor.isActive("image") ? (
                   <>
                     <span className="text-xs text-gray-400 px-1 flex-shrink-0">Imagem:</span>
@@ -3451,6 +3561,7 @@ function EditorPageInner() {
         )}
         </div>
       </div>
+      </div>
 
       {showLinkDialog && (
         <LinkDialog
@@ -3486,12 +3597,6 @@ function EditorPageInner() {
           onCancel={() => setShowAddCommentDialog(false)}
         />
       )}
-      {showTemplatePicker && (
-        <TemplatePickerDialog
-          onConfirm={handleNewFromTemplate}
-          onCancel={() => setShowTemplatePicker(false)}
-        />
-      )}
       {showShortcuts && (
         <ShortcutsModal onClose={() => setShowShortcuts(false)} />
       )}
@@ -3517,7 +3622,8 @@ function EditorPageInner() {
           onEdit={handleEditFromViewer}
         />
       )}
-    </div>
+      </>
+      )}
     </>
   );
 }
