@@ -1954,9 +1954,9 @@ function EditorPageInner() {
   const [showRuler, setShowRuler] = useState(true);
   const [savingStatus, setSavingStatus] = useState<"idle" | "saving" | "saved">("idle");
   const savingStatusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [editorOpen, setEditorOpen] = useState(false);
+  const [editorManuallyOpened, setEditorManuallyOpened] = useState(false);
   const [activeToolbarTab, setActiveToolbarTab] = useState<"inicio" | "inserir" | "layout" | "revisao" | "exibir">("inicio");
-  const mode: "list" | "editor" = (docId || editorOpen) ? "editor" : "list";
+  const mode: "list" | "editor" = (docId || editorManuallyOpened) ? "editor" : "list";
 
   const getHeadingValue = useCallback((ed: ReturnType<typeof useEditor> | null): number => {
     if (!ed) return 0;
@@ -2181,7 +2181,7 @@ function EditorPageInner() {
     setVersions([]);
     setDocTags([]);
     setIsDirty(false);
-    setEditorOpen(true);
+    setEditorManuallyOpened(true);
     router.push("/editor");
   };
 
@@ -2210,7 +2210,7 @@ function EditorPageInner() {
     setComments({});
     setVersions([]);
     setIsDirty(true);
-    setEditorOpen(true);
+    setEditorManuallyOpened(true);
     router.push("/editor");
   };
 
@@ -2263,7 +2263,7 @@ function EditorPageInner() {
   };
 
   const handleBackToList = useCallback(() => {
-    setEditorOpen(false);
+    setEditorManuallyOpened(false);
     setCurrentDoc(null);
     router.push("/editor");
     loadDocuments();
