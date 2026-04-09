@@ -4,7 +4,7 @@ compatibility_flags = ["nodejs_compat"]
 pages_build_output_dir = ".vercel/output/static"
 
 [vars]
-EMAIL_FROM = "PsicoSpace <onboarding@resend.dev>"
+EMAIL_FROM = "PsicoSpace <noreply@resend.dev>"
 
 [[d1_databases]]
 binding = "d1_psi"
