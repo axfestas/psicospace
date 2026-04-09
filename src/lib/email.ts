@@ -8,9 +8,9 @@ function getResend(): Resend {
 
 function getFromAddress(): string {
   const raw = process.env.EMAIL_FROM;
-  if (!raw) return "PsicoSpace <noreply@resend.dev>";
+  if (!raw) return "PsicoSpace <noreply@resend.com>";
   // If value has no '@', treat it as a display name and append Resend's default address
-  if (!raw.includes("@")) return `${raw} <noreply@resend.dev>`;
+  if (!raw.includes("@")) return `${raw} <noreply@resend.com>`;
   return raw;
 }
 
@@ -40,7 +40,7 @@ export async function sendWelcomeEmail(opts: {
   return resend.emails.send({
     from: getFromAddress(),
     to: opts.to,
-    subject: "Bem-vindo ao PsicoSpace! Confirme seu e-mail",
+    subject: "Bem-vinde ao PsicoSpace! Confirme seu e-mail",
     html: `
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -53,7 +53,7 @@ export async function sendWelcomeEmail(opts: {
     <div style="padding:40px;">
       <h2 style="color:#111827;margin-top:0;">Olá, ${safeName}! 👋</h2>
       <p style="color:#374151;line-height:1.6;">
-        Seja bem-vindo(a) ao <strong>PsicoSpace</strong>, sua plataforma acadêmica de Psicologia.
+        Seja bem-vinde ao <strong>PsicoSpace</strong>, sua plataforma acadêmica de Psicologia.
         Para começar, precisamos confirmar o seu e-mail.
       </p>
       <div style="text-align:center;margin:32px 0;">
