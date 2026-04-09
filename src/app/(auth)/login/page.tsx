@@ -33,7 +33,10 @@ export default function LoginPage() {
     <div className="w-full max-w-md">
       <div className="rounded-2xl bg-white p-8 shadow-xl dark:bg-gray-900">
         <div className="mb-8 text-center">
-          <span className="text-5xl font-bold text-blue-600">Ψ</span>
+          <div className="flex justify-center mb-3">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.svg" alt="PsicoSpace" width={72} height={72} className="rounded-2xl shadow-md" />
+          </div>
           <h1 className="mt-2 text-2xl font-bold text-gray-900 dark:text-gray-100">
             PsicoSpace
           </h1>
