@@ -16,6 +16,15 @@ export async function GET() {
       include: {
         disciplines: {
           orderBy: { name: "asc" },
+          include: {
+            materials: {
+              orderBy: { createdAt: "desc" },
+              include: {
+                progress: { where: { userId: auth.userId } },
+                uploadedBy: { select: { name: true } },
+              },
+            },
+          },
         },
       },
     });

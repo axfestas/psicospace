@@ -10,18 +10,20 @@ import {
   FileText,
   BookMarked,
   Users,
-  Database,
   Settings,
   UserCircle,
   X,
   LogOut,
+  GraduationCap,
+  Library,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/agenda", label: "Agenda", icon: Calendar },
-  { href: "/materiais", label: "Materiais", icon: BookOpen },
+  { href: "/biblioteca", label: "Biblioteca", icon: Library },
+  { href: "/disciplinas", label: "Disciplinas", icon: GraduationCap },
   { href: "/editor", label: "Editor", icon: FileText },
   { href: "/abnt", label: "Normas ABNT", icon: BookMarked },
 ];
@@ -42,7 +44,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   const { user, logout } = useAuth();
 
   const isAdmin = user?.role === "ADMIN" || user?.role === "SUPERADMIN";
-  const isSuperAdmin = user?.role === "SUPERADMIN";
+  const isDocente = user?.role === "DOCENTE" || isAdmin;
 
   const handleLogout = async () => {
     await logout();
@@ -101,6 +103,23 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                 </li>
               );
             })}
+            {isDocente && (
+              <li>
+                <Link
+                  href="/docentes"
+                  onClick={onClose}
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                    pathname.startsWith("/docentes")
+                      ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                      : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+                  )}
+                >
+                  <BookOpen className="h-5 w-5 flex-shrink-0" />
+                  Área Docente
+                </Link>
+              </li>
+            )}
             {isAdmin && (
               <li>
                 <Link
@@ -108,30 +127,13 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                   onClick={onClose}
                   className={cn(
                     "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                    pathname.startsWith("/admin") && !pathname.startsWith("/admin/migrations")
+                    pathname.startsWith("/admin")
                       ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
                       : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
                   )}
                 >
                   <Users className="h-5 w-5 flex-shrink-0" />
                   Administração
-                </Link>
-              </li>
-            )}
-            {isSuperAdmin && (
-              <li>
-                <Link
-                  href="/admin/migrations"
-                  onClick={onClose}
-                  className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                    pathname.startsWith("/admin/migrations")
-                      ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
-                      : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
-                  )}
-                >
-                  <Database className="h-5 w-5 flex-shrink-0" />
-                  Migrações DB
                 </Link>
               </li>
             )}

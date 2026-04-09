@@ -4,43 +4,31 @@ import { getAuthUser } from "@/lib/auth";
 
 export const runtime = "edge";
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET() {
   try {
     const auth = await getAuthUser();
     if (!auth) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
-    const { id } = await params;
-    const materials = await prisma.material.findMany({
-      where: { disciplineId: id },
+    const items = await prisma.libraryItem.findMany({
       orderBy: { createdAt: "desc" },
-      include: {
-        progress: { where: { userId: auth.userId } },
-        uploadedBy: { select: { name: true } },
-      },
+      include: { uploadedBy: { select: { name: true } } },
     });
 
-    return NextResponse.json({ materials });
+    return NextResponse.json({ items });
   } catch (error) {
-    console.error("[disciplines/[id]/materials]", error);
+    console.error("[biblioteca GET]", error);
     return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 });
   }
 }
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function POST(request: NextRequest) {
   try {
     const auth = await getAuthUser();
     if (!auth || !["ADMIN", "SUPERADMIN", "DOCENTE"].includes(auth.role)) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
     }
 
-    const { id } = await params;
-    const { title, type, url, libraryItemId } = await request.json();
+    const { title, description, type, url } = await request.json();
     if (!title || !type || !url) {
       return NextResponse.json(
         { error: "Título, tipo e URL são obrigatórios" },
@@ -48,13 +36,13 @@ export async function POST(
       );
     }
 
-    const material = await prisma.material.create({
-      data: { title, type, url, disciplineId: id, uploadedById: auth.userId, libraryItemId: libraryItemId ?? null },
+    const item = await prisma.libraryItem.create({
+      data: { title, description, type, url, uploadedById: auth.userId },
     });
 
-    return NextResponse.json({ material }, { status: 201 });
+    return NextResponse.json({ item }, { status: 201 });
   } catch (error) {
-    console.error("[disciplines/[id]/materials]", error);
+    console.error("[biblioteca POST]", error);
     return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 });
   }
 }
