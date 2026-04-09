@@ -8,9 +8,9 @@ function getResend(): Resend {
 
 function getFromAddress(): string {
   const raw = process.env.EMAIL_FROM;
-  if (!raw) return "PsicoSpace <onboarding@resend.dev>";
+  if (!raw) return "PsicoSpace <noreply@resend.dev>";
   // If value has no '@', treat it as a display name and append Resend's default address
-  if (!raw.includes("@")) return `${raw} <onboarding@resend.dev>`;
+  if (!raw.includes("@")) return `${raw} <noreply@resend.dev>`;
   return raw;
 }
 
