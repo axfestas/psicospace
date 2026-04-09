@@ -24,11 +24,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (res.ok) {
         const data = await res.json();
         setUser(data.user);
-      } else {
+      } else if (res.status === 401 || res.status === 403) {
+        // Truly unauthorized (bad/expired token) — clear local user state.
         setUser(null);
       }
+      // For 5xx errors (DB down, cold-start lag, etc.) keep the existing user
+      // state so the user is not silently logged out due to a transient error.
     } catch {
-      setUser(null);
+      // Network error — keep existing state to avoid a false logout.
+      // Log nothing: this can fire on page unload and is not actionable.
     } finally {
       setLoading(false);
     }
@@ -71,8 +75,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
-    await fetch("/api/auth/me", { method: "DELETE" });
+    try {
+      await fetch("/api/auth/me", { method: "DELETE" });
+    } catch {
+      console.warn("[auth] logout API call failed — cookie may still expire naturally");
+    }
     setUser(null);
+    // Hard redirect so the browser fully clears React state, re-reads the
+    // (now-deleted) cookie, and runs middleware on the new page load.
+    window.location.href = "/login";
   };
 
   return (

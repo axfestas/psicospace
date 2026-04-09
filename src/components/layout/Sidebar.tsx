@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
@@ -40,7 +40,6 @@ interface SidebarProps {
 
 export function Sidebar({ open, onClose }: SidebarProps) {
   const pathname = usePathname();
-  const router = useRouter();
   const { user, logout } = useAuth();
 
   const isAdmin = user?.role === "ADMIN" || user?.role === "SUPERADMIN";
@@ -48,7 +47,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
 
   const handleLogout = async () => {
     await logout();
-    router.push("/login");
+    // logout() performs a hard redirect to /login; nothing else needed here.
   };
 
   return (

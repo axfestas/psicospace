@@ -168,12 +168,11 @@ function isIdempotentError(message: string): boolean {
 }
 
 async function ensureMigrationsTable(d1: CfD1Database): Promise<void> {
-  await d1.exec(`
-    CREATE TABLE IF NOT EXISTS _psico_migrations (
-      name TEXT PRIMARY KEY,
-      applied_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-  `);
+  await d1
+    .prepare(
+      `CREATE TABLE IF NOT EXISTS _psico_migrations (name TEXT PRIMARY KEY, applied_at TEXT NOT NULL DEFAULT (datetime('now')))`
+    )
+    .run();
 }
 
 async function getAppliedMigrations(
@@ -218,13 +217,15 @@ export async function runMigrations(
       const statements = splitSqlStatements(migration.sql);
       for (const stmt of statements) {
         try {
-          await d1.exec(stmt + ";");
+          await d1.prepare(stmt).run();
         } catch (stmtErr) {
           const msg =
             stmtErr instanceof Error ? stmtErr.message : String(stmtErr);
           if (isIdempotentError(msg)) {
+            // Column or table already exists — safe to skip.
             continue;
           }
+          console.error(`[migrate] statement failed: ${stmt}`);
           throw stmtErr;
         }
       }
