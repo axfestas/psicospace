@@ -127,28 +127,28 @@ const DOCUMENT_TEMPLATES: DocTemplate[] = [
     label: "Artigo ABNT",
     description: "Estrutura padrão ABNT para artigos científicos",
     title: "Artigo Científico",
-    html: `<h1>Título do Artigo</h1>
-<p><strong>Autor:</strong> Nome do Autor</p>
-<p><strong>Instituição:</strong> Nome da Instituição</p>
-<p><strong>E-mail:</strong> email@exemplo.com</p>
-<h2>Resumo</h2>
-<p>Escreva aqui o resumo do artigo (máximo 250 palavras). O resumo deve apresentar de forma concisa os objetivos, metodologia, resultados e conclusões do trabalho.</p>
-<p><strong>Palavras-chave:</strong> palavra1; palavra2; palavra3.</p>
-<h2>Abstract</h2>
-<p>Write the abstract here (maximum 250 words).</p>
-<p><strong>Keywords:</strong> keyword1; keyword2; keyword3.</p>
-<h2>1. Introdução</h2>
-<p>Apresente o contexto do estudo, justificativa e objetivos.</p>
-<h2>2. Fundamentação Teórica</h2>
-<p>Descreva o referencial teórico que embasou a pesquisa.</p>
-<h2>3. Metodologia</h2>
-<p>Descreva os procedimentos metodológicos utilizados.</p>
-<h2>4. Resultados e Discussão</h2>
-<p>Apresente e discuta os resultados obtidos.</p>
-<h2>5. Conclusão</h2>
-<p>Sintetize as principais conclusões do trabalho.</p>
-<h2>Referências</h2>
-<p>SOBRENOME, Nome. <em>Título da obra</em>. Cidade: Editora, Ano.</p>`,
+    html: `<h1 style="text-align: center; line-height: 1.5;">TÍTULO DO ARTIGO</h1>
+<p style="text-align: center; line-height: 1.5;"><strong>Autor:</strong> Nome do Autor</p>
+<p style="text-align: center; line-height: 1.5;"><strong>Instituição:</strong> Nome da Instituição</p>
+<p style="text-align: center; line-height: 1.5;"><strong>E-mail:</strong> email@exemplo.com</p>
+<h2 style="text-align: center; line-height: 1.5;">RESUMO</h2>
+<p style="text-align: justify; line-height: 1.5;">Escreva aqui o resumo do artigo (máximo 250 palavras). O resumo deve apresentar de forma concisa os objetivos, metodologia, resultados e conclusões do trabalho.</p>
+<p style="text-align: justify; line-height: 1.5;"><strong>Palavras-chave:</strong> palavra1; palavra2; palavra3.</p>
+<h2 style="text-align: center; line-height: 1.5;">ABSTRACT</h2>
+<p style="text-align: justify; line-height: 1.5;">Write the abstract here (maximum 250 words).</p>
+<p style="text-align: justify; line-height: 1.5;"><strong>Keywords:</strong> keyword1; keyword2; keyword3.</p>
+<h2 style="line-height: 1.5;">1. INTRODUÇÃO</h2>
+<p style="text-align: justify; line-height: 1.5;">Apresente o contexto do estudo, justificativa e objetivos.</p>
+<h2 style="line-height: 1.5;">2. FUNDAMENTAÇÃO TEÓRICA</h2>
+<p style="text-align: justify; line-height: 1.5;">Descreva o referencial teórico que embasou a pesquisa.</p>
+<h2 style="line-height: 1.5;">3. METODOLOGIA</h2>
+<p style="text-align: justify; line-height: 1.5;">Descreva os procedimentos metodológicos utilizados.</p>
+<h2 style="line-height: 1.5;">4. RESULTADOS E DISCUSSÃO</h2>
+<p style="text-align: justify; line-height: 1.5;">Apresente e discuta os resultados obtidos.</p>
+<h2 style="line-height: 1.5;">5. CONCLUSÃO</h2>
+<p style="text-align: justify; line-height: 1.5;">Sintetize as principais conclusões do trabalho.</p>
+<h2 style="line-height: 1.5;">REFERÊNCIAS</h2>
+<p style="text-align: justify; line-height: 1.5;">SOBRENOME, Nome. <em>Título da obra</em>. Cidade: Editora, Ano.</p>`,
   },
   {
     id: "ata",
@@ -2075,7 +2075,17 @@ function EditorPageInner() {
     editor?.commands.setContent(tpl.html);
     setHeader(tpl.header || "");
     setFooter(tpl.footer || "");
-    setPageMargin(DEFAULT_MARGIN);
+    if (tpl.id === "abnt") {
+      // Apply ABNT formatting: Times New Roman 12pt, 1.5 line-height, ABNT margins
+      editor?.chain().selectAll()
+        .setFontFamily("Times New Roman")
+        .setFontSize("12pt")
+        .setLineHeight("1.5")
+        .run();
+      setPageMargin({ top: "3cm", bottom: "2cm", left: "3cm", right: "2cm" });
+    } else {
+      setPageMargin(DEFAULT_MARGIN);
+    }
     setPageOrientation("portrait");
     setComments({});
     setVersions([]);
