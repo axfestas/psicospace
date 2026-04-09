@@ -34,6 +34,8 @@ import {
   FileDown, BookMarked, Type, Settings, StickyNote, PanelTop, PanelBottom,
   MessageSquare, Upload, LayoutTemplate, Eye, EyeOff, Target, Clock,
   Maximize2, Minimize2, Tag, Keyboard, Hash, Filter, ChevronRight, Pencil,
+  Scissors, GitMerge, SpellCheck, BookText, GraduationCap, Sparkles,
+  AlignHorizontalDistributeCenter, Ruler, FilePlus2,
 } from "lucide-react";
 
 interface Document {
@@ -388,6 +390,65 @@ const CommentMark = Mark.create({
         }
         return true;
       },
+    };
+  },
+});
+
+// ── Page Break node ──────────────────────────────────────────────────────────
+const PageBreak = Node.create({
+  name: "pageBreak",
+  group: "block",
+  atom: true,
+  parseHTML() { return [{ tag: "div.page-break" }]; },
+  renderHTML() { return ["div", { class: "page-break" }]; },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  addCommands(): any {
+    return {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      insertPageBreak: () => ({ commands }: any) =>
+        commands.insertContent({ type: "pageBreak" }),
+    };
+  },
+  addKeyboardShortcuts() {
+    return {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      "Mod-Enter": () => (this.editor.commands as any).insertPageBreak(),
+    };
+  },
+});
+
+// ── Track Changes marks ──────────────────────────────────────────────────────
+const TrackAdd = Mark.create({
+  name: "trackAdd",
+  inclusive: false,
+  parseHTML() { return [{ tag: "ins.track-add" }]; },
+  renderHTML({ HTMLAttributes }) {
+    return ["ins", mergeAttributes(HTMLAttributes, { class: "track-add" }), 0];
+  },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  addCommands(): any {
+    return {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      setTrackAdd: () => ({ commands }: any) => commands.setMark("trackAdd"),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      unsetTrackAdd: () => ({ commands }: any) => commands.unsetMark("trackAdd"),
+    };
+  },
+});
+
+const TrackDelete = Mark.create({
+  name: "trackDelete",
+  parseHTML() { return [{ tag: "del.track-delete" }]; },
+  renderHTML({ HTMLAttributes }) {
+    return ["del", mergeAttributes(HTMLAttributes, { class: "track-delete" }), 0];
+  },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  addCommands(): any {
+    return {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      setTrackDelete: () => ({ commands }: any) => commands.setMark("trackDelete"),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      unsetTrackDelete: () => ({ commands }: any) => commands.unsetMark("trackDelete"),
     };
   },
 });
@@ -884,9 +945,9 @@ function FindReplacePanel({
   );
 }
 
-interface TocEntry { level: number; text: string; }
+interface TocEntry { level: number; text: string; id: string; }
 
-function TableOfContents({ entries, onClose }: { entries: TocEntry[]; onClose: () => void }) {
+function TableOfContents({ entries, onClose, onNavigate }: { entries: TocEntry[]; onClose: () => void; onNavigate: (id: string) => void }) {
   return (
     <Card className="flex-shrink-0">
       <CardContent className="p-3">
@@ -906,8 +967,10 @@ function TableOfContents({ entries, onClose }: { entries: TocEntry[]; onClose: (
             {entries.map((e, i) => (
               <li
                 key={i}
-                className="text-xs text-gray-600 dark:text-gray-400 truncate"
+                className="text-xs text-gray-600 dark:text-gray-400 truncate cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 hover:underline transition-colors"
                 style={{ paddingLeft: `${(e.level - 1) * 10}px` }}
+                onClick={() => onNavigate(e.id)}
+                title={`Ir para: ${e.text}`}
               >
                 {e.level === 1 ? "■" : e.level === 2 ? "▸" : "·"} {e.text}
               </li>
@@ -1082,6 +1145,11 @@ const SLASH_COMMANDS: SlashCommandItem[] = [
     run: (ed) => ed?.chain().focus().setHorizontalRule().run() },
   { id: "image", label: "Imagem", description: "Inserir imagem por URL", icon: ImageIcon, keywords: ["image", "imagem", "foto"],
     run: () => { /* signal to open image dialog */ } },
+  { id: "pagebreak", label: "Quebra de Página", description: "Inserir quebra de página (Ctrl+Enter)", icon: FilePlus2, keywords: ["pagebreak", "quebra", "página", "page"],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    run: (ed) => (ed as any)?.commands?.insertPageBreak() },
+  { id: "abnt", label: "Citação ABNT", description: "Inserir citação no padrão ABNT", icon: GraduationCap, keywords: ["citação", "abnt", "referência", "citation"],
+    run: () => { /* signal to open citation dialog */ } },
 ];
 
 function SlashMenu({
@@ -1334,6 +1402,202 @@ function TemplatePickerDialog({
             <Check className="h-3.5 w-3.5 mr-1" />Usar template
           </Button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ── ABNT Citation Modal ──────────────────────────────────────────────────────
+interface CitationData {
+  author: string;
+  year: string;
+  title: string;
+  location: string;
+  publisher: string;
+}
+
+function AbntCitationModal({
+  onConfirm,
+  onCancel,
+}: {
+  onConfirm: (c: CitationData) => void;
+  onCancel: () => void;
+}) {
+  const [form, setForm] = useState<CitationData>({ author: "", year: "", title: "", location: "", publisher: "" });
+
+  const set = (key: keyof CitationData) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setForm((prev) => ({ ...prev, [key]: e.target.value }));
+
+  const preview = form.author
+    ? `${form.author.toUpperCase()}. ${form.title ? `<em>${form.title}</em>. ` : ""}${form.location ? `${form.location}: ` : ""}${form.publisher ? `${form.publisher}, ` : ""}${form.year}.`
+    : "";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 w-[480px] space-y-4 max-h-[90vh] overflow-y-auto">
+        <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+          <GraduationCap className="h-4 w-4 text-blue-600" />
+          Inserir Citação ABNT
+        </h3>
+        <div className="grid grid-cols-2 gap-3">
+          {(
+            [
+              { key: "author" as const, label: "Sobrenome, Nome", placeholder: "SILVA, João" },
+              { key: "year" as const, label: "Ano", placeholder: "2023" },
+              { key: "title" as const, label: "Título da Obra", placeholder: "Psicologia Clínica" },
+              { key: "publisher" as const, label: "Editora", placeholder: "Artmed" },
+              { key: "location" as const, label: "Cidade", placeholder: "Porto Alegre" },
+            ] as { key: keyof CitationData; label: string; placeholder: string }[]
+          ).map(({ key, label, placeholder }) => (
+            <div key={key} className={key === "title" ? "col-span-2" : ""}>
+              <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">{label}</label>
+              <Input value={form[key]} onChange={set(key)} placeholder={placeholder} />
+            </div>
+          ))}
+        </div>
+        {preview && (
+          <div className="text-xs text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50 rounded p-3 border border-gray-200 dark:border-gray-600">
+            <p className="font-semibold mb-1 text-gray-500 uppercase tracking-wide text-[10px]">Prévia da referência (NBR 6023):</p>
+            {/* eslint-disable-next-line react/no-danger */}
+            <p dangerouslySetInnerHTML={{ __html: preview }} />
+          </div>
+        )}
+        <div className="flex gap-2 justify-end pt-2">
+          <Button size="sm" variant="outline" onClick={onCancel}>
+            <X className="h-3.5 w-3.5 mr-1" />Cancelar
+          </Button>
+          <Button size="sm" disabled={!form.author.trim() || !form.year.trim()} onClick={() => onConfirm(form)}>
+            <Check className="h-3.5 w-3.5 mr-1" />Inserir Citação
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── AI Writing Assistant Panel ───────────────────────────────────────────────
+function AiAssistantPanel({
+  onAction,
+  loading,
+  result,
+  onApply,
+  onClose,
+}: {
+  onAction: (a: "summarize" | "rewrite" | "abnt" | "neutral") => void;
+  loading: boolean;
+  result: string;
+  onApply: (text: string) => void;
+  onClose: () => void;
+}) {
+  const actions: { key: "summarize" | "rewrite" | "abnt" | "neutral"; label: string; desc: string }[] = [
+    { key: "summarize", label: "Resumir", desc: "Cria um resumo conciso do texto selecionado" },
+    { key: "rewrite", label: "Reescrever (formal)", desc: "Reescreve em linguagem acadêmica formal" },
+    { key: "abnt", label: "Corrigir ABNT", desc: "Ajusta para normas ABNT (3ª pessoa)" },
+    { key: "neutral", label: "Linguagem neutra", desc: "Converte para linguagem neutra de gênero" },
+  ];
+  return (
+    <div className="ai-panel">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+        <span className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+          <Sparkles className="h-4 w-4 text-purple-500" />
+          Assistente de Escrita
+        </span>
+        <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+      <div className="flex-1 overflow-y-auto p-3 space-y-2">
+        <p className="text-xs text-gray-500 dark:text-gray-400">Selecione um trecho do texto e escolha uma ação:</p>
+        {actions.map((a) => (
+          <button
+            key={a.key}
+            disabled={loading}
+            onClick={() => onAction(a.key)}
+            className="w-full text-left rounded-lg border border-gray-200 dark:border-gray-700 p-2.5 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:border-purple-300 transition-colors disabled:opacity-50"
+          >
+            <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{a.label}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">{a.desc}</p>
+          </button>
+        ))}
+        {loading && (
+          <div className="flex items-center gap-2 py-4 justify-center">
+            <span className="h-4 w-4 animate-spin rounded-full border-2 border-purple-500 border-t-transparent" />
+            <span className="text-xs text-gray-500">Processando...</span>
+          </div>
+        )}
+        {result && !loading && (
+          <div className="mt-3 space-y-2">
+            <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">Resultado:</p>
+            <div className="text-sm text-gray-800 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 max-h-48 overflow-y-auto whitespace-pre-wrap">
+              {result}
+            </div>
+            <Button size="sm" className="w-full" onClick={() => onApply(result)}>
+              <Check className="h-3.5 w-3.5 mr-1" />Substituir seleção
+            </Button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Ruler ────────────────────────────────────────────────────────────────────
+function HorizontalRuler({ marginLeft, marginRight, pageWidth = 794 }: { marginLeft: string; marginRight: string; pageWidth?: number }) {
+  const parseCm = (val: string) => {
+    const m = val.match(/^([\d.]+)(cm|mm|in|px)?$/);
+    if (!m) return 96; // ~2.54cm default
+    const n = parseFloat(m[1]);
+    const dpi = 96;
+    switch (m[2]) {
+      case "cm": return n * (dpi / 2.54);
+      case "mm": return n * (dpi / 25.4);
+      case "in": return n * dpi;
+      case "px": return n;
+      default: return n * (dpi / 2.54);
+    }
+  };
+  const ml = parseCm(marginLeft);
+  const mr = parseCm(marginRight);
+  const contentWidth = pageWidth - ml - mr;
+  const ticks: React.ReactNode[] = [];
+  const cmPx = 96 / 2.54;
+  const totalCm = Math.floor(pageWidth / cmPx);
+  for (let i = 0; i <= totalCm; i++) {
+    const x = i * cmPx;
+    const isMajor = i % 1 === 0;
+    const isMargin = x < ml || x > pageWidth - mr;
+    ticks.push(
+      <div
+        key={i}
+        className="editor-ruler-tick"
+        style={{
+          left: x,
+          height: isMajor ? 10 : 5,
+          background: isMargin ? "#d1d5db" : "#9ca3af",
+        }}
+      />,
+      isMajor && i > 0 && x > 4 && x < pageWidth - 4 ? (
+        <span
+          key={`lbl-${i}`}
+          className="editor-ruler-label"
+          style={{ left: x }}
+        >
+          {i}
+        </span>
+      ) : null
+    );
+  }
+  // Margin markers
+  return (
+    <div className="editor-ruler-wrap" style={{ width: pageWidth, maxWidth: "100%" }}>
+      <div className="editor-ruler-bar" style={{ width: pageWidth }}>
+        {/* Left margin zone */}
+        <div style={{ position: "absolute", left: 0, top: 0, width: ml, height: "100%", background: "rgba(209,213,219,0.35)" }} />
+        {/* Right margin zone */}
+        <div style={{ position: "absolute", right: 0, top: 0, width: mr, height: "100%", background: "rgba(209,213,219,0.35)" }} />
+        {/* Content width indicator */}
+        <div style={{ position: "absolute", left: ml, top: 0, width: contentWidth, height: 3, background: "#3b82f6", opacity: 0.3 }} />
+        {ticks}
       </div>
     </div>
   );
@@ -1679,6 +1943,17 @@ function EditorPageInner() {
   const [viewDocId, setViewDocId] = useState<string | null>(null);
   const [viewDocData, setViewDocData] = useState<ViewDocData | null>(null);
   const [viewDocLoading, setViewDocLoading] = useState(false);
+  // Etapa 1+: new feature states
+  const [headingNumbers, setHeadingNumbers] = useState(false);
+  const [trackChanges, setTrackChanges] = useState(false);
+  const [spellcheck, setSpellcheck] = useState(false);
+  const [showAbntCitation, setShowAbntCitation] = useState(false);
+  const [showAiPanel, setShowAiPanel] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiResult, setAiResult] = useState("");
+  const [showRuler, setShowRuler] = useState(true);
+  const [savingStatus, setSavingStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const savingStatusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const getHeadingValue = useCallback((ed: ReturnType<typeof useEditor> | null): number => {
     if (!ed) return 0;
@@ -1744,6 +2019,9 @@ function EditorPageInner() {
       LineHeight,
       Footnote,
       CommentMark,
+      PageBreak,
+      TrackAdd,
+      TrackDelete,
       Placeholder.configure({ placeholder: "Comece a escrever seu documento..." }),
     ],
     content: "",
@@ -1757,12 +2035,19 @@ function EditorPageInner() {
       setCharCount(text.length);
       setWordCount(text.trim() ? text.trim().split(/\s+/).length : 0);
       setIsDirty(true);
-      // Update TOC
+      // Update TOC — also add data-heading-id to headings in the DOM for navigation
       const entries: TocEntry[] = [];
       const notes: string[] = [];
-      ed.state.doc.descendants((node) => {
+      let headingIdx = 0;
+      ed.state.doc.descendants((node, pos) => {
         if (node.type.name === "heading") {
-          entries.push({ level: node.attrs.level as number, text: node.textContent });
+          const id = `h-${headingIdx++}`;
+          entries.push({ level: node.attrs.level as number, text: node.textContent, id });
+          // Set id on the DOM element
+          try {
+            const domNode = ed.view.nodeDOM(pos) as HTMLElement | null;
+            if (domNode) domNode.setAttribute("data-heading-id", id);
+          } catch { /* ignore */ }
         }
         if (node.type.name === "footnote") {
           notes.push(node.attrs.content as string);
@@ -1868,6 +2153,9 @@ function EditorPageInner() {
     }
     setSaving(false);
     setIsDirty(false);
+    if (savingStatusTimer.current) clearTimeout(savingStatusTimer.current);
+    setSavingStatus("saved");
+    savingStatusTimer.current = setTimeout(() => setSavingStatus("idle"), 3000);
     if (opts?.auto) {
       setAutoSaved(true);
       setTimeout(() => setAutoSaved(false), 3000);
@@ -1897,6 +2185,7 @@ function EditorPageInner() {
   useEffect(() => {
     if (!isDirty || !currentDoc) return;
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    setSavingStatus("saving");
     autoSaveTimer.current = setTimeout(() => {
       handleSave({ auto: true });
     }, 30_000);
@@ -1937,9 +2226,13 @@ function EditorPageInner() {
     const lineStart = editor.state.selection.$from.start();
     const tr = editor.state.tr.delete(lineStart, from);
     editor.view.dispatch(tr);
-    // Special case: image opens the dialog
+    // Special cases
     if (item.id === "image") {
       setShowImageDialog(true);
+      return;
+    }
+    if (item.id === "abnt") {
+      setShowAbntCitation(true);
       return;
     }
     item.run(editor);
@@ -1964,6 +2257,138 @@ function EditorPageInner() {
     setIsDirty(true);
   };
 
+  // ── Etapa 1: Modo ABNT ──────────────────────────────────────────────────────
+  const handleAbntMode = useCallback(() => {
+    if (!editor) return;
+    // Apply ABNT formatting to entire document
+    editor.chain()
+      .focus()
+      .selectAll()
+      .setFontFamily("Times New Roman")
+      .setFontSize("12pt")
+      .setLineHeight("1.5")
+      .run();
+    // Set ABNT margins
+    setPageMargin({ top: "3cm", bottom: "2cm", left: "3cm", right: "2cm" });
+    setIsDirty(true);
+  }, [editor]);
+
+  // ── Etapa 3: Insert ABNT citation inline ────────────────────────────────────
+  const handleInsertCitation = useCallback((citation: { author: string; year: string; title: string; location: string; publisher: string }) => {
+    if (!editor) return;
+    const inline = `(${citation.author.toUpperCase()}, ${citation.year})`;
+    editor.chain().focus().insertContent(inline).run();
+    setIsDirty(true);
+    setShowAbntCitation(false);
+  }, [editor]);
+
+  // ── Etapa 4: Accept/Reject all track changes ────────────────────────────────
+  const handleAcceptAllChanges = useCallback(() => {
+    if (!editor) return;
+    // Remove trackAdd marks (accept = keep text, remove mark)
+    // Remove trackDelete marks + their text (reject deletions = remove deleted text)
+    const { state, view } = editor;
+    const { tr, doc } = state;
+    const trackAddMark = state.schema.marks.trackAdd;
+    const trackDeleteMark = state.schema.marks.trackDelete;
+    let offset = 0;
+    const deletions: Array<{ from: number; to: number }> = [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    doc.descendants((node: any, pos: number) => {
+      if (!node.isText) return;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      node.marks.forEach((mark: any) => {
+        if (mark.type === trackDeleteMark) {
+          deletions.push({ from: pos + offset, to: pos + node.nodeSize + offset });
+        }
+      });
+    });
+    // Delete in reverse to keep positions valid
+    for (let i = deletions.length - 1; i >= 0; i--) {
+      tr.delete(deletions[i].from, deletions[i].to);
+      offset -= (deletions[i].to - deletions[i].from);
+    }
+    // Remove all trackAdd marks
+    if (trackAddMark) tr.removeMark(0, tr.doc.content.size, trackAddMark);
+    view.dispatch(tr);
+    setTrackChanges(false);
+  }, [editor]);
+
+  const handleRejectAllChanges = useCallback(() => {
+    if (!editor) return;
+    const { state, view } = editor;
+    const { tr, doc } = state;
+    const trackAddMark = state.schema.marks.trackAdd;
+    const trackDeleteMark = state.schema.marks.trackDelete;
+    let offset = 0;
+    const additions: Array<{ from: number; to: number }> = [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    doc.descendants((node: any, pos: number) => {
+      if (!node.isText) return;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      node.marks.forEach((mark: any) => {
+        if (mark.type === trackAddMark) {
+          additions.push({ from: pos + offset, to: pos + node.nodeSize + offset });
+        }
+      });
+    });
+    for (let i = additions.length - 1; i >= 0; i--) {
+      tr.delete(additions[i].from, additions[i].to);
+      offset -= (additions[i].to - additions[i].from);
+    }
+    if (trackDeleteMark) tr.removeMark(0, tr.doc.content.size, trackDeleteMark);
+    view.dispatch(tr);
+    setTrackChanges(false);
+  }, [editor]);
+
+  // ── Etapa 5: AI assistant ────────────────────────────────────────────────────
+  const handleAiAction = useCallback(async (action: "summarize" | "rewrite" | "abnt" | "neutral") => {
+    if (!editor) return;
+    const selectedText = editor.state.doc.cut(
+      editor.state.selection.from,
+      editor.state.selection.to
+    ).textContent || editor.state.doc.textContent;
+    if (!selectedText.trim()) return;
+    setAiLoading(true);
+    setAiResult("");
+    try {
+      const prompts: Record<string, string> = {
+        summarize: `Resuma o seguinte texto de forma concisa em português:\n\n${selectedText}`,
+        rewrite: `Reescreva o seguinte texto em linguagem acadêmica formal em português:\n\n${selectedText}`,
+        abnt: `Corrija o seguinte texto para estar em conformidade com as normas ABNT (linguagem acadêmica, terceira pessoa):\n\n${selectedText}`,
+        neutral: `Reescreva o seguinte texto usando linguagem neutra de gênero em português:\n\n${selectedText}`,
+      };
+      const res = await fetch("/api/ai/assist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: prompts[action] }),
+      });
+      if (res.ok) {
+        const data = await res.json() as { result?: string; text?: string };
+        setAiResult(data.result || data.text || "Sem resultado.");
+      } else {
+        setAiResult("Erro ao chamar assistente de IA.");
+      }
+    } catch {
+      setAiResult("Erro de rede ao chamar assistente de IA.");
+    } finally {
+      setAiLoading(false);
+    }
+  }, [editor]);
+
+  // ── TOC navigation ──────────────────────────────────────────────────────────
+  const handleTocNavigate = useCallback((id: string) => {
+    if (!editor) return;
+    // Find the heading DOM element and scroll into view
+    const el = editor.view.dom.querySelector(`[data-heading-id="${id}"]`) as HTMLElement | null;
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      // Also focus the editor at that position
+      const editorEl = editor.view.dom;
+      editorEl.focus();
+    }
+  }, [editor]);
+
   const handlePrint = () => {
     if (!editor) return;
     const content = editor.getHTML();
@@ -1976,29 +2401,35 @@ function EditorPageInner() {
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#39;");
     const safeHeader = header.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    const safeFooter = footer.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    // Replace {página} and {total} tokens in footer (render as HTML in print)
+    const footerHtml = footer
+      .replace(/\{página\}/gi, '<span class="pg-num">1</span>')
+      .replace(/\{total\}/gi, '<span class="pg-total">…</span>');
     const isLandscape = pageOrientation === "landscape";
     win.document.write(`<!DOCTYPE html><html><head><title>${safeTitle}</title>
       <style>
         @page{size:${isLandscape ? "landscape" : "portrait"};margin-top:${pageMargin.top};margin-bottom:${pageMargin.bottom};margin-left:${pageMargin.left};margin-right:${pageMargin.right};}
-        body{font-family:Arial,sans-serif;line-height:1.6;}
+        body{font-family:Arial,sans-serif;line-height:1.6;counter-reset:footnote;}
         h1,h2,h3,h4,h5,h6{margin-top:1.5em;}
         table{border-collapse:collapse;width:100%;}
         td,th{border:1px solid #ccc;padding:8px;}
         img{max-width:100%;}
-        ul,ol{padding-left:2em;}
+        ul{list-style:disc;padding-left:2em;}
+        ol{list-style:decimal;padding-left:2em;}
         blockquote{border-left:4px solid #ccc;margin-left:0;padding-left:1em;color:#555;}
         .doc-header{border-bottom:1px solid #ccc;padding-bottom:4px;margin-bottom:1em;font-size:0.85em;color:#555;}
         .doc-footer{border-top:1px solid #ccc;padding-top:4px;margin-top:2em;font-size:0.85em;color:#555;}
         .footnote-ref{counter-increment:footnote;}
         .footnote-ref::after{content:"[" counter(footnote) "]";font-size:0.7em;vertical-align:super;color:#2563eb;}
-        body{counter-reset:footnote;}
+        .page-break{break-after:page;page-break-after:always;border:none;height:0;margin:0;}
+        ins.track-add{color:#16a34a;text-decoration:underline;}
+        del.track-delete{color:#dc2626;text-decoration:line-through;}
       </style>
       </head><body>
         ${safeHeader ? `<div class="doc-header">${safeHeader}</div>` : ""}
         <h1 style="font-size:1.5em;border-bottom:1px solid #eee;padding-bottom:0.5em;">${safeTitle}</h1>
         ${content}
-        ${safeFooter ? `<div class="doc-footer">${safeFooter}</div>` : ""}
+        ${footer ? `<div class="doc-footer">${footerHtml}</div>` : ""}
       </body></html>`);
     win.document.close();
     win.focus();
@@ -2378,7 +2809,7 @@ function EditorPageInner() {
           </CardContent>
         </Card>
         {showToc && (
-          <TableOfContents entries={tocEntries} onClose={() => setShowToc(false)} />
+          <TableOfContents entries={tocEntries} onClose={() => setShowToc(false)} onNavigate={handleTocNavigate} />
         )}
       </div>
 
@@ -2451,6 +2882,67 @@ function EditorPageInner() {
             </Button>
             <Button size="sm" onClick={() => setShowPageSettings(true)} variant="outline" title="Configurações de Página">
               <Settings className="h-4 w-4" />
+            </Button>
+            {/* Etapa 1: ABNT Mode */}
+            <Button size="sm" onClick={handleAbntMode} variant="outline" title="Modo ABNT (Times 12pt, espaçamento 1.5, margens ABNT)">
+              <GraduationCap className="h-4 w-4" />
+            </Button>
+            {/* Etapa 3: Heading Numbers */}
+            <Button
+              size="sm"
+              onClick={() => setHeadingNumbers(!headingNumbers)}
+              variant={headingNumbers ? "default" : "outline"}
+              title="Numeração de títulos (1, 1.1, 1.1.1)"
+            >
+              <Hash className="h-4 w-4" />
+            </Button>
+            {/* Etapa 4: Track Changes */}
+            <Button
+              size="sm"
+              onClick={() => setTrackChanges(!trackChanges)}
+              variant={trackChanges ? "default" : "outline"}
+              title={trackChanges ? "Modo revisão ATIVO — clique para desativar" : "Ativar modo de revisão"}
+              className={trackChanges ? "bg-orange-500 hover:bg-orange-600 text-white border-orange-500" : ""}
+            >
+              <GitMerge className="h-4 w-4" />
+            </Button>
+            {trackChanges && (
+              <>
+                <Button size="sm" onClick={handleAcceptAllChanges} variant="outline" title="Aceitar todas as alterações" className="text-green-600 border-green-300 hover:bg-green-50">
+                  <Check className="h-4 w-4" />
+                </Button>
+                <Button size="sm" onClick={handleRejectAllChanges} variant="outline" title="Rejeitar todas as alterações" className="text-red-600 border-red-300 hover:bg-red-50">
+                  <X className="h-4 w-4" />
+                </Button>
+              </>
+            )}
+            {/* Etapa 5: Spellcheck */}
+            <Button
+              size="sm"
+              onClick={() => setSpellcheck(!spellcheck)}
+              variant={spellcheck ? "default" : "outline"}
+              title={spellcheck ? "Correção ortográfica ATIVA" : "Ativar correção ortográfica PT-BR"}
+            >
+              <SpellCheck className="h-4 w-4" />
+            </Button>
+            {/* Etapa 5: AI Assistant */}
+            <Button
+              size="sm"
+              onClick={() => setShowAiPanel(!showAiPanel)}
+              variant={showAiPanel ? "default" : "outline"}
+              title="Assistente de escrita com IA"
+              className={showAiPanel ? "bg-purple-600 hover:bg-purple-700 text-white border-purple-600" : ""}
+            >
+              <Sparkles className="h-4 w-4" />
+            </Button>
+            {/* Etapa 2: Ruler toggle */}
+            <Button
+              size="sm"
+              onClick={() => setShowRuler(!showRuler)}
+              variant={showRuler ? "default" : "outline"}
+              title="Régua"
+            >
+              <Ruler className="h-4 w-4" />
             </Button>
             <Button size="sm" onClick={handlePrint} variant="outline" title="Imprimir">
               <Printer className="h-4 w-4" />
@@ -2681,6 +3173,12 @@ function EditorPageInner() {
               <ToolbarButton onClick={() => editor?.chain().focus().setHorizontalRule().run()} title="Linha separadora">
                 <Minus className="h-4 w-4" />
               </ToolbarButton>
+              <ToolbarButton onClick={() => (editor as unknown as { commands: { insertPageBreak: () => boolean } } | null)?.commands?.insertPageBreak()} title="Quebra de página (Ctrl+Enter)">
+                <FilePlus2 className="h-4 w-4" />
+              </ToolbarButton>
+              <ToolbarButton onClick={() => setShowAbntCitation(true)} title="Inserir citação ABNT">
+                <GraduationCap className="h-4 w-4" />
+              </ToolbarButton>
 
               {editor?.isActive("table") && (
                 <>
@@ -2704,6 +3202,23 @@ function EditorPageInner() {
                   <ToolbarButton onClick={() => editor.chain().focus().splitCell().run()} title="Dividir célula">
                     <span className="text-xs font-mono" aria-label="Dividir célula">⊟</span>
                   </ToolbarButton>
+                  <div className="w-px h-5 bg-gray-200 dark:bg-gray-600 mx-0.5 self-center flex-shrink-0" />
+                  <span className="text-xs text-gray-500 dark:text-gray-400 px-1 flex-shrink-0">Estilo:</span>
+                  {(["", "table-striped", "table-bordered", "table-minimal"] as const).map((style) => (
+                    <ToolbarButton
+                      key={style || "default"}
+                      onClick={() => {
+                        const node = editor.view.dom.querySelector("table.ProseMirror-table, .ProseMirror table") as HTMLElement | null;
+                        if (node) {
+                          node.classList.remove("table-striped", "table-bordered", "table-minimal");
+                          if (style) node.classList.add(style);
+                        }
+                      }}
+                      title={style || "Padrão"}
+                    >
+                      <span className="text-[10px]">{style ? style.replace("table-", "") : "std"}</span>
+                    </ToolbarButton>
+                  ))}
                 </>
               )}
             </div>
@@ -2713,31 +3228,99 @@ function EditorPageInner() {
           {editor && (
             <BubbleMenu editor={editor}>
               <div className="flex items-center gap-0.5 rounded-lg border border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-700 shadow-lg p-1">
-                <ToolbarButton onClick={() => editor.chain().focus().toggleBold().run()} active={editor.isActive("bold")} title="Negrito">
-                  <Bold className="h-3.5 w-3.5" />
-                </ToolbarButton>
-                <ToolbarButton onClick={() => editor.chain().focus().toggleItalic().run()} active={editor.isActive("italic")} title="Itálico">
-                  <Italic className="h-3.5 w-3.5" />
-                </ToolbarButton>
-                <ToolbarButton onClick={() => editor.chain().focus().toggleUnderline().run()} active={editor.isActive("underline")} title="Sublinhado">
-                  <UnderlineIcon className="h-3.5 w-3.5" />
-                </ToolbarButton>
-                <ToolbarButton onClick={() => setShowLinkDialog(true)} active={editor.isActive("link")} title="Link">
-                  <Link2 className="h-3.5 w-3.5" />
-                </ToolbarButton>
-                <ToolbarButton onClick={() => setShowAddCommentDialog(true)} active={editor.isActive("comment")} title="Adicionar comentário">
-                  <MessageSquare className="h-3.5 w-3.5" />
-                </ToolbarButton>
-                <ToolbarButton onClick={() => editor.chain().focus().unsetAllMarks().run()} title="Limpar formatação">
-                  <RemoveFormatting className="h-3.5 w-3.5" />
-                </ToolbarButton>
+                {/* Image controls when image is selected */}
+                {editor.isActive("image") ? (
+                  <>
+                    <span className="text-xs text-gray-400 px-1 flex-shrink-0">Imagem:</span>
+                    <ToolbarButton
+                      onClick={() => editor.chain().focus().updateAttributes("image", { "data-align": "left" }).run()}
+                      active={editor.getAttributes("image")["data-align"] === "left"}
+                      title="Alinhar à esquerda"
+                    >
+                      <AlignLeft className="h-3.5 w-3.5" />
+                    </ToolbarButton>
+                    <ToolbarButton
+                      onClick={() => editor.chain().focus().updateAttributes("image", { "data-align": "center" }).run()}
+                      active={!editor.getAttributes("image")["data-align"] || editor.getAttributes("image")["data-align"] === "center"}
+                      title="Centralizar"
+                    >
+                      <AlignCenter className="h-3.5 w-3.5" />
+                    </ToolbarButton>
+                    <ToolbarButton
+                      onClick={() => editor.chain().focus().updateAttributes("image", { "data-align": "right" }).run()}
+                      active={editor.getAttributes("image")["data-align"] === "right"}
+                      title="Alinhar à direita"
+                    >
+                      <AlignRight className="h-3.5 w-3.5" />
+                    </ToolbarButton>
+                    <div className="w-px h-5 bg-gray-200 dark:bg-gray-600 mx-0.5 self-center" />
+                    {["25%", "50%", "75%", "100%"].map((w) => (
+                      <ToolbarButton
+                        key={w}
+                        onClick={() => editor.chain().focus().updateAttributes("image", { style: `max-width:${w};width:${w}` }).run()}
+                        active={editor.getAttributes("image")?.style?.includes(w)}
+                        title={`Largura ${w}`}
+                      >
+                        <span className="text-[10px] font-mono">{w}</span>
+                      </ToolbarButton>
+                    ))}
+                  </>
+                ) : (
+                  <>
+                    <ToolbarButton onClick={() => editor.chain().focus().toggleBold().run()} active={editor.isActive("bold")} title="Negrito">
+                      <Bold className="h-3.5 w-3.5" />
+                    </ToolbarButton>
+                    <ToolbarButton onClick={() => editor.chain().focus().toggleItalic().run()} active={editor.isActive("italic")} title="Itálico">
+                      <Italic className="h-3.5 w-3.5" />
+                    </ToolbarButton>
+                    <ToolbarButton onClick={() => editor.chain().focus().toggleUnderline().run()} active={editor.isActive("underline")} title="Sublinhado">
+                      <UnderlineIcon className="h-3.5 w-3.5" />
+                    </ToolbarButton>
+                    <ToolbarButton onClick={() => setShowLinkDialog(true)} active={editor.isActive("link")} title="Link">
+                      <Link2 className="h-3.5 w-3.5" />
+                    </ToolbarButton>
+                    <ToolbarButton onClick={() => setShowAddCommentDialog(true)} active={editor.isActive("comment")} title="Adicionar comentário">
+                      <MessageSquare className="h-3.5 w-3.5" />
+                    </ToolbarButton>
+                    {/* Track changes in bubble menu */}
+                    {trackChanges && (
+                      <>
+                        <div className="w-px h-5 bg-gray-200 dark:bg-gray-600 mx-0.5 self-center" />
+                        <ToolbarButton
+                          onClick={() => editor.chain().focus().setMark("trackAdd").run()}
+                          active={editor.isActive("trackAdd")}
+                          title="Marcar como adição"
+                        >
+                          <span className="text-[10px] text-green-600 font-bold">+</span>
+                        </ToolbarButton>
+                        <ToolbarButton
+                          onClick={() => editor.chain().focus().setMark("trackDelete").run()}
+                          active={editor.isActive("trackDelete")}
+                          title="Marcar como exclusão"
+                        >
+                          <span className="text-[10px] text-red-600 font-bold">−</span>
+                        </ToolbarButton>
+                      </>
+                    )}
+                    <ToolbarButton onClick={() => editor.chain().focus().unsetAllMarks().run()} title="Limpar formatação">
+                      <RemoveFormatting className="h-3.5 w-3.5" />
+                    </ToolbarButton>
+                  </>
+                )}
               </div>
             </BubbleMenu>
           )}
 
           <div className="editor-page-area">
+            {/* Etapa 2: Ruler */}
+            {showRuler && (
+              <HorizontalRuler
+                marginLeft={pageMargin.left}
+                marginRight={pageMargin.right}
+              />
+            )}
             <div
-              className="editor-page"
+              className={`editor-page${headingNumbers ? " numbered-headings" : ""}`}
               data-orientation={pageOrientation}
               style={{
                 "--doc-margin-top":    pageMargin.top,
@@ -2763,7 +3346,7 @@ function EditorPageInner() {
                 </div>
               )}
 
-              <EditorContent editor={editor} />
+              <EditorContent editor={editor} spellCheck={spellcheck} lang={spellcheck ? "pt-BR" : undefined} />
 
               {/* Notas de rodapé */}
               {footnotes.length > 0 && (
@@ -2780,17 +3363,26 @@ function EditorPageInner() {
               {/* Rodapé */}
               {showHeaderFooter && (
                 <div className="editor-footer">
-                  <div className="flex items-center gap-1 mb-1">
-                    <PanelBottom className="h-3 w-3 text-gray-400 flex-shrink-0" />
-                    <span className="text-xs text-gray-400">Rodapé</span>
+                  <div className="flex items-center justify-between gap-1 mb-1">
+                    <div className="flex items-center gap-1">
+                      <PanelBottom className="h-3 w-3 text-gray-400 flex-shrink-0" />
+                      <span className="text-xs text-gray-400">Rodapé</span>
+                    </div>
+                    <span className="text-[10px] text-gray-300 dark:text-gray-600">Use {"{página}"} e {"{total}"} para numeração</span>
                   </div>
                   <textarea
                     value={footer}
                     onChange={(e) => setFooter(e.target.value)}
-                    placeholder="Rodapé do documento..."
+                    placeholder="Rodapé do documento... (use {página} para número da página)"
                     className="w-full bg-transparent resize-none text-sm text-gray-600 dark:text-gray-400 placeholder-gray-300 dark:placeholder-gray-600 focus:outline-none"
                     rows={2}
                   />
+                  {/* Page number preview */}
+                  {footer && (footer.includes("{página}") || footer.includes("{total}")) && (
+                    <div className="text-xs text-blue-500 dark:text-blue-400 mt-1 text-center italic">
+                      {footer.replace(/\{página\}/gi, "1").replace(/\{total\}/gi, "…")}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -2804,7 +3396,9 @@ function EditorPageInner() {
             </div>
             <div className="flex items-center gap-3">
               {autoSaved && <span className="text-green-600 dark:text-green-400 flex items-center gap-1"><Clock className="h-3 w-3" />Salvo automaticamente</span>}
-              {isDirty && !saving && <span className="text-orange-500 dark:text-orange-400">● não salvo</span>}
+              {savingStatus === "saving" && !saving && <span className="text-blue-500 dark:text-blue-400 flex items-center gap-1"><span className="h-2 w-2 animate-pulse rounded-full bg-blue-500 inline-block" />Salvando...</span>}
+              {savingStatus === "saved" && !isDirty && <span className="text-green-600 dark:text-green-400 flex items-center gap-1"><Check className="h-3 w-3" />Salvo</span>}
+              {isDirty && !saving && savingStatus !== "saving" && <span className="text-orange-500 dark:text-orange-400">● não salvo</span>}
               {currentDoc && (
                 <span>Última edição: {formatDate(currentDoc.updatedAt)}</span>
               )}
@@ -2836,6 +3430,25 @@ function EditorPageInner() {
             charCount={charCount}
             html={editor?.getHTML() || ""}
             onClose={() => setShowDocStats(false)}
+          />
+        )}
+        {showAiPanel && (
+          <AiAssistantPanel
+            onAction={handleAiAction}
+            loading={aiLoading}
+            result={aiResult}
+            onApply={(text) => {
+              if (!editor) return;
+              const { from, to } = editor.state.selection;
+              if (from !== to) {
+                editor.chain().focus().deleteRange({ from, to }).insertContentAt(from, text).run();
+              } else {
+                editor.chain().focus().insertContent(text).run();
+              }
+              setAiResult("");
+              setIsDirty(true);
+            }}
+            onClose={() => { setShowAiPanel(false); setAiResult(""); }}
           />
         )}
         </div>
@@ -2883,6 +3496,12 @@ function EditorPageInner() {
       )}
       {showShortcuts && (
         <ShortcutsModal onClose={() => setShowShortcuts(false)} />
+      )}
+      {showAbntCitation && (
+        <AbntCitationModal
+          onConfirm={handleInsertCitation}
+          onCancel={() => setShowAbntCitation(false)}
+        />
       )}
       {slashMenu && (
         <SlashMenu
