@@ -1,23 +1,14 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { ProgressBar } from "@/components/ui/progress-bar";
 import { Badge } from "@/components/ui/badge";
-import { ChevronRight, ChevronDown, Plus, ExternalLink, FileText, Presentation, Upload, GraduationCap } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
+import { ProgressBar } from "@/components/ui/progress-bar";
+import { ChevronRight, ChevronDown, ExternalLink, FileText, Presentation, GraduationCap } from "lucide-react";
+import { DocumentViewerModal } from "@/components/ui/document-viewer-modal";
 
 interface Progress {
   status: "NOT_VIEWED" | "IN_PROGRESS" | "COMPLETED";
-}
-
-interface LibraryItem {
-  id: string;
-  title: string;
-  type: "PDF" | "SLIDE" | "LINK";
-  url: string;
 }
 
 interface Material {
@@ -49,27 +40,12 @@ const progressLabels: Record<string, string> = {
   COMPLETED: "Concluído",
 };
 
-const FILE_ACCEPT: Record<"PDF" | "SLIDE", string> = {
-  PDF: ".pdf,application/pdf",
-  SLIDE:
-    ".ppt,.pptx,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation",
-};
-
 export default function DisciplinasPage() {
-  const { user } = useAuth();
   const [periods, setPeriods] = useState<Period[]>([]);
   const [expandedPeriod, setExpandedPeriod] = useState<string | null>(null);
   const [expandedDiscipline, setExpandedDiscipline] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showAddMaterial, setShowAddMaterial] = useState<string | null>(null);
-  const [materialForm, setMaterialForm] = useState<{ title: string; type: "PDF" | "SLIDE" | "LINK"; url: string; libraryItemId?: string }>({ title: "", type: "LINK", url: "" });
-  const [uploading, setUploading] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-  const [libraryItems, setLibraryItems] = useState<LibraryItem[]>([]);
-  const [showLibraryPicker, setShowLibraryPicker] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const isDocente = user && ["DOCENTE", "ADMIN", "SUPERADMIN"].includes(user.role);
+  const [viewer, setViewer] = useState<{ url: string; title: string; type: "PDF" | "SLIDE" | "LINK" } | null>(null);
 
   const loadPeriods = useCallback(async () => {
     const res = await fetch("/api/periods");
@@ -84,17 +60,6 @@ export default function DisciplinasPage() {
   }, [expandedPeriod]);
 
   useEffect(() => { loadPeriods(); }, [loadPeriods]);
-
-  const loadLibrary = useCallback(async () => {
-    if (!isDocente) return;
-    const res = await fetch("/api/biblioteca");
-    if (res.ok) {
-      const data = await res.json();
-      setLibraryItems(data.items || []);
-    }
-  }, [isDocente]);
-
-  useEffect(() => { loadLibrary(); }, [loadLibrary]);
 
   const getDisciplineProgress = (discipline: Discipline) => {
     if (discipline.materials.length === 0) return 0;
@@ -111,44 +76,6 @@ export default function DisciplinasPage() {
       body: JSON.stringify({ status }),
     });
     loadPeriods();
-  };
-
-  const handleAddMaterial = async (disciplineId: string) => {
-    const res = await fetch(`/api/disciplines/${disciplineId}/materials`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(materialForm),
-    });
-    if (res.ok) {
-      setShowAddMaterial(null);
-      setMaterialForm({ title: "", type: "LINK", url: "" });
-      setShowLibraryPicker(false);
-      loadPeriods();
-    }
-  };
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    setUploadError(null);
-    const formData = new FormData();
-    formData.append("file", file);
-    const res = await fetch("/api/upload", { method: "POST", body: formData });
-    if (res.ok) {
-      const data = await res.json();
-      setMaterialForm((prev) => ({ ...prev, url: data.url }));
-    } else {
-      const data = await res.json().catch(() => ({}));
-      setUploadError(data.error ?? "Falha ao enviar arquivo. Tente novamente.");
-    }
-    setUploading(false);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  };
-
-  const handlePickFromLibrary = (item: LibraryItem) => {
-    setMaterialForm({ title: item.title, type: item.type, url: item.url, libraryItemId: item.id });
-    setShowLibraryPicker(false);
   };
 
   const getTypeIcon = (type: string) => {
@@ -260,14 +187,12 @@ export default function DisciplinasPage() {
                                 >
                                   <div className="flex items-center gap-2 min-w-0">
                                     {getTypeIcon(material.type)}
-                                    <a
-                                      href={material.url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-sm font-medium text-gray-900 dark:text-gray-100 hover:underline truncate"
+                                    <button
+                                      onClick={() => setViewer({ url: material.url, title: material.title, type: material.type })}
+                                      className="text-sm font-medium text-gray-900 dark:text-gray-100 hover:underline truncate text-left"
                                     >
                                       {material.title}
-                                    </a>
+                                    </button>
                                     {getTypeBadge(material.type)}
                                     {material.libraryItemId && (
                                       <Badge variant="success">Biblioteca</Badge>
@@ -292,122 +217,6 @@ export default function DisciplinasPage() {
                               );
                             })
                           )}
-
-                          {isDocente && (
-                            showAddMaterial === discipline.id ? (
-                              <div className="rounded-lg border border-dashed border-blue-300 p-3 space-y-2">
-                                <Input
-                                  placeholder="Título do material"
-                                  value={materialForm.title}
-                                  onChange={(e) => setMaterialForm({ ...materialForm, title: e.target.value })}
-                                />
-                                <div className="flex gap-2 flex-wrap">
-                                  <select
-                                    value={materialForm.type}
-                                    onChange={(e) => {
-                                      setMaterialForm({ ...materialForm, type: e.target.value as "PDF" | "SLIDE" | "LINK", url: "", libraryItemId: undefined });
-                                    }}
-                                    className="flex h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
-                                  >
-                                    <option value="LINK">Link</option>
-                                    <option value="PDF">PDF</option>
-                                    <option value="SLIDE">Slide</option>
-                                  </select>
-                                  {materialForm.type === "LINK" ? (
-                                    <Input
-                                      placeholder="URL"
-                                      value={materialForm.url}
-                                      onChange={(e) => setMaterialForm({ ...materialForm, url: e.target.value })}
-                                    />
-                                  ) : (
-                                    <div className="flex flex-1 items-center gap-2">
-                                      <input
-                                        ref={fileInputRef}
-                                        type="file"
-                                        accept={materialForm.type === "PDF" || materialForm.type === "SLIDE" ? FILE_ACCEPT[materialForm.type] : undefined}
-                                        onChange={handleFileUpload}
-                                        className="hidden"
-                                        id="file-upload"
-                                      />
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => fileInputRef.current?.click()}
-                                        disabled={uploading}
-                                      >
-                                        <Upload className="h-3 w-3 mr-1" />
-                                        {uploading ? "Enviando..." : "Escolher arquivo"}
-                                      </Button>
-                                      {materialForm.url && !uploadError && (
-                                        <span className="text-xs text-green-600 dark:text-green-400 truncate max-w-[120px]">
-                                          ✓ Arquivo enviado
-                                        </span>
-                                      )}
-                                      {uploadError && (
-                                        <span className="text-xs text-red-600 dark:text-red-400 truncate max-w-[180px]">
-                                          {uploadError}
-                                        </span>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
-
-                                {libraryItems.length > 0 && (
-                                  <div>
-                                    <button
-                                      type="button"
-                                      onClick={() => setShowLibraryPicker((v) => !v)}
-                                      className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400"
-                                    >
-                                      {showLibraryPicker ? "▲ Fechar biblioteca" : "▼ Adicionar da Biblioteca"}
-                                    </button>
-                                    {showLibraryPicker && (
-                                      <div className="mt-2 max-h-40 overflow-y-auto rounded border border-gray-200 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-800">
-                                        {libraryItems.map((lib) => (
-                                          <button
-                                            key={lib.id}
-                                            type="button"
-                                            onClick={() => handlePickFromLibrary(lib)}
-                                            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                                          >
-                                            {lib.type === "PDF" ? (
-                                              <FileText className="h-3 w-3 text-red-500 flex-shrink-0" />
-                                            ) : lib.type === "SLIDE" ? (
-                                              <Presentation className="h-3 w-3 text-orange-500 flex-shrink-0" />
-                                            ) : (
-                                              <ExternalLink className="h-3 w-3 text-blue-500 flex-shrink-0" />
-                                            )}
-                                            <span className="truncate">{lib.title}</span>
-                                          </button>
-                                        ))}
-                                      </div>
-                                    )}
-                                    {materialForm.libraryItemId && (
-                                      <p className="text-xs text-green-600 dark:text-green-400 mt-1">
-                                        ✓ Item da biblioteca selecionado: {materialForm.title}
-                                      </p>
-                                    )}
-                                  </div>
-                                )}
-
-                                <div className="flex gap-2">
-                                  <Button size="sm" onClick={() => handleAddMaterial(discipline.id)} disabled={uploading || !materialForm.url || !materialForm.title}>
-                                    Adicionar
-                                  </Button>
-                                  <Button size="sm" variant="outline" onClick={() => { setShowAddMaterial(null); setMaterialForm({ title: "", type: "LINK", url: "" }); setShowLibraryPicker(false); }}>
-                                    Cancelar
-                                  </Button>
-                                </div>
-                              </div>
-                            ) : (
-                              <button
-                                onClick={() => setShowAddMaterial(discipline.id)}
-                                className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400"
-                              >
-                                <Plus className="h-3 w-3" /> Adicionar material
-                              </button>
-                            )
-                          )}
                         </div>
                       )}
                     </div>
@@ -417,6 +226,15 @@ export default function DisciplinasPage() {
             </Card>
           ))}
         </div>
+      )}
+
+      {viewer && (
+        <DocumentViewerModal
+          url={viewer.url}
+          title={viewer.title}
+          type={viewer.type}
+          onClose={() => setViewer(null)}
+        />
       )}
     </div>
   );
