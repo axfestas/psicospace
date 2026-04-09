@@ -2717,6 +2717,7 @@ function EditorPageInner() {
               value={docSearch}
               onChange={(e) => setDocSearch(e.target.value)}
               placeholder="Buscar documentos..."
+              aria-label="Buscar documentos"
               className="w-full pl-9 pr-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-700 dark:text-gray-300"
             />
             {docSearch && (
@@ -3233,7 +3234,7 @@ function EditorPageInner() {
                   <Divider />
                   <SelectDropdown
                     title="Espaçamento de linha"
-                    options={[{ label: "Linha", value: "" }, ...LINE_HEIGHTS]}
+                    options={[{ label: "Espaçamento", value: "" }, ...LINE_HEIGHTS]}
                     value={currentLineHeight}
                     onChange={(v) => handleSetLineHeight(String(v))}
                   />
