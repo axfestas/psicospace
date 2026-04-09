@@ -126,7 +126,7 @@ function VerifyEmailContent() {
         </p>
       ) : resendStatus === "error" ? (
         <p className="text-sm text-red-600 dark:text-red-400">
-          Não foi possível reenviar. Verifique se você está logado.
+          Não foi possível reenviar. Verifique se você está logade.
         </p>
       ) : (
         <Button onClick={handleResend} disabled={resending} variant="outline" className="w-full">

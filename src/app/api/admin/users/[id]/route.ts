@@ -50,7 +50,7 @@ export async function DELETE(
     }
 
     await prisma.user.delete({ where: { id } });
-    return NextResponse.json({ message: "Usuário excluído com sucesso" });
+    return NextResponse.json({ message: "Usuárie excluíde com sucesso" });
   } catch (error) {
     console.error("[admin/users/[id]]", error);
     return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 });

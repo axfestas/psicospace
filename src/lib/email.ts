@@ -40,7 +40,7 @@ export async function sendWelcomeEmail(opts: {
   return resend.emails.send({
     from: getFromAddress(),
     to: opts.to,
-    subject: "Bem-vindo ao PsicoSpace! Confirme seu e-mail",
+    subject: "Bem-vinde ao PsicoSpace! Confirme seu e-mail",
     html: `
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -48,12 +48,13 @@ export async function sendWelcomeEmail(opts: {
 <body style="font-family:Arial,Helvetica,sans-serif;background:#f9fafb;margin:0;padding:0;">
   <div style="max-width:600px;margin:40px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.1);">
     <div style="background:#2563eb;padding:32px 40px;text-align:center;">
-      <h1 style="color:#fff;margin:0;font-size:28px;font-weight:700;">Ψ PsicoSpace</h1>
+      <img src="${getBaseUrl()}/icons/icon-192.png" alt="PsicoSpace" width="64" height="64" style="display:inline-block;border-radius:12px;margin-bottom:12px;">
+      <h1 style="color:#fff;margin:0;font-size:28px;font-weight:700;">PsicoSpace</h1>
     </div>
     <div style="padding:40px;">
       <h2 style="color:#111827;margin-top:0;">Olá, ${safeName}! 👋</h2>
       <p style="color:#374151;line-height:1.6;">
-        Seja bem-vindo(a) ao <strong>PsicoSpace</strong>, sua plataforma acadêmica de Psicologia.
+        Seja bem-vinde ao <strong>PsicoSpace</strong>, sua plataforma acadêmica de Psicologia.
         Para começar, precisamos confirmar o seu e-mail.
       </p>
       <div style="text-align:center;margin:32px 0;">
@@ -107,7 +108,8 @@ export async function sendPasswordResetEmail(opts: {
 <body style="font-family:Arial,Helvetica,sans-serif;background:#f9fafb;margin:0;padding:0;">
   <div style="max-width:600px;margin:40px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.1);">
     <div style="background:#2563eb;padding:32px 40px;text-align:center;">
-      <h1 style="color:#fff;margin:0;font-size:28px;font-weight:700;">Ψ PsicoSpace</h1>
+      <img src="${getBaseUrl()}/icons/icon-192.png" alt="PsicoSpace" width="64" height="64" style="display:inline-block;border-radius:12px;margin-bottom:12px;">
+      <h1 style="color:#fff;margin:0;font-size:28px;font-weight:700;">PsicoSpace</h1>
     </div>
     <div style="padding:40px;">
       <h2 style="color:#111827;margin-top:0;">Olá, ${safeName}!</h2>
@@ -185,7 +187,8 @@ export async function sendPendingItemsEmail(opts: {
 <body style="font-family:Arial,Helvetica,sans-serif;background:#f9fafb;margin:0;padding:0;">
   <div style="max-width:600px;margin:40px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.1);">
     <div style="background:#2563eb;padding:32px 40px;text-align:center;">
-      <h1 style="color:#fff;margin:0;font-size:28px;font-weight:700;">Ψ PsicoSpace</h1>
+      <img src="${getBaseUrl()}/icons/icon-192.png" alt="PsicoSpace" width="64" height="64" style="display:inline-block;border-radius:12px;margin-bottom:12px;">
+      <h1 style="color:#fff;margin:0;font-size:28px;font-weight:700;">PsicoSpace</h1>
     </div>
     <div style="padding:40px;">
       <h2 style="color:#111827;margin-top:0;">Olá, ${safeName}!</h2>

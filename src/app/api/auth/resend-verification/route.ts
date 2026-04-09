@@ -17,7 +17,7 @@ export async function POST() {
     if (!auth) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
     const user = await prisma.user.findUnique({ where: { id: auth.userId } });
-    if (!user) return NextResponse.json({ error: "Usuário não encontrado" }, { status: 404 });
+    if (!user) return NextResponse.json({ error: "Usuárie não encontrade" }, { status: 404 });
 
     if (user.emailVerified) {
       return NextResponse.json({ error: "E-mail já verificado" }, { status: 400 });
