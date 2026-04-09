@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { ChevronRight, ChevronDown, ExternalLink, FileText, Presentation, GraduationCap } from "lucide-react";
+import { DocumentViewerModal } from "@/components/ui/document-viewer-modal";
 
 interface Progress {
   status: "NOT_VIEWED" | "IN_PROGRESS" | "COMPLETED";
@@ -44,6 +45,7 @@ export default function DisciplinasPage() {
   const [expandedPeriod, setExpandedPeriod] = useState<string | null>(null);
   const [expandedDiscipline, setExpandedDiscipline] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [viewer, setViewer] = useState<{ url: string; title: string; type: "PDF" | "SLIDE" | "LINK" } | null>(null);
 
   const loadPeriods = useCallback(async () => {
     const res = await fetch("/api/periods");
@@ -185,14 +187,12 @@ export default function DisciplinasPage() {
                                 >
                                   <div className="flex items-center gap-2 min-w-0">
                                     {getTypeIcon(material.type)}
-                                    <a
-                                      href={material.url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-sm font-medium text-gray-900 dark:text-gray-100 hover:underline truncate"
+                                    <button
+                                      onClick={() => setViewer({ url: material.url, title: material.title, type: material.type })}
+                                      className="text-sm font-medium text-gray-900 dark:text-gray-100 hover:underline truncate text-left"
                                     >
                                       {material.title}
-                                    </a>
+                                    </button>
                                     {getTypeBadge(material.type)}
                                     {material.libraryItemId && (
                                       <Badge variant="success">Biblioteca</Badge>
@@ -226,6 +226,15 @@ export default function DisciplinasPage() {
             </Card>
           ))}
         </div>
+      )}
+
+      {viewer && (
+        <DocumentViewerModal
+          url={viewer.url}
+          title={viewer.title}
+          type={viewer.type}
+          onClose={() => setViewer(null)}
+        />
       )}
     </div>
   );

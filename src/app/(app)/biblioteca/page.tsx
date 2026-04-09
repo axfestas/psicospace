@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { FileText, Presentation, ExternalLink, Trash2, BookOpen } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { DocumentViewerModal } from "@/components/ui/document-viewer-modal";
 
 interface LibraryItem {
   id: string;
@@ -22,6 +23,7 @@ export default function BibliotecaPage() {
   const [items, setItems] = useState<LibraryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [viewer, setViewer] = useState<{ url: string; title: string; type: "PDF" | "SLIDE" | "LINK" } | null>(null);
 
   const isDocente = user && ["DOCENTE", "ADMIN", "SUPERADMIN"].includes(user.role);
 
@@ -99,14 +101,12 @@ export default function BibliotecaPage() {
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0">
                     {getTypeIcon(item.type)}
-                    <a
-                      href={item.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-medium text-gray-900 dark:text-gray-100 hover:underline truncate"
+                    <button
+                      onClick={() => setViewer({ url: item.url, title: item.title, type: item.type })}
+                      className="font-medium text-gray-900 dark:text-gray-100 hover:underline truncate text-left"
                     >
                       {item.title}
-                    </a>
+                    </button>
                   </div>
                   <div className="flex items-center gap-1 flex-shrink-0">
                     {getTypeBadge(item.type)}
@@ -128,6 +128,15 @@ export default function BibliotecaPage() {
             </Card>
           ))}
         </div>
+      )}
+
+      {viewer && (
+        <DocumentViewerModal
+          url={viewer.url}
+          title={viewer.title}
+          type={viewer.type}
+          onClose={() => setViewer(null)}
+        />
       )}
     </div>
   );
