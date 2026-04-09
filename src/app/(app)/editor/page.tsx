@@ -2411,33 +2411,105 @@ function EditorPageInner() {
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#39;");
     const safeHeader = header.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    // Replace {página} and {total} tokens in footer (render as HTML in print)
+    // Replace {página} and {total} tokens in footer
     const footerHtml = footer
       .replace(/\{página\}/gi, '<span class="pg-num">1</span>')
       .replace(/\{total\}/gi, '<span class="pg-total">…</span>');
     const isLandscape = pageOrientation === "landscape";
-    win.document.write(`<!DOCTYPE html><html><head><title>${safeTitle}</title>
+    win.document.write(`<!DOCTYPE html><html><head>
+      <meta charset="utf-8">
+      <title>${safeTitle}</title>
       <style>
-        @page{size:${isLandscape ? "landscape" : "portrait"};margin-top:${pageMargin.top};margin-bottom:${pageMargin.bottom};margin-left:${pageMargin.left};margin-right:${pageMargin.right};}
-        body{font-family:Arial,sans-serif;line-height:1.6;counter-reset:footnote;}
-        h1,h2,h3,h4,h5,h6{margin-top:1.5em;}
-        table{border-collapse:collapse;width:100%;}
-        td,th{border:1px solid #ccc;padding:8px;}
-        img{max-width:100%;}
-        ul{list-style:disc;padding-left:2em;}
-        ol{list-style:decimal;padding-left:2em;}
-        blockquote{border-left:4px solid #ccc;margin-left:0;padding-left:1em;color:#555;}
-        .doc-header{border-bottom:1px solid #ccc;padding-bottom:4px;margin-bottom:1em;font-size:0.85em;color:#555;}
-        .doc-footer{border-top:1px solid #ccc;padding-top:4px;margin-top:2em;font-size:0.85em;color:#555;}
-        .footnote-ref{counter-increment:footnote;}
-        .footnote-ref::after{content:"[" counter(footnote) "]";font-size:0.7em;vertical-align:super;color:#2563eb;}
-        .page-break{break-after:page;page-break-after:always;border:none;height:0;margin:0;}
-        ins.track-add{color:#16a34a;text-decoration:underline;}
-        del.track-delete{color:#dc2626;text-decoration:line-through;}
+        /* Hide browser-generated header/footer (filename, URL, date) */
+        @page {
+          size: ${isLandscape ? "landscape" : "portrait"};
+          margin-top: ${pageMargin.top};
+          margin-bottom: ${pageMargin.bottom};
+          margin-left: ${pageMargin.left};
+          margin-right: ${pageMargin.right};
+          /* Chrome/Edge — suppress running heads */
+          @top-left   { content: ""; }
+          @top-center { content: ""; }
+          @top-right  { content: ""; }
+          @bottom-left   { content: ""; }
+          @bottom-center { content: ""; }
+          @bottom-right  { content: ""; }
+        }
+        /* Firefox / Safari: hide built-in header/footer */
+        html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        body {
+          margin: 0;
+          padding: 0;
+          font-family: Arial, sans-serif;
+          font-size: 12pt;
+          line-height: 1.6;
+          color: #111;
+          counter-reset: footnote;
+        }
+        /* Headings */
+        h1 { font-size: 2em; font-weight: bold; margin: 0.67em 0; }
+        h2 { font-size: 1.5em; font-weight: bold; margin: 0.75em 0; }
+        h3 { font-size: 1.17em; font-weight: bold; margin: 0.83em 0; }
+        h4 { font-size: 1em; font-weight: bold; margin: 1.12em 0; }
+        h5 { font-size: 0.83em; font-weight: bold; margin: 1.5em 0; }
+        h6 { font-size: 0.75em; font-weight: bold; margin: 1.67em 0; }
+        p { margin: 0.5em 0; }
+        /* Text styles */
+        strong { font-weight: bold; }
+        em { font-style: italic; }
+        u { text-decoration: underline; }
+        s { text-decoration: line-through; }
+        sub { vertical-align: sub; font-size: smaller; }
+        sup { vertical-align: super; font-size: smaller; }
+        code { font-family: monospace; background: #f3f3f3; padding: 0.1em 0.3em; border-radius: 3px; }
+        pre { font-family: monospace; background: #f3f3f3; padding: 1em; border-radius: 4px; overflow: auto; }
+        /* Text alignment */
+        [style*="text-align: left"]    { text-align: left; }
+        [style*="text-align: center"]  { text-align: center; }
+        [style*="text-align: right"]   { text-align: right; }
+        [style*="text-align: justify"] { text-align: justify; }
+        /* Lists */
+        ul { list-style: disc; padding-left: 2em; margin: 0.5em 0; }
+        ol { list-style: decimal; padding-left: 2em; margin: 0.5em 0; }
+        ul ul { list-style: circle; }
+        ul ul ul { list-style: square; }
+        li { margin: 0.25em 0; }
+        /* Task list */
+        ul[data-type="taskList"] { list-style: none; padding-left: 1em; }
+        ul[data-type="taskList"] li { display: flex; align-items: flex-start; gap: 0.5em; }
+        ul[data-type="taskList"] li input[type="checkbox"] { margin-top: 0.2em; }
+        /* Table */
+        table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+        td, th { border: 1px solid #ccc; padding: 6px 8px; vertical-align: top; }
+        th { background: #f5f5f5; font-weight: bold; }
+        /* Blockquote */
+        blockquote { border-left: 4px solid #ccc; margin: 1em 0 1em 0; padding-left: 1em; color: #555; }
+        /* Images */
+        img { max-width: 100%; height: auto; }
+        img[data-align="left"]  { display: block; margin-right: auto; }
+        img[data-align="center"] { display: block; margin: 0 auto; }
+        img[data-align="right"] { display: block; margin-left: auto; }
+        /* Horizontal rule */
+        hr { border: none; border-top: 1px solid #ccc; margin: 1em 0; }
+        /* Footnotes */
+        .footnote-ref { counter-increment: footnote; }
+        .footnote-ref::after { content: "[" counter(footnote) "]"; font-size: 0.7em; vertical-align: super; color: #2563eb; }
+        /* Page break */
+        .page-break { break-after: page; page-break-after: always; border: none; height: 0; margin: 0; }
+        /* Track changes */
+        ins.track-add { color: #16a34a; text-decoration: underline; }
+        del.track-delete { color: #dc2626; text-decoration: line-through; }
+        /* Highlight */
+        mark { padding: 0.1em 0.2em; border-radius: 2px; }
+        /* Document header/footer */
+        .doc-header { border-bottom: 1px solid #ccc; padding-bottom: 4px; margin-bottom: 1em; font-size: 0.85em; color: #555; }
+        .doc-footer { border-top: 1px solid #ccc; padding-top: 4px; margin-top: 2em; font-size: 0.85em; color: #555; }
+        /* Title */
+        .doc-title { font-size: 1.6em; font-weight: bold; border-bottom: 1px solid #eee; padding-bottom: 0.4em; margin-bottom: 1em; }
       </style>
       </head><body>
         ${safeHeader ? `<div class="doc-header">${safeHeader}</div>` : ""}
-        <h1 style="font-size:1.5em;border-bottom:1px solid #eee;padding-bottom:0.5em;">${safeTitle}</h1>
+        <div class="doc-title">${safeTitle}</div>
         ${content}
         ${footer ? `<div class="doc-footer">${footerHtml}</div>` : ""}
       </body></html>`);
