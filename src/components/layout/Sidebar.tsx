@@ -16,6 +16,7 @@ import {
   LogOut,
   GraduationCap,
   Library,
+  FlaskConical,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -24,6 +25,7 @@ const navItems = [
   { href: "/agenda", label: "Agenda", icon: Calendar },
   { href: "/biblioteca", label: "Biblioteca", icon: Library },
   { href: "/disciplinas", label: "Disciplinas", icon: GraduationCap },
+  { href: "/psicolab", label: "PsicoLab", icon: FlaskConical },
   { href: "/editor", label: "Editor", icon: FileText },
   { href: "/abnt", label: "Normas ABNT", icon: BookMarked },
 ];
