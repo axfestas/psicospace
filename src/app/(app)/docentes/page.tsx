@@ -72,6 +72,8 @@ export default function DocentesPage() {
   const [materialForm, setMaterialForm] = useState<{ title: string; type: "PDF" | "SLIDE" | "LINK"; url: string; libraryItemId?: string }>({ title: "", type: "SLIDE", url: "" });
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [addSaving, setAddSaving] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
   const [libraryItems, setLibraryItems] = useState<LibraryItem[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [viewer, setViewer] = useState<{ url: string; title: string; type: "PDF" | "SLIDE" | "LINK" } | null>(null);
@@ -177,6 +179,8 @@ export default function DocentesPage() {
   };
 
   const handleAddMaterial = async (disciplineId: string) => {
+    setAddSaving(true);
+    setAddError(null);
     const res = await fetch(`/api/disciplines/${disciplineId}/materials`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -186,7 +190,11 @@ export default function DocentesPage() {
       setShowAddMaterial(null);
       setMaterialForm({ title: "", type: "SLIDE", url: "" });
       loadData();
+    } else {
+      const data = await res.json().catch(() => ({}));
+      setAddError((data as { error?: string }).error ?? "Erro ao publicar material.");
     }
+    setAddSaving(false);
   };
 
   const handleProgressChange = async (materialId: string, status: string) => {
@@ -451,7 +459,7 @@ export default function DocentesPage() {
                           <div className="flex gap-1 rounded-lg bg-gray-100 dark:bg-gray-800 p-1 w-fit">
                             <button
                               type="button"
-                              onClick={() => { setMaterialMode("upload"); setMaterialForm({ title: "", type: "SLIDE", url: "" }); }}
+                              onClick={() => { setMaterialMode("upload"); setMaterialForm({ title: "", type: "SLIDE", url: "" }); setAddError(null); }}
                               className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${materialMode === "upload" ? "bg-white dark:bg-gray-700 text-blue-600 shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-700"}`}
                             >
                               <Upload className="h-3 w-3 inline mr-1" />
@@ -459,7 +467,7 @@ export default function DocentesPage() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => { setMaterialMode("library"); setMaterialForm({ title: "", type: "SLIDE", url: "" }); }}
+                              onClick={() => { setMaterialMode("library"); setMaterialForm({ title: "", type: "SLIDE", url: "" }); setAddError(null); }}
                               className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${materialMode === "library" ? "bg-white dark:bg-gray-700 text-blue-600 shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-700"}`}
                             >
                               <BookOpen className="h-3 w-3 inline mr-1" />
@@ -553,29 +561,39 @@ export default function DocentesPage() {
                             </div>
                           )}
 
-                          <div className="flex gap-2">
-                            <Button
-                              size="sm"
-                              onClick={() => handleAddMaterial(discipline.id)}
-                              disabled={uploading || !materialForm.url || !materialForm.title}
-                            >
-                              Publicar
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                setShowAddMaterial(null);
-                                setMaterialForm({ title: "", type: "SLIDE", url: "" });
-                              }}
-                            >
-                              Cancelar
-                            </Button>
+                          <div className="flex flex-col gap-2">
+                            {addError && (
+                              <p className="text-xs text-red-600 dark:text-red-400">{addError}</p>
+                            )}
+                            <div className="flex gap-2">
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={() => handleAddMaterial(discipline.id)}
+                                disabled={uploading || addSaving || !materialForm.url || !materialForm.title}
+                                loading={addSaving}
+                              >
+                                {addSaving ? "Publicando..." : "Publicar"}
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setShowAddMaterial(null);
+                                  setMaterialForm({ title: "", type: "SLIDE", url: "" });
+                                  setAddError(null);
+                                }}
+                              >
+                                Cancelar
+                              </Button>
+                            </div>
                           </div>
                         </div>
                       ) : (
                         <button
-                          onClick={() => { setShowAddMaterial(discipline.id); setMaterialMode("upload"); setMaterialForm({ title: "", type: "SLIDE", url: "" }); }}
+                          type="button"
+                          onClick={() => { setShowAddMaterial(discipline.id); setMaterialMode("upload"); setMaterialForm({ title: "", type: "SLIDE", url: "" }); setAddError(null); }}
                           className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 mt-2"
                         >
                           <Plus className="h-3 w-3" /> Publicar material
