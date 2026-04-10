@@ -479,6 +479,7 @@ export default function AbordagensPage() {
         {showComparison && (
           <div className="mt-4 overflow-x-auto">
             <table className="w-full min-w-[640px] text-sm border-collapse">
+              <caption className="sr-only">Comparação de abordagens psicológicas por dimensão clínica</caption>
               <thead>
                 <tr>
                   <th className="w-40 pb-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400 pr-3">Dimensão</th>

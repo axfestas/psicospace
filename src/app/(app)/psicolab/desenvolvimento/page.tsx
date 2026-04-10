@@ -453,7 +453,7 @@ export default function DesenvolvimentoPage() {
       {/* Comparison note */}
       <div className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
         <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-2">🔄 Piaget vs. Erikson vs. Vygotsky</h3>
-        <div className="grid gap-3 sm:grid-cols-3 text-sm text-gray-600 dark:text-gray-400">
+        <div className="grid gap-3 md:grid-cols-3 text-sm text-gray-600 dark:text-gray-400">
           <div>
             <p className="font-medium text-gray-700 dark:text-gray-300">Piaget</p>
             <p>Foco no desenvolvimento <strong>cognitivo</strong>. Como a criança pensa e constrói conhecimento. 4 estágios universais até a adolescência.</p>

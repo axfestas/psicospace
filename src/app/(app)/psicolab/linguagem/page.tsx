@@ -308,7 +308,7 @@ export default function LinguagemPage() {
               <div className="rounded-xl bg-violet-50 border border-violet-200 p-4 dark:bg-violet-900/20 dark:border-violet-800 space-y-2">
                 <p className="text-sm font-semibold text-violet-800 dark:text-violet-300">🧠 O que isso mostra?</p>
                 <p className="text-sm text-gray-700 dark:text-gray-300">
-                  Em português, não temos palavras específicas para distinguir os tons de azul do Par A — eles são ambos &ldquo;azul&rdquo;. Em russo, são palavras completamente diferentes (<em>goluboy</em>/<em>siniy</em>), e estudos mostram que falantes russos identificam essa diferença <strong>40ms mais rápido</strong>!
+                  Em português, não temos palavras específicas para distinguir os tons de azul do Par A — eles são ambos <q>azul</q>. Em russo, são palavras completamente diferentes (<em>goluboy</em>/<em>siniy</em>), e estudos mostram que falantes russos identificam essa diferença <strong>40ms mais rápido</strong>!
                 </p>
                 <p className="text-sm text-gray-700 dark:text-gray-300">
                   Isso sustenta a versão fraca da hipótese de Sapir-Whorf: a linguagem <em>influencia</em> (mas não determina totalmente) como percebemos o mundo.

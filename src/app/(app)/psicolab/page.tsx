@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Brain, FlaskConical, BookOpen, Activity, Zap, Users, Heart, Dna, Sparkles, MessageSquare, Baby, GraduationCap, AlertTriangle, Languages } from "lucide-react";
+import { Brain, FlaskConical, BookOpen, Activity, Zap, Users, Sparkles, MessageSquare, Baby, GraduationCap, Languages } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const labs = [
@@ -72,17 +72,6 @@ const labs = [
     available: true,
   },
   {
-    href: "/psicolab/personalidade",
-    icon: Dna,
-    color: "orange",
-    title: "Simulador de Personalidade",
-    subtitle: "Big Five (OCEAN)",
-    description:
-      "Responda 20 questões e descubra seu perfil nos 5 grandes fatores de personalidade com gráfico radar interativo.",
-    tags: ["Big Five", "OCEAN", "Radar Chart", "Arquétipos"],
-    available: false,
-  },
-  {
     href: "/psicolab/clinico",
     icon: MessageSquare,
     color: "teal",
@@ -92,17 +81,6 @@ const labs = [
       "Pratique como terapeuta: escolha uma abordagem (Freud, Rogers, Beck) e conduza sessões com pacientes virtuais.",
     tags: ["Psicanálise", "Humanismo", "TCC", "Paciente Virtual"],
     available: true,
-  },
-  {
-    href: "/psicolab/emocoes",
-    icon: Heart,
-    color: "pink",
-    title: "Lab de Emoções",
-    subtitle: "Emoções em Tempo Real",
-    description:
-      "Combine eventos, contexto social e estado interno para gerar perfis emocionais baseados na Roda de Plutchik.",
-    tags: ["Plutchik", "Avaliação Cognitiva", "Regulação Emocional"],
-    available: false,
   },
   {
     href: "/psicolab/social",
@@ -136,17 +114,6 @@ const labs = [
       "Simule o condicionamento clássico de Pavlov, generalização de estímulos e aprendizagem observacional de Bandura.",
     tags: ["Pavlov", "Condicionamento Clássico", "Bandura", "Bobo Doll"],
     available: true,
-  },
-  {
-    href: "/psicolab/psicopatologia",
-    icon: AlertTriangle,
-    color: "purple",
-    title: "Psicopatologia Interativa",
-    subtitle: "Entender, não decorar",
-    description:
-      "Explore ansiedade, depressão e fobias de forma educativa — veja pensamentos automáticos, reações físicas e tratamentos baseados em evidências.",
-    tags: ["Ansiedade", "Depressão", "Fobias", "TCC"],
-    available: false,
   },
   {
     href: "/psicolab/linguagem",
@@ -198,23 +165,11 @@ const colorMap: Record<string, { card: string; icon: string; tag: string; badge:
     tag: "bg-cyan-50 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300",
     badge: "bg-cyan-600",
   },
-  orange: {
-    card: "border-orange-200 hover:border-orange-400 dark:border-orange-800 dark:hover:border-orange-600",
-    icon: "bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-400",
-    tag: "bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300",
-    badge: "bg-orange-600",
-  },
   teal: {
     card: "border-teal-200 hover:border-teal-400 dark:border-teal-800 dark:hover:border-teal-600",
     icon: "bg-teal-100 text-teal-600 dark:bg-teal-900/40 dark:text-teal-400",
     tag: "bg-teal-50 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300",
     badge: "bg-teal-600",
-  },
-  pink: {
-    card: "border-pink-200 hover:border-pink-400 dark:border-pink-800 dark:hover:border-pink-600",
-    icon: "bg-pink-100 text-pink-600 dark:bg-pink-900/40 dark:text-pink-400",
-    tag: "bg-pink-50 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300",
-    badge: "bg-pink-600",
   },
   indigo: {
     card: "border-indigo-200 hover:border-indigo-400 dark:border-indigo-800 dark:hover:border-indigo-600",
@@ -233,12 +188,6 @@ const colorMap: Record<string, { card: string; icon: string; tag: string; badge:
     icon: "bg-sky-100 text-sky-600 dark:bg-sky-900/40 dark:text-sky-400",
     tag: "bg-sky-50 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300",
     badge: "bg-sky-600",
-  },
-  purple: {
-    card: "border-purple-200 hover:border-purple-400 dark:border-purple-800 dark:hover:border-purple-600",
-    icon: "bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-400",
-    tag: "bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
-    badge: "bg-purple-600",
   },
   yellow: {
     card: "border-yellow-200 hover:border-yellow-400 dark:border-yellow-800 dark:hover:border-yellow-600",
@@ -261,8 +210,8 @@ export default function PsicoLabPage() {
           Psico<span className="text-blue-600">Lab</span>
         </h1>
         <p className="mx-auto mt-3 max-w-xl text-gray-600 dark:text-gray-400">
-          Experimente a Psicologia — não só estude. 14 simulações interativas cobrindo
-          neurociência, cognição, personalidade, clínica, emoções e muito mais.
+          Experimente a Psicologia — não só estude. 11 simulações interativas cobrindo
+          neurociência, cognição, clínica, comportamento social e muito mais.
         </p>
       </div>
 
