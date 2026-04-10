@@ -123,7 +123,6 @@ export default function BibliotecaPage() {
                 {item.description && (
                   <p className="text-xs text-gray-500 dark:text-gray-400">{item.description}</p>
                 )}
-                <p className="text-xs text-gray-400">por {item.uploadedBy.name}</p>
               </CardContent>
             </Card>
           ))}
