@@ -19,6 +19,8 @@ export async function GET() {
     if (!user) {
       return NextResponse.json({ error: "Usuárie não encontrade" }, { status: 404 });
     }
+
+    return NextResponse.json({ user });
   } catch (error) {
     console.error("[auth/me]", error);
     return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 });
