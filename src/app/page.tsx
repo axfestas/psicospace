@@ -51,6 +51,7 @@ export default function HomePage() {
             {[
               { icon: "📅", title: "Agenda Inteligente", desc: "Calendário mensal com eventos, tarefas com checklist e área de anotações livres." },
               { icon: "📚", title: "Gestão de Materiais", desc: "Organize materiais por período e disciplina. Acompanhe seu progresso de estudo." },
+              { icon: "🧪", title: "PsicoLab", desc: "Laboratório virtual interativo: cérebro 3D, Caixa de Skinner e abordagens psicológicas." },
               { icon: "✍️", title: "Editor Rico", desc: "Editor de texto completo com formatação, listas, títulos e exportação para PDF." },
               { icon: "📖", title: "Guia ABNT", desc: "Referência completa das normas ABNT para trabalhos acadêmicos de Psicologia." },
             ].map((feature) => (
