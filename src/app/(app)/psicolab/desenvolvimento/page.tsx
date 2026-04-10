@@ -149,7 +149,7 @@ const ERIKSON_STAGES: EriksonStage[] = [
     description: "O idoso olha para a vida e avalia se ela foi significativa e bem vivida.",
     positive: "Integridade: paz com a própria história, sabedoria.",
     negative: "Desespero: arrependimento profundo, amargura, medo da morte.",
-    example: "Pessoas que resolversm as crises anteriores tendem a chegar aqui com maior integridade.",
+    example: "Pessoas que resolverem as crises anteriores tendem a chegar aqui com maior integridade.",
     color: "violet",
   },
 ];
