@@ -80,7 +80,7 @@ const APPROACHES: Approach[] = [
     color: "violet",
     headerColor: "bg-violet-600",
     founder: "Sigmund Freud, Carl Jung, Melanie Klein",
-    period: "Fin do Séc. XIX (1890–presente)",
+    period: "Final do Séc. XIX (1890–presente)",
     tagline: "O inconsciente é o motor do comportamento humano.",
     description:
       "A Psicanálise propõe que a maior parte da vida mental ocorre fora da consciência. Conflitos inconscientes, desejos reprimidos e experiências da infância determinam nossa personalidade e sofrimento psíquico.",
@@ -124,7 +124,7 @@ const APPROACHES: Approach[] = [
     color: "amber",
     headerColor: "bg-amber-500",
     founder: "Abraham Maslow, Carl Rogers, Viktor Frankl",
-    period: "Séc. XX (1950s–presente)",
+    period: "Séc. XX (1950–presente)",
     tagline: "Todo ser humano tende naturalmente ao crescimento e à autorrealização.",
     description:
       "O Humanismo surge como \"terceira força\" (após psicanálise e behaviorismo), focando no potencial positivo humano. Cada pessoa possui recursos internos para crescer, e o terapeuta cria condições para que isso aconteça.",
@@ -168,7 +168,7 @@ const APPROACHES: Approach[] = [
     color: "blue",
     headerColor: "bg-blue-600",
     founder: "Aaron Beck, Albert Ellis, George Kelly",
-    period: "Séc. XX (1960s–presente)",
+    period: "Séc. XX (1960–presente)",
     tagline: "Como pensamos determina como nos sentimos e agimos.",
     description:
       "O Cognitivismo estuda como os processos mentais — percepção, atenção, memória, raciocínio — influenciam o comportamento. Na clínica, identifica pensamentos automáticos e crenças disfuncionais que geram sofrimento.",

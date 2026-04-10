@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Brain, FlaskConical, BookOpen, Activity } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const labs = [
   {
@@ -102,7 +103,11 @@ export default function PsicoLabPage() {
           const Icon = lab.icon;
           const card = (
             <div
-              className={`group relative rounded-2xl border-2 bg-white p-6 transition-all duration-200 dark:bg-gray-900 ${colors.card} ${lab.available ? "cursor-pointer hover:shadow-lg" : "opacity-60 cursor-not-allowed"}`}
+              className={cn(
+                "group relative rounded-2xl border-2 bg-white p-6 transition-all duration-200 dark:bg-gray-900",
+                colors.card,
+                lab.available ? "cursor-pointer hover:shadow-lg" : "opacity-60 cursor-not-allowed"
+              )}
             >
               {!lab.available && (
                 <span className="absolute right-4 top-4 rounded-full bg-gray-200 px-2 py-0.5 text-xs font-medium text-gray-600 dark:bg-gray-700 dark:text-gray-400">
