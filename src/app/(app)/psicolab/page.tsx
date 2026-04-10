@@ -80,7 +80,7 @@ const labs = [
     description:
       "Responda 20 questões e descubra seu perfil nos 5 grandes fatores de personalidade com gráfico radar interativo.",
     tags: ["Big Five", "OCEAN", "Radar Chart", "Arquétipos"],
-    available: true,
+    available: false,
   },
   {
     href: "/psicolab/clinico",
@@ -102,7 +102,7 @@ const labs = [
     description:
       "Combine eventos, contexto social e estado interno para gerar perfis emocionais baseados na Roda de Plutchik.",
     tags: ["Plutchik", "Avaliação Cognitiva", "Regulação Emocional"],
-    available: true,
+    available: false,
   },
   {
     href: "/psicolab/social",
@@ -146,7 +146,7 @@ const labs = [
     description:
       "Explore ansiedade, depressão e fobias de forma educativa — veja pensamentos automáticos, reações físicas e tratamentos baseados em evidências.",
     tags: ["Ansiedade", "Depressão", "Fobias", "TCC"],
-    available: true,
+    available: false,
   },
   {
     href: "/psicolab/linguagem",
