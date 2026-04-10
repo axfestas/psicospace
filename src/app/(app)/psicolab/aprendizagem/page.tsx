@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { ArrowLeft, Play, RotateCcw } from "lucide-react";
 
-type SimType = "pavlov" | "bandura";
+type SimType = "pavlov" | "bandura" | "generalizacao";
 
 // ── Pavlov types ───────────────────────────────────────────────────────────────
 type PavlovPhase = "before" | "acquisition" | "acquisition_done" | "test" | "extinction";
@@ -260,6 +260,16 @@ export default function AprendizagemPage() {
         >
           🧒 Aprendizagem Observacional (Bandura)
         </button>
+        <button
+          onClick={() => setSim("generalizacao")}
+          className={`flex-1 rounded-lg py-2 text-sm font-medium transition-all ${
+            sim === "generalizacao"
+              ? "bg-white text-gray-900 shadow dark:bg-gray-700 dark:text-gray-100"
+              : "text-gray-500 hover:text-gray-700 dark:text-gray-400"
+          }`}
+        >
+          📡 Generalização
+        </button>
       </div>
 
       {/* ── PAVLOV ── */}
@@ -503,6 +513,65 @@ export default function AprendizagemPage() {
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── GENERALIZAÇÃO ── */}
+      {sim === "generalizacao" && (
+        <div className="space-y-4">
+          <div className="rounded-2xl border-2 border-sky-200 bg-sky-50 p-5 dark:border-sky-800 dark:bg-sky-900/20">
+            <h2 className="text-lg font-bold text-sky-800 dark:text-sky-300">📡 Generalização de Estímulos</h2>
+            <p className="mt-1 text-sm text-sky-700 dark:text-sky-400">
+              Após o condicionamento de Pavlov, a resposta condicionada não se limita ao estímulo original — ela generaliza para estímulos semelhantes, com intensidade decrescente.
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-900">
+            <h3 className="mb-4 font-semibold text-gray-800 dark:text-gray-200">
+              🔔 Gradiente de Generalização — Frequências de Som
+            </h3>
+            <div className="space-y-3">
+              {[
+                { hz: "455 Hz (original)", pct: 100, color: "bg-sky-600" },
+                { hz: "470 Hz", pct: 78, color: "bg-sky-500" },
+                { hz: "490 Hz", pct: 52, color: "bg-sky-400" },
+                { hz: "510 Hz", pct: 28, color: "bg-sky-300" },
+                { hz: "530 Hz", pct: 10, color: "bg-sky-200" },
+              ].map(({ hz, pct, color }) => (
+                <div key={hz} className="flex items-center gap-3">
+                  <div className="w-32 flex-shrink-0 text-right text-xs font-medium text-gray-600 dark:text-gray-400">
+                    🔔 {hz}
+                  </div>
+                  <div className="flex-1">
+                    <div className="h-6 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
+                      <div
+                        className={`h-full rounded-full ${color} transition-all duration-700`}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                  <div className="w-10 flex-shrink-0 text-xs font-bold text-sky-700 dark:text-sky-400">
+                    {pct}%
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+              Cada barra representa a força da resposta de salivação (%) ao ouvir aquela frequência, após condicionamento com 455 Hz.
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4 dark:border-sky-800 dark:bg-sky-900/20">
+            <p className="text-sm text-sky-800 dark:text-sky-300">
+              💡 <strong>Exemplo real:</strong> Uma criança assustada por um cachorro grande pode generalizar o medo a todos os cachorros, depois a outros animais de quatro patas, depois a qualquer animal peludo. A terapia de exposição usa esse gradiente para dessensibilizar a resposta.
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
+            <p className="text-sm text-gray-700 dark:text-gray-300">
+              🔬 <strong>Discriminação:</strong> O inverso da generalização — o organismo aprende a responder APENAS ao estímulo original, não aos similares. Isso é treinado reforçando o CS e extinguindo os similares.
+            </p>
           </div>
         </div>
       )}

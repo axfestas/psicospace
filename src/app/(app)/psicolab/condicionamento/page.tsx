@@ -144,6 +144,7 @@ export default function CondicionamentoPage() {
   const [schedule, setSchedule] = useState<ScheduleType>("positive");
   const [running, setRunning] = useState(false);
   const [state, setState] = useState<SimState>(INITIAL_STATE);
+  const [showSchedules, setShowSchedules] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const stateRef = useRef(state);
   stateRef.current = state;
@@ -678,6 +679,108 @@ export default function CondicionamentoPage() {
             estudar como as consequências moldam o comportamento.
           </div>
         </div>
+      </div>
+
+      {/* ── Schedules of Reinforcement ── */}
+      <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-900">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">📋 Esquemas de Reforço</h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Como a frequência e o timing do reforço moldam o comportamento</p>
+          </div>
+          <button
+            onClick={() => setShowSchedules((v) => !v)}
+            className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+              showSchedules
+                ? "bg-violet-600 text-white hover:bg-violet-700"
+                : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+            }`}
+          >
+            {showSchedules ? "Fechar" : "📋 Esquemas de Reforço"}
+          </button>
+        </div>
+
+        {showSchedules && (
+          <div className="mt-5 space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              {/* FR */}
+              <div className="rounded-2xl border-2 border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-900/20">
+                <div className="mb-2 flex items-center gap-2">
+                  <span className="rounded-full bg-amber-200 px-2.5 py-0.5 text-xs font-bold text-amber-800 dark:bg-amber-800/50 dark:text-amber-300">FR</span>
+                  <h3 className="font-bold text-amber-900 dark:text-amber-200">Reforço de Razão Fixa</h3>
+                </div>
+                <p className="mb-2 text-xs text-amber-800 dark:text-amber-300">
+                  Reforço após cada N-ésima resposta. Produz taxa alta e constante com pausa após o reforço.
+                </p>
+                <div className="rounded-lg bg-amber-100 p-2.5 text-xs text-amber-900 dark:bg-amber-900/40 dark:text-amber-200">
+                  <p className="font-medium">Exemplo:</p>
+                  <p>Cartão fidelidade: 10 carimbos = 1 grátis. Alta taxa de resposta perto da recompensa.</p>
+                </div>
+                <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
+                  <strong>No mundo real:</strong> Pagamento por peça produzida, coleta de pontos em jogos
+                </p>
+              </div>
+
+              {/* FI */}
+              <div className="rounded-2xl border-2 border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-900/20">
+                <div className="mb-2 flex items-center gap-2">
+                  <span className="rounded-full bg-blue-200 px-2.5 py-0.5 text-xs font-bold text-blue-800 dark:bg-blue-800/50 dark:text-blue-300">FI</span>
+                  <h3 className="font-bold text-blue-900 dark:text-blue-200">Reforço de Intervalo Fixo</h3>
+                </div>
+                <p className="mb-2 text-xs text-blue-800 dark:text-blue-300">
+                  Reforço para a primeira resposta após período de tempo fixo. Padrão escalope — lento no início, acelerado perto do reforço.
+                </p>
+                <div className="rounded-lg bg-blue-100 p-2.5 text-xs text-blue-900 dark:bg-blue-900/40 dark:text-blue-200">
+                  <p className="font-medium">Exemplo:</p>
+                  <p>Checar e-mail de hora em hora. Poucas checagens logo após verificar, muitas perto da próxima hora.</p>
+                </div>
+                <p className="mt-2 text-xs text-blue-700 dark:text-blue-400">
+                  <strong>No mundo real:</strong> Salário mensal, verificar redes sociais em horários fixos
+                </p>
+              </div>
+
+              {/* VR */}
+              <div className="rounded-2xl border-2 border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-800 dark:bg-emerald-900/20">
+                <div className="mb-2 flex items-center gap-2">
+                  <span className="rounded-full bg-emerald-200 px-2.5 py-0.5 text-xs font-bold text-emerald-800 dark:bg-emerald-800/50 dark:text-emerald-300">VR</span>
+                  <h3 className="font-bold text-emerald-900 dark:text-emerald-200">Reforço de Razão Variável</h3>
+                </div>
+                <p className="mb-2 text-xs text-emerald-800 dark:text-emerald-300">
+                  Reforço após número imprevisível de respostas. Taxa mais alta e constante; muito resistente à extinção.
+                </p>
+                <div className="rounded-lg bg-emerald-100 p-2.5 text-xs text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-200">
+                  <p className="font-medium">Exemplo:</p>
+                  <p>Caça-níqueis: você não sabe qual aposta vai ganhar — por isso é tão viciante.</p>
+                </div>
+                <p className="mt-2 text-xs text-emerald-700 dark:text-emerald-400">
+                  <strong>No mundo real:</strong> Redes sociais (likes imprevisíveis), apostas, pesca
+                </p>
+              </div>
+
+              {/* VI */}
+              <div className="rounded-2xl border-2 border-violet-200 bg-violet-50 p-4 dark:border-violet-800 dark:bg-violet-900/20">
+                <div className="mb-2 flex items-center gap-2">
+                  <span className="rounded-full bg-violet-200 px-2.5 py-0.5 text-xs font-bold text-violet-800 dark:bg-violet-800/50 dark:text-violet-300">VI</span>
+                  <h3 className="font-bold text-violet-900 dark:text-violet-200">Reforço de Intervalo Variável</h3>
+                </div>
+                <p className="mb-2 text-xs text-violet-800 dark:text-violet-300">
+                  Reforço para a primeira resposta após período imprevisível. Taxa moderada e constante; muito resistente à extinção.
+                </p>
+                <div className="rounded-lg bg-violet-100 p-2.5 text-xs text-violet-900 dark:bg-violet-900/40 dark:text-violet-200">
+                  <p className="font-medium">Exemplo:</p>
+                  <p>Verificar se uma encomenda chegou — não sabe quando vai chegar, então verifica regularmente.</p>
+                </div>
+                <p className="mt-2 text-xs text-violet-700 dark:text-violet-400">
+                  <strong>No mundo real:</strong> Verificar notificações, pescar, esperar um ônibus sem horário fixo
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-xl bg-gray-50 p-4 text-sm text-gray-700 dark:bg-gray-800 dark:text-gray-300">
+              💡 Esquemas variáveis produzem as taxas de resposta mais persistentes — é por isso que redes sociais e jogos de azar são tão difíceis de abandonar.
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

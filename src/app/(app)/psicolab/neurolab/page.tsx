@@ -293,10 +293,22 @@ const GYRI_LINES = [
   "M 388 168 C 400 157 412 170 422 159",
 ];
 
+const QUIZ_QUESTIONS = [
+  { question: "Qual região é responsável pelo controle de impulsos e tomada de decisão racional?", options: ["Amígdala", "Córtex Pré-frontal", "Cerebelo", "Hipocampo"], correct: 1 },
+  { question: "O 'centro do medo' do cérebro — dispara respostas de luta-ou-fuga — é:", options: ["Hipocampo", "Córtex Motor", "Amígdala", "Lobo Parietal"], correct: 2 },
+  { question: "Qual estrutura é essencial para a formação de novas memórias de longo prazo?", options: ["Hipocampo", "Cerebelo", "Lobo Occipital", "Tronco Encefálico"], correct: 0 },
+  { question: "Onde são processadas as informações visuais primárias?", options: ["Lobo Frontal", "Lobo Temporal", "Lobo Occipital", "Lobo Parietal"], correct: 2 },
+  { question: "Coordenação motora, equilíbrio e aprendizagem de habilidades motoras automáticas dependem de:", options: ["Córtex Pré-frontal", "Tronco Encefálico", "Cerebelo", "Amígdala"], correct: 2 },
+] as const;
+
 export default function NeuroLabPage() {
   const [selected, setSelected] = useState<BrainRegion | null>(null);
   const [activationMode, setActivationMode] = useState(false);
   const [activeStimulus, setActiveStimulus] = useState<StimulusPreset | null>(null);
+  const [showQuiz, setShowQuiz] = useState(false);
+  const [quizIndex, setQuizIndex] = useState(0);
+  const [quizAnswers, setQuizAnswers] = useState<number[]>([]);
+  const [quizDone, setQuizDone] = useState(false);
 
   const activeRegionIds = activeStimulus?.regions ?? [];
 
@@ -745,6 +757,165 @@ export default function NeuroLabPage() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* ── Quiz Mode ── */}
+      <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-900">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">🧠 Modo Quiz</h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Teste seus conhecimentos sobre regiões cerebrais</p>
+          </div>
+          <button
+            onClick={() => {
+              setShowQuiz((v) => !v);
+              setQuizIndex(0);
+              setQuizAnswers([]);
+              setQuizDone(false);
+            }}
+            className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+              showQuiz
+                ? "bg-blue-600 text-white hover:bg-blue-700"
+                : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+            }`}
+          >
+            {showQuiz ? "Fechar Quiz" : "🧠 Modo Quiz"}
+          </button>
+        </div>
+
+        {showQuiz && (
+          <div className="mt-5">
+            {!quizDone ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between text-xs text-gray-400">
+                  <span>Questão {quizIndex + 1} / {QUIZ_QUESTIONS.length}</span>
+                  <div className="flex gap-1">
+                    {QUIZ_QUESTIONS.map((_, i) => (
+                      <span
+                        key={i}
+                        className={`inline-block h-2 w-6 rounded-full ${
+                          i < quizAnswers.length
+                            ? quizAnswers[i] === QUIZ_QUESTIONS[i].correct
+                              ? "bg-emerald-400"
+                              : "bg-red-400"
+                            : i === quizIndex
+                              ? "bg-blue-400"
+                              : "bg-gray-200 dark:bg-gray-700"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                <p className="text-base font-semibold text-gray-900 dark:text-gray-100">
+                  {QUIZ_QUESTIONS[quizIndex].question}
+                </p>
+
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {QUIZ_QUESTIONS[quizIndex].options.map((opt, i) => {
+                    const answered = quizAnswers.length > quizIndex;
+                    const chosen = quizAnswers[quizIndex];
+                    const correct = QUIZ_QUESTIONS[quizIndex].correct;
+                    const isCorrect = i === correct;
+                    const isChosen = i === chosen;
+
+                    let cls =
+                      "rounded-xl border px-4 py-3 text-sm text-left font-medium transition-colors flex items-center gap-2 ";
+                    if (!answered) {
+                      cls +=
+                        "border-gray-200 bg-gray-50 text-gray-700 hover:border-blue-400 hover:bg-blue-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:border-blue-500 dark:hover:bg-blue-900/20 cursor-pointer";
+                    } else if (isCorrect) {
+                      cls += "border-emerald-400 bg-emerald-50 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-600";
+                    } else if (isChosen && !isCorrect) {
+                      cls += "border-red-400 bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300 dark:border-red-600";
+                    } else {
+                      cls += "border-gray-100 bg-gray-50 text-gray-400 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-500";
+                    }
+
+                    return (
+                      <button
+                        key={i}
+                        disabled={answered}
+                        onClick={() => setQuizAnswers((prev) => [...prev, i])}
+                        className={cls}
+                      >
+                        <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-gray-200 text-xs font-bold text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+                          {["A", "B", "C", "D"][i]}
+                        </span>
+                        {opt}
+                        {answered && isCorrect && <span className="ml-auto">✅</span>}
+                        {answered && isChosen && !isCorrect && <span className="ml-auto">❌</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {quizAnswers.length > quizIndex && (
+                  <div className="flex justify-end">
+                    <button
+                      onClick={() => {
+                        if (quizIndex + 1 >= QUIZ_QUESTIONS.length) {
+                          setQuizDone(true);
+                        } else {
+                          setQuizIndex((v) => v + 1);
+                        }
+                      }}
+                      className="rounded-full bg-blue-600 px-6 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
+                    >
+                      {quizIndex + 1 >= QUIZ_QUESTIONS.length ? "Ver resultado" : "Próxima →"}
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-4 text-center">
+                {(() => {
+                  const score = quizAnswers.filter(
+                    (ans, i) => ans === QUIZ_QUESTIONS[i].correct
+                  ).length;
+                  return (
+                    <>
+                      <div className="text-5xl font-black text-blue-600 dark:text-blue-400">
+                        {score} / {QUIZ_QUESTIONS.length}
+                      </div>
+                      <p className="text-base font-semibold text-gray-800 dark:text-gray-200">
+                        {score === 5
+                          ? "🏆 Perfeito! Você conhece muito bem as funções cerebrais."
+                          : score >= 3
+                            ? "🎯 Muito bem! Revise as regiões que você errou."
+                            : "📖 Continue explorando o cérebro! Cada região tem sua história."}
+                      </p>
+                      <div className="flex justify-center gap-2 flex-wrap">
+                        {QUIZ_QUESTIONS.map((q, i) => (
+                          <span
+                            key={i}
+                            className={`rounded-full px-3 py-1 text-xs font-medium ${
+                              quizAnswers[i] === q.correct
+                                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                                : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"
+                            }`}
+                          >
+                            Q{i + 1} {quizAnswers[i] === q.correct ? "✅" : "❌"}
+                          </span>
+                        ))}
+                      </div>
+                      <button
+                        onClick={() => {
+                          setQuizIndex(0);
+                          setQuizAnswers([]);
+                          setQuizDone(false);
+                        }}
+                        className="rounded-full border border-gray-200 bg-gray-100 px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors"
+                      >
+                        🔄 Reiniciar Quiz
+                      </button>
+                    </>
+                  );
+                })()}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
