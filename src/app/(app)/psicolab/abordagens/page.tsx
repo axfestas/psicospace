@@ -211,6 +211,7 @@ export default function AbordagensPage() {
   const [activeApproach, setActiveApproach] = useState<string>("behaviorismo");
   const [expandedConcept, setExpandedConcept] = useState<string | null>(null);
   const [caseVisible, setCaseVisible] = useState(false);
+  const [showComparison, setShowComparison] = useState(false);
 
   const approach = APPROACHES.find((a) => a.id === activeApproach)!;
 
@@ -461,6 +462,90 @@ export default function AbordagensPage() {
             um cognitivista (identificar pensamentos catastróficos).
           </div>
         </div>
+      </div>
+
+      {/* ── COMPARISON TABLE ── */}
+      <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-900">
+        <button
+          onClick={() => setShowComparison((v) => !v)}
+          className="flex w-full items-center justify-between"
+        >
+          <h3 className="font-semibold text-gray-800 dark:text-gray-200">📊 Comparar Abordagens</h3>
+          <span className="rounded-full border border-gray-200 px-3 py-1 text-xs font-medium text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800">
+            {showComparison ? "Ocultar" : "Mostrar"}
+          </span>
+        </button>
+
+        {showComparison && (
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full min-w-[640px] text-sm border-collapse">
+              <thead>
+                <tr>
+                  <th className="w-40 pb-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400 pr-3">Dimensão</th>
+                  <th className="pb-3 text-left pr-3">
+                    <span className="inline-block rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">🔬 Behaviorismo</span>
+                  </th>
+                  <th className="pb-3 text-left pr-3">
+                    <span className="inline-block rounded-full bg-violet-100 px-3 py-1 text-xs font-bold text-violet-700 dark:bg-violet-900/30 dark:text-violet-300">🛋️ Psicanálise</span>
+                  </th>
+                  <th className="pb-3 text-left pr-3">
+                    <span className="inline-block rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">🌱 Humanismo</span>
+                  </th>
+                  <th className="pb-3 text-left">
+                    <span className="inline-block rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">💭 Cognitivismo</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                {([
+                  {
+                    dimension: "Visão do ser humano",
+                    behaviorismo: "Organismo moldado pelo ambiente",
+                    psicanalise: "Ser conflituado entre Id, Ego e Superego",
+                    humanismo: "Ser com potencial inato de crescimento",
+                    cognitivismo: "Processador de informações que constrói a realidade",
+                  },
+                  {
+                    dimension: "Causa do sofrimento",
+                    behaviorismo: "Comportamentos aprendidos disfuncionais",
+                    psicanalise: "Conflitos inconscientes reprimidos",
+                    humanismo: "Distância entre self real e self ideal",
+                    cognitivismo: "Esquemas e crenças distorcidas",
+                  },
+                  {
+                    dimension: "Papel do terapeuta",
+                    behaviorismo: "Técnico que aplica princípios de aprendizagem",
+                    psicanalise: "Intérprete que desvela o inconsciente",
+                    humanismo: "Facilitador empático e autêntico",
+                    cognitivismo: "Colaborador que desafia pensamentos",
+                  },
+                  {
+                    dimension: "Foco da terapia",
+                    behaviorismo: "Comportamento observável",
+                    psicanalise: "Inconsciente e infância",
+                    humanismo: "Experiência subjetiva e autorrealização",
+                    cognitivismo: "Pensamentos automáticos e crenças nucleares",
+                  },
+                  {
+                    dimension: "Técnica central",
+                    behaviorismo: "Reforço, extinção, dessensibilização",
+                    psicanalise: "Associação livre, análise de sonhos, transferência",
+                    humanismo: "Escuta empática, congruência, aceitação incondicional",
+                    cognitivismo: "Registro de pensamentos, reestruturação cognitiva",
+                  },
+                ] as { dimension: string; behaviorismo: string; psicanalise: string; humanismo: string; cognitivismo: string }[]).map((row) => (
+                  <tr key={row.dimension}>
+                    <td className="py-3 pr-3 text-xs font-semibold text-gray-500 align-top">{row.dimension}</td>
+                    <td className="py-3 pr-3 text-xs text-gray-700 dark:text-gray-300 align-top">{row.behaviorismo}</td>
+                    <td className="py-3 pr-3 text-xs text-gray-700 dark:text-gray-300 align-top">{row.psicanalise}</td>
+                    <td className="py-3 pr-3 text-xs text-gray-700 dark:text-gray-300 align-top">{row.humanismo}</td>
+                    <td className="py-3 text-xs text-gray-700 dark:text-gray-300 align-top">{row.cognitivismo}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

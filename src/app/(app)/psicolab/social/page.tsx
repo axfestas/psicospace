@@ -432,6 +432,53 @@ export default function SocialPage() {
           )}
         </div>
       )}
+
+      {/* ── HISTORICAL CONTEXT ── always visible ── */}
+      <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-900 space-y-5">
+        <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">📚 Contexto Histórico &amp; Ética</h2>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          {/* Asch card */}
+          <div className="rounded-xl border-2 border-indigo-200 bg-indigo-50 p-4 dark:border-indigo-800 dark:bg-indigo-900/20 space-y-3">
+            <h3 className="font-bold text-indigo-800 dark:text-indigo-300">Experimento de Asch (1951)</h3>
+            <div>
+              <p className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wide mb-1">Resultado-chave</p>
+              <p className="text-sm text-gray-700 dark:text-gray-300">~37% das respostas dos participantes seguiram o grupo, mesmo sendo obviamente erradas. 75% se conformaram pelo menos uma vez.</p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wide mb-1">⚠️ Nota Ética</p>
+              <p className="text-sm text-gray-700 dark:text-gray-300">Participantes não sabiam que os outros eram atores. Levou ao desenvolvimento de normas éticas de consentimento informado.</p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">🏛️ Legado</p>
+              <p className="text-sm text-gray-700 dark:text-gray-300">Mostrou que a pressão social pode superar o julgamento racional — especialmente quando há unanimidade.</p>
+            </div>
+          </div>
+
+          {/* Milgram card */}
+          <div className="rounded-xl border-2 border-rose-200 bg-rose-50 p-4 dark:border-rose-800 dark:bg-rose-900/20 space-y-3">
+            <h3 className="font-bold text-rose-800 dark:text-rose-300">Experimento de Milgram (1961)</h3>
+            <div>
+              <p className="text-xs font-semibold text-rose-600 dark:text-rose-400 uppercase tracking-wide mb-1">Resultado-chave</p>
+              <p className="text-sm text-gray-700 dark:text-gray-300">65% dos participantes chegaram ao choque máximo (450V). Milgram esperava apenas 1–2%.</p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wide mb-1">⚠️ Nota Ética</p>
+              <p className="text-sm text-gray-700 dark:text-gray-300">Gerou enorme debate ético. Hoje seria impossível replicar nessa forma. Os participantes relataram estresse significativo.</p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">🏛️ Legado</p>
+              <p className="text-sm text-gray-700 dark:text-gray-300">Demonstrou que a obediência à autoridade pode levar pessoas comuns a cometer atos extraordinariamente prejudiciais.</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-xl bg-blue-50 border border-blue-200 p-3 dark:bg-blue-900/20 dark:border-blue-800">
+          <p className="text-sm text-blue-700 dark:text-blue-300">
+            🔄 <strong>Replicação cross-cultural:</strong> Ambos os experimentos foram replicados em outros países com resultados semelhantes, sugerindo que esses fenômenos são culturalmente amplos — não exclusivos dos EUA.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }

@@ -142,6 +142,34 @@ const colorMap: Record<string, { border: string; bg: string; text: string; btn: 
 export default function LinguagemPage() {
   const [topic, setTopic] = useState<TopicId>("sapir_whorf");
   const [framingRevealed, setFramingRevealed] = useState<number[]>([]);
+  const [colorAnswers, setColorAnswers] = useState<Record<number, "same" | "different">>({});
+
+  const colorPairs = [
+    {
+      label: "Par A",
+      colorA: "#0047AB",
+      nameA: "azul cobalto",
+      colorB: "#6495ED",
+      nameB: "azul cornflower",
+      note: "Russo distingue: siniy (escuro) vs goluboy (claro)",
+    },
+    {
+      label: "Par B",
+      colorA: "#2E8B57",
+      nameA: "verde-mar",
+      colorB: "#32CD32",
+      nameB: "verde-limão",
+      note: "Variações de verde sem nomes distintos em português",
+    },
+    {
+      label: "Par C",
+      colorA: "#DC143C",
+      nameA: "carmesim",
+      colorB: "#FF6347",
+      nameB: "tomate",
+      note: "Vermelho-alaranjado — fronteira difusa em muitas línguas",
+    },
+  ] as const;
 
   const topicData = TOPICS.find((t) => t.id === topic)!;
   const cc = colorMap[topicData.color];
@@ -220,10 +248,82 @@ export default function LinguagemPage() {
               </div>
             ))}
           </div>
+
+          {/* ── Color perception demo ── */}
+          <div className="rounded-2xl border-2 border-violet-200 bg-white p-5 dark:border-violet-800 dark:bg-gray-900 space-y-4">
+            <div>
+              <h3 className="font-bold text-gray-900 dark:text-gray-100">🎨 Experimento: Percepção de Cor</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Você percebe diferença entre estes pares?</p>
+            </div>
+
+            <div className="space-y-4">
+              {colorPairs.map((pair, i) => (
+                <div key={i} className="rounded-xl border border-gray-100 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800">
+                  <p className="text-xs font-semibold text-gray-500 mb-3">{pair.label}</p>
+                  <div className="flex items-center gap-4 mb-3">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="h-14 w-14 rounded-xl shadow-sm border border-gray-200 dark:border-gray-600"
+                        style={{ backgroundColor: pair.colorA }}
+                        title={pair.nameA}
+                      />
+                      <div
+                        className="h-14 w-14 rounded-xl shadow-sm border border-gray-200 dark:border-gray-600"
+                        style={{ backgroundColor: pair.colorB }}
+                        title={pair.nameB}
+                      />
+                    </div>
+                    {colorAnswers[i] === undefined && (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setColorAnswers((prev) => ({ ...prev, [i]: "same" }))}
+                          className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                        >
+                          São iguais
+                        </button>
+                        <button
+                          onClick={() => setColorAnswers((prev) => ({ ...prev, [i]: "different" }))}
+                          className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                        >
+                          São diferentes
+                        </button>
+                      </div>
+                    )}
+                    {colorAnswers[i] !== undefined && (
+                      <span className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                        colorAnswers[i] === "different"
+                          ? "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300"
+                          : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300"
+                      }`}>
+                        {colorAnswers[i] === "different" ? "✓ São diferentes" : "○ São iguais"}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 italic">{pair.note}</p>
+                </div>
+              ))}
+            </div>
+
+            {Object.keys(colorAnswers).length === colorPairs.length && (
+              <div className="rounded-xl bg-violet-50 border border-violet-200 p-4 dark:bg-violet-900/20 dark:border-violet-800 space-y-2">
+                <p className="text-sm font-semibold text-violet-800 dark:text-violet-300">🧠 O que isso mostra?</p>
+                <p className="text-sm text-gray-700 dark:text-gray-300">
+                  Em português, não temos palavras específicas para distinguir os tons de azul do Par A — eles são ambos &ldquo;azul&rdquo;. Em russo, são palavras completamente diferentes (<em>goluboy</em>/<em>siniy</em>), e estudos mostram que falantes russos identificam essa diferença <strong>40ms mais rápido</strong>!
+                </p>
+                <p className="text-sm text-gray-700 dark:text-gray-300">
+                  Isso sustenta a versão fraca da hipótese de Sapir-Whorf: a linguagem <em>influencia</em> (mas não determina totalmente) como percebemos o mundo.
+                </p>
+                <button
+                  onClick={() => setColorAnswers({})}
+                  className="mt-1 text-xs font-medium text-violet-600 hover:text-violet-700 dark:text-violet-400 underline"
+                >
+                  🔄 Reiniciar Demo
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       )}
-
-      {/* ── FRAMING ── */}
       {topic === "framing" && (
         <div className="space-y-4">
           <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 dark:bg-amber-900/20 dark:border-amber-800">
