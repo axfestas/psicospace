@@ -4,7 +4,51 @@ import { useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 
-type Theorist = "piaget" | "erikson";
+type Theorist = "piaget" | "erikson" | "vygotsky";
+
+interface VygotskyTopic {
+  id: string;
+  title: string;
+  subtitle: string;
+  description: string;
+  example: string;
+  color: string;
+}
+
+const VYGOTSKY_TOPICS: VygotskyTopic[] = [
+  {
+    id: "zpd",
+    title: "Zona de Desenvolvimento Proximal (ZDP)",
+    subtitle: "O espaço entre o que sei e o que posso aprender",
+    description: "A ZDP é a distância entre o que a criança consegue fazer sozinha e o que consegue fazer com ajuda de um adulto ou par mais experiente. É aqui que ocorre o aprendizado mais significativo.",
+    example: "Uma criança consegue resolver adições simples sozinha, mas com o apoio do professor resolve equações de dois passos — essa diferença é a ZDP.",
+    color: "blue",
+  },
+  {
+    id: "scaffolding",
+    title: "Scaffolding (Andaime)",
+    subtitle: "Suporte que vai sendo retirado conforme o aprendiz cresce",
+    description: "Metáfora do andaime: o educador oferece apoio temporário (questões, dicas, estrutura) que vai sendo gradualmente removido à medida que o aprendiz ganha autonomia.",
+    example: "Um pai que segura a bicicleta enquanto o filho pedala, soltando progressivamente até a criança equilibrar sozinha.",
+    color: "emerald",
+  },
+  {
+    id: "fala_interna",
+    title: "Fala Interna e Pensamento",
+    subtitle: "A linguagem como ferramenta do pensamento",
+    description: "Para Vygotsky, pensamento e linguagem têm origens separadas mas se integram por volta dos 2–3 anos. A fala interna (egocêntrica) não é imaturidade — é a criança 'pensando em voz alta' enquanto regula seu próprio comportamento.",
+    example: "Uma criança que diz 'agora pego o bloco vermelho, agora coloco em cima...' enquanto brinca está usando a linguagem como ferramenta cognitiva.",
+    color: "violet",
+  },
+  {
+    id: "mediacao",
+    title: "Mediação e Ferramentas Culturais",
+    subtitle: "A cultura como extensão da mente",
+    description: "O desenvolvimento cognitivo não acontece isolado — é mediado por ferramentas físicas (livros, calculadoras) e simbólicas (linguagem, sistemas de numeração) criadas pela cultura. A mente humana é fundamentalmente cultural e histórica.",
+    example: "A escrita não é só um meio de comunicação — ela transforma a memória e o pensamento. Culturas com escrita desenvolvem formas diferentes de raciocínio.",
+    color: "amber",
+  },
+];
 
 interface PiagetStage {
   age: string;
@@ -168,6 +212,7 @@ const colorMap: Record<string, { border: string; bg: string; text: string; badge
 export default function DesenvolvimentoPage() {
   const [theorist, setTheorist] = useState<Theorist>("piaget");
   const [selectedStage, setSelectedStage] = useState<number>(0);
+  const [selectedVygotskyTopic, setSelectedVygotskyTopic] = useState<string | null>(null);
 
   const piagetStage = PIAGET_STAGES[selectedStage];
   const eriksonStage = ERIKSON_STAGES[selectedStage];
@@ -210,9 +255,20 @@ export default function DesenvolvimentoPage() {
         >
           🌱 Erikson — Desenvolvimento Psicossocial
         </button>
+        <button
+          onClick={() => { setTheorist("vygotsky"); setSelectedVygotskyTopic(null); }}
+          className={`flex-1 rounded-lg py-2 text-sm font-medium transition-all ${
+            theorist === "vygotsky"
+              ? "bg-white text-gray-900 shadow dark:bg-gray-700 dark:text-gray-100"
+              : "text-gray-500 hover:text-gray-700 dark:text-gray-400"
+          }`}
+        >
+          💬 Vygotsky — Desenvolvimento Social
+        </button>
       </div>
 
-      {/* Timeline */}
+      {/* Timeline — hidden for Vygotsky */}
+      {theorist !== "vygotsky" && (
       <div className="relative">
         <div className="absolute left-0 right-0 top-5 h-1 rounded-full bg-gray-200 dark:bg-gray-700" />
         <div
@@ -247,6 +303,7 @@ export default function DesenvolvimentoPage() {
           })}
         </div>
       </div>
+      )}
 
       {/* Stage detail */}
       {theorist === "piaget" && (
@@ -319,7 +376,8 @@ export default function DesenvolvimentoPage() {
         </div>
       )}
 
-      {/* Navigation */}
+      {/* Navigation — hidden for Vygotsky */}
+      {theorist !== "vygotsky" && (
       <div className="flex items-center justify-between">
         <button
           onClick={() => setSelectedStage((s) => Math.max(0, s - 1))}
@@ -337,11 +395,65 @@ export default function DesenvolvimentoPage() {
           Próximo <ChevronRight className="h-4 w-4" />
         </button>
       </div>
+      )}
+
+      {theorist === "vygotsky" && (
+        <div className="space-y-4">
+          <div className="rounded-2xl border-2 border-blue-200 bg-blue-50 p-5 dark:border-blue-800 dark:bg-blue-900/20">
+            <h2 className="text-lg font-bold text-blue-800 dark:text-blue-300">💬 Lev Vygotsky — Desenvolvimento Sociocultural</h2>
+            <p className="mt-1 text-sm text-blue-700 dark:text-blue-400">
+              Para Vygotsky, o desenvolvimento humano é fundamentalmente social. Aprendemos através das interações com outros e com as ferramentas culturais que a nossa sociedade nos oferece.
+              Clique em cada conceito para expandir.
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            {VYGOTSKY_TOPICS.map((t) => {
+              const cc = colorMap[t.color];
+              const isOpen = selectedVygotskyTopic === t.id;
+              return (
+                <div
+                  key={t.id}
+                  className={`rounded-2xl border-2 transition-all ${isOpen ? `${cc.border} ${cc.bg}` : "border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900"}`}
+                >
+                  <button
+                    onClick={() => setSelectedVygotskyTopic(isOpen ? null : t.id)}
+                    className="flex w-full items-center justify-between p-4 text-left"
+                  >
+                    <div>
+                      <h3 className={`font-bold text-sm ${isOpen ? cc.text : "text-gray-800 dark:text-gray-200"}`}>{t.title}</h3>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{t.subtitle}</p>
+                    </div>
+                    <div className={`ml-3 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold ${isOpen ? `${cc.bar} text-white` : "bg-gray-100 text-gray-400 dark:bg-gray-800"}`}>
+                      {isOpen ? "−" : "+"}
+                    </div>
+                  </button>
+                  {isOpen && (
+                    <div className="px-4 pb-4 space-y-3">
+                      <p className="text-sm text-gray-700 dark:text-gray-300">{t.description}</p>
+                      <div className="rounded-xl bg-white/80 p-3 dark:bg-gray-900/40">
+                        <p className="text-xs font-semibold text-gray-500 mb-1">💡 Exemplo prático</p>
+                        <p className="text-sm text-gray-700 dark:text-gray-300 italic">{t.example}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-900/20">
+            <p className="text-sm text-blue-700 dark:text-blue-300">
+              💡 <strong>Vygotsky difere de Piaget</strong> ao enfatizar o papel da cultura e das interações sociais no desenvolvimento — para ele, o social precede o individual.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Comparison note */}
       <div className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
-        <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-2">🔄 Piaget vs. Erikson</h3>
-        <div className="grid gap-3 sm:grid-cols-2 text-sm text-gray-600 dark:text-gray-400">
+        <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-2">🔄 Piaget vs. Erikson vs. Vygotsky</h3>
+        <div className="grid gap-3 md:grid-cols-3 text-sm text-gray-600 dark:text-gray-400">
           <div>
             <p className="font-medium text-gray-700 dark:text-gray-300">Piaget</p>
             <p>Foco no desenvolvimento <strong>cognitivo</strong>. Como a criança pensa e constrói conhecimento. 4 estágios universais até a adolescência.</p>
@@ -349,6 +461,10 @@ export default function DesenvolvimentoPage() {
           <div>
             <p className="font-medium text-gray-700 dark:text-gray-300">Erikson</p>
             <p>Foco no desenvolvimento <strong>psicossocial</strong>. Como o indivíduo se relaciona com o mundo ao longo de toda a vida. 8 crises do nascimento à velhice.</p>
+          </div>
+          <div>
+            <p className="font-medium text-gray-700 dark:text-gray-300">Vygotsky</p>
+            <p>Foco no desenvolvimento <strong>sociocultural</strong>. O aprendizado ocorre através da interação social e mediação cultural — do externo para o interno.</p>
           </div>
         </div>
       </div>

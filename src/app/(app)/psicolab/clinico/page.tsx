@@ -98,6 +98,14 @@ const PATIENTS: Patient[] = [
     emoji: "🌊",
     context: "Lúcia sempre coloca os outros antes de si mesma. Frequentemente se sente esgotada e ressentida, mas tem dificuldade de dizer 'não'.",
   },
+  {
+    id: "roberto",
+    name: "Roberto",
+    age: 22,
+    presenting: "Ataques de pânico frequentes e medo de enlouquecer.",
+    emoji: "😨",
+    context: "Roberto começou a ter ataques de pânico aos 21 anos. Agora evita sair de casa sozinho por medo de ter um ataque em público. Interpreta sensações físicas normais (coração acelerado) como sinal de perigo.",
+  },
 ];
 
 const SCRIPTS: Record<string, ScriptEntry[]> = {
@@ -136,6 +144,24 @@ const SCRIPTS: Record<string, ScriptEntry[]> = {
         psicanalise: "É como se dizer 'não' fosse perigoso. Quero entender o que 'não' representa para você internamente. O que você imagina que aconteceria — no outro, em você — se você dissesse não? Que imagem ou memória surge quando pensa nisso?",
         humanismo: "Você está me dizendo algo muito importante sobre si mesma: que suas próprias necessidades ficam constantemente em segundo plano. Parece que dizer 'sim' é uma forma de você se sentir valiosa ou segura nas relações. O que você acha que perderia se começasse a colocar seus limites?",
         tcc: "Parece que há uma crença por baixo disso: talvez 'Se eu disser não, serei rejeitada' ou 'Pessoas boas não recusam ajuda.' Essas crenças nos ajudam a ver por que o comportamento faz sentido — mesmo que custe caro. Vamos examinar: qual foi o custo real, hoje, de ter dito sim?",
+      },
+    },
+  ],
+  roberto: [
+    {
+      patientStatement: "Na semana passada fui ao mercado e meu coração começou a bater forte. Achei que ia morrer. Tive que sair correndo.",
+      responses: {
+        psicanalise: "Esse medo de 'morrer' num espaço público tem me interessado. Há algo nesse ambiente — o mercado, a multidão — que ressoa com algo mais antigo? Com frequência, o pânico é o retorno de algo que foi reprimido. O que vem à mente quando pensa em estar sozinho num lugar cheio de pessoas?",
+        humanismo: "Que experiência assustadora deve ter sido essa. Seu corpo sinalizou perigo intenso e você respondeu buscando segurança. Quero entender melhor: o que você sentiu além do coração acelerado? E o que aconteceu depois que saiu — você se sentiu aliviado, envergonhado, assustado?",
+        tcc: "Ataques de pânico envolvem uma interpretação catastrófica de sensações físicas normais. Você interpretou o coração acelerado como 'vou morrer' — o que é um pensamento automático clássico. Vamos examinar a evidência: coração acelerado por ansiedade já causou algum dano físico real antes?",
+      },
+    },
+    {
+      patientStatement: "Agora tenho medo de sair sozinho. E se acontecer de novo e eu não conseguir ajuda?",
+      responses: {
+        psicanalise: "A evitação é uma solução que cria outro problema — ela confirma para sua mente que o mundo externo é perigoso. Isso me lembra a questão da dependência: de quem você precisava quando era criança e sentia medo? Que figura cuidava de você?",
+        humanismo: "Faz todo sentido que você queira se proteger — seu organismo está tentando te manter seguro. Mas percebo que essa proteção está te custando muito, está limitando sua vida. O que você perdeu desde que começou a evitar sair?",
+        tcc: "Essa é a 'evitação' — ela alivia a ansiedade no curto prazo mas a mantém (e aumenta) no longo prazo. Cada vez que você evita, sua mente aprende: 'o perigo era real'. A exposição gradual — começar com saídas curtas acompanhado — é a abordagem mais eficaz. O que seria um primeiro passo pequeno, mas possível?",
       },
     },
   ],

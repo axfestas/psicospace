@@ -352,6 +352,17 @@ export default function CognitivoPage() {
                 </div>
               </div>
 
+              <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-900/20">
+                <p className="text-sm font-medium text-blue-800 dark:text-blue-300">
+                  ⏱ Tempo médio: <strong>{avgTime} ms</strong> —{" "}
+                  {avgTime < 600
+                    ? "Excelente! Controle cognitivo muito alto."
+                    : avgTime <= 900
+                    ? "Bom! Interferência moderada."
+                    : "A interferência de Stroop foi forte — é normal!"}
+                </p>
+              </div>
+
               <div className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
                 <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-2">🧠 Por que é difícil?</h4>
                 <p className="text-sm text-gray-600 dark:text-gray-400">

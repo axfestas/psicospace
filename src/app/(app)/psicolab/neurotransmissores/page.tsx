@@ -180,6 +180,14 @@ function computeProfile(
   return { mood, energy, focus, stress, overall, emoji };
 }
 
+const PRESETS: { name: string; values: Record<string, number> }[] = [
+  { name: "🧘 Equilíbrio",  values: { dopamina: 55, serotonina: 60, noradrenalina: 50, cortisol: 35 } },
+  { name: "😰 Ansiedade",   values: { dopamina: 45, serotonina: 25, noradrenalina: 75, cortisol: 80 } },
+  { name: "😔 Depressão",   values: { dopamina: 20, serotonina: 20, noradrenalina: 30, cortisol: 40 } },
+  { name: "⚡ Flow State",  values: { dopamina: 75, serotonina: 55, noradrenalina: 65, cortisol: 40 } },
+  { name: "🔥 Burnout",     values: { dopamina: 25, serotonina: 30, noradrenalina: 35, cortisol: 85 } },
+];
+
 export default function NeurotransmissoresPage() {
   const [values, setValues] = useState<Record<string, number>>({
     dopamina: 50,
@@ -188,9 +196,17 @@ export default function NeurotransmissoresPage() {
     cortisol: 50,
   });
   const [showProfile, setShowProfile] = useState(false);
+  const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
 
   const handleChange = (id: string, val: number) => {
     setValues((v) => ({ ...v, [id]: val }));
+    setShowProfile(false);
+    setSelectedPreset(null);
+  };
+
+  const setPreset = (name: string, vals: Record<string, number>) => {
+    setValues(vals);
+    setSelectedPreset(name);
     setShowProfile(false);
   };
 
@@ -218,6 +234,26 @@ export default function NeurotransmissoresPage() {
         <p className="text-sm text-cyan-700 dark:text-cyan-300">
           🧪 Ajuste os controles abaixo para simular diferentes estados neuroquímicos e ver como eles afetam motivação, humor, atenção e estresse. Este é um modelo <strong>simplificado</strong> para fins educativos.
         </p>
+      </div>
+
+      {/* Preset profiles */}
+      <div>
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Perfis Pré-definidos</p>
+        <div className="flex flex-wrap gap-2">
+          {PRESETS.map((p) => (
+            <button
+              key={p.name}
+              onClick={() => setPreset(p.name, p.values)}
+              className={`rounded-xl px-3 py-1.5 text-sm font-medium transition-all border ${
+                selectedPreset === p.name
+                  ? "border-cyan-500 bg-cyan-600 text-white shadow-md"
+                  : "border-gray-200 bg-white text-gray-700 hover:border-cyan-400 hover:bg-cyan-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 dark:hover:border-cyan-600"
+              }`}
+            >
+              {p.name}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Sliders */}

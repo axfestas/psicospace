@@ -573,6 +573,7 @@ export default function AnatomiaPage() {
   const [selectedPart, setSelectedPart] = useState<string | null>(null);
   const [selectedNt, setSelectedNt] = useState<string | null>(null);
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
+  const [showNeuronTypes, setShowNeuronTypes] = useState(false);
 
   const activePart = NEURON_PARTS.find((p) => p.id === selectedPart);
   const activeNt = NEUROTRANSMITTERS.find((n) => n.id === selectedNt);
@@ -987,6 +988,111 @@ export default function AnatomiaPage() {
           </div>
         </div>
       )}
+
+      {/* ── Tipos de Neurônios ── */}
+      <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-900">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">🧫 Tipos de Neurônios</h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Sensorial, motor e interneurônio — funções e localização</p>
+          </div>
+          <button
+            onClick={() => setShowNeuronTypes((v) => !v)}
+            className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+              showNeuronTypes
+                ? "bg-rose-600 text-white hover:bg-rose-700"
+                : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+            }`}
+          >
+            {showNeuronTypes ? "Fechar" : "🧫 Tipos de Neurônios"}
+          </button>
+        </div>
+
+        {showNeuronTypes && (
+          <div className="mt-5 grid gap-4 sm:grid-cols-3">
+            {/* Sensorial */}
+            <div className="rounded-2xl border-2 border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-800 dark:bg-emerald-900/20">
+              <div className="mb-3">
+                <div className="mb-1 flex items-center gap-2">
+                  <span className="text-2xl">👁️</span>
+                  <h3 className="font-bold text-emerald-900 dark:text-emerald-200">Neurônio Sensorial</h3>
+                </div>
+                <span className="rounded-full bg-emerald-200 px-2.5 py-0.5 text-xs font-medium text-emerald-800 dark:bg-emerald-800/50 dark:text-emerald-300">
+                  Aferente · Periferia → SNC
+                </span>
+              </div>
+              <ul className="space-y-2 text-xs text-emerald-900 dark:text-emerald-200">
+                <li>
+                  <span className="font-semibold">Função:</span> Conduz informações dos órgãos sensoriais (pele, olhos, ouvidos) ao SNC
+                </li>
+                <li>
+                  <span className="font-semibold">Característica:</span> Corpos celulares nos gânglios; axônios longos que chegam ao SNC
+                </li>
+                <li className="rounded-lg bg-emerald-100 p-2 dark:bg-emerald-900/40">
+                  <span className="font-semibold">Exemplo:</span> Sentir calor na pele → sinal vai para o cérebro registrar a temperatura
+                </li>
+                <li>
+                  <span className="font-semibold">Localização:</span> Gânglios da raiz dorsal, nervos sensoriais
+                </li>
+              </ul>
+            </div>
+
+            {/* Motor */}
+            <div className="rounded-2xl border-2 border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-900/20">
+              <div className="mb-3">
+                <div className="mb-1 flex items-center gap-2">
+                  <span className="text-2xl">💪</span>
+                  <h3 className="font-bold text-blue-900 dark:text-blue-200">Neurônio Motor</h3>
+                </div>
+                <span className="rounded-full bg-blue-200 px-2.5 py-0.5 text-xs font-medium text-blue-800 dark:bg-blue-800/50 dark:text-blue-300">
+                  Eferente · SNC → Periferia
+                </span>
+              </div>
+              <ul className="space-y-2 text-xs text-blue-900 dark:text-blue-200">
+                <li>
+                  <span className="font-semibold">Função:</span> Conduz comandos do SNC para músculos e glândulas
+                </li>
+                <li>
+                  <span className="font-semibold">Característica:</span> Axônios muito longos que chegam aos músculos esqueléticos
+                </li>
+                <li className="rounded-lg bg-blue-100 p-2 dark:bg-blue-900/40">
+                  <span className="font-semibold">Exemplo:</span> Decidir mover o braço → sinal vai do cérebro para o músculo
+                </li>
+                <li>
+                  <span className="font-semibold">Localização:</span> Corno anterior da medula espinal, nervo motor
+                </li>
+              </ul>
+            </div>
+
+            {/* Interneurônio */}
+            <div className="rounded-2xl border-2 border-violet-200 bg-violet-50 p-4 dark:border-violet-800 dark:bg-violet-900/20">
+              <div className="mb-3">
+                <div className="mb-1 flex items-center gap-2">
+                  <span className="text-2xl">🔗</span>
+                  <h3 className="font-bold text-violet-900 dark:text-violet-200">Interneurônio</h3>
+                </div>
+                <span className="rounded-full bg-violet-200 px-2.5 py-0.5 text-xs font-medium text-violet-800 dark:bg-violet-800/50 dark:text-violet-300">
+                  Associação · SNC interno
+                </span>
+              </div>
+              <ul className="space-y-2 text-xs text-violet-900 dark:text-violet-200">
+                <li>
+                  <span className="font-semibold">Função:</span> Conecta neurônios sensoriais e motores; processa e integra informações dentro do SNC
+                </li>
+                <li>
+                  <span className="font-semibold">Característica:</span> Constituem ~99% dos neurônios do sistema nervoso; formam redes complexas
+                </li>
+                <li className="rounded-lg bg-violet-100 p-2 dark:bg-violet-900/40">
+                  <span className="font-semibold">Exemplo:</span> Processar o calor sentido e decidir retirar a mão — tudo dentro do SNC
+                </li>
+                <li>
+                  <span className="font-semibold">Localização:</span> Exclusivamente no SNC (cérebro e medula espinal)
+                </li>
+              </ul>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Footer */}
       <p className="text-center text-xs text-gray-400 dark:text-gray-600">
