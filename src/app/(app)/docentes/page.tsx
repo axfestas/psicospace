@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { FileText, Presentation, ExternalLink, Plus, Upload, BookOpen, Trash2, ChevronDown, ChevronRight } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
+import { DocumentViewerModal } from "@/components/ui/document-viewer-modal";
 
 interface LibraryItem {
   id: string;
@@ -18,6 +19,10 @@ interface LibraryItem {
   uploadedBy?: { name: string };
 }
 
+interface Progress {
+  status: "NOT_VIEWED" | "IN_PROGRESS" | "COMPLETED";
+}
+
 interface Material {
   id: string;
   title: string;
@@ -26,7 +31,14 @@ interface Material {
   libraryItemId?: string | null;
   createdAt: string;
   uploadedBy: { name: string };
+  progress: Progress[];
 }
+
+const progressLabels: Record<string, string> = {
+  NOT_VIEWED: "Não visualizado",
+  IN_PROGRESS: "Em progresso",
+  COMPLETED: "Concluído",
+};
 
 interface Discipline {
   id: string;
@@ -62,6 +74,7 @@ export default function DocentesPage() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [libraryItems, setLibraryItems] = useState<LibraryItem[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [viewer, setViewer] = useState<{ url: string; title: string; type: "PDF" | "SLIDE" | "LINK" } | null>(null);
 
   // Biblioteca section state
   const [showLibrary, setShowLibrary] = useState(false);
@@ -174,6 +187,15 @@ export default function DocentesPage() {
       setMaterialForm({ title: "", type: "SLIDE", url: "" });
       loadData();
     }
+  };
+
+  const handleProgressChange = async (materialId: string, status: string) => {
+    await fetch(`/api/materials/${materialId}/progress`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+    loadData();
   };
 
   const getTypeIcon = (type: string) => {
@@ -306,7 +328,12 @@ export default function DocentesPage() {
                       {item.type === "PDF" ? <FileText className="h-4 w-4 text-red-500 flex-shrink-0" /> :
                        item.type === "SLIDE" ? <Presentation className="h-4 w-4 text-orange-500 flex-shrink-0" /> :
                        <ExternalLink className="h-4 w-4 text-blue-500 flex-shrink-0" />}
-                      <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{item.title}</span>
+                      <button
+                        onClick={() => setViewer({ url: item.url, title: item.title, type: item.type })}
+                        className="text-sm font-medium text-gray-900 dark:text-gray-100 hover:underline truncate text-left"
+                      >
+                        {item.title}
+                      </button>
                       <Badge variant={item.type === "PDF" ? "danger" : item.type === "SLIDE" ? "warning" : "info"}>{item.type}</Badge>
                     </div>
                     <button
@@ -386,22 +413,32 @@ export default function DocentesPage() {
                             >
                               <div className="flex items-center gap-2 min-w-0">
                                 {getTypeIcon(material.type)}
-                                <a
-                                  href={material.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-sm font-medium text-gray-900 dark:text-gray-100 hover:underline truncate"
+                                <button
+                                  onClick={() => setViewer({ url: material.url, title: material.title, type: material.type })}
+                                  className="text-sm font-medium text-gray-900 dark:text-gray-100 hover:underline truncate text-left"
                                 >
                                   {material.title}
-                                </a>
+                                </button>
                                 {getTypeBadge(material.type)}
                                 {material.libraryItemId && (
                                   <Badge variant="success">Biblioteca</Badge>
                                 )}
                               </div>
-                              <span className="text-xs text-gray-400 flex-shrink-0">
-                                {material.uploadedBy?.name}
-                              </span>
+                              <select
+                                value={material.progress?.[0]?.status || "NOT_VIEWED"}
+                                onChange={(e) => handleProgressChange(material.id, e.target.value)}
+                                className={`text-xs rounded px-2 py-1 border-0 cursor-pointer flex-shrink-0 ${
+                                  (material.progress?.[0]?.status || "NOT_VIEWED") === "COMPLETED"
+                                    ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                                    : (material.progress?.[0]?.status || "NOT_VIEWED") === "IN_PROGRESS"
+                                    ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
+                                    : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300"
+                                }`}
+                              >
+                                <option value="NOT_VIEWED">{progressLabels.NOT_VIEWED}</option>
+                                <option value="IN_PROGRESS">{progressLabels.IN_PROGRESS}</option>
+                                <option value="COMPLETED">{progressLabels.COMPLETED}</option>
+                              </select>
                             </div>
                           ))}
                         </div>
@@ -553,6 +590,15 @@ export default function DocentesPage() {
         ))
       )}
       </div>
+
+      {viewer && (
+        <DocumentViewerModal
+          url={viewer.url}
+          title={viewer.title}
+          type={viewer.type}
+          onClose={() => setViewer(null)}
+        />
+      )}
     </div>
   );
 }
