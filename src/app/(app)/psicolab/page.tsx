@@ -46,8 +46,8 @@ const labs = [
     subtitle: "Sistema Nervoso",
     description:
       "Do neurônio à sinapse: explore o sistema nervoso completo com interações em múltiplos níveis de zoom e detalhes.",
-    tags: ["Neurônio", "Sinapse", "Sistema Nervoso", "Em breve"],
-    available: false,
+    tags: ["Neurônio", "Sinapse", "Sistema Nervoso"],
+    available: true,
   },
 ];
 
