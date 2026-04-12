@@ -2388,8 +2388,10 @@ function EditorPageInner() {
       </body></html>`);
     win.document.close();
     win.focus();
-    // Small delay so the browser finishes rendering before the print dialog opens
-    setTimeout(() => win.print(), 300);
+    // Small delay so the browser finishes rendering before the print dialog opens.
+    // 300 ms is sufficient for all inline styles and fonts to be applied.
+    const PRINT_RENDER_DELAY_MS = 300;
+    setTimeout(() => win.print(), PRINT_RENDER_DELAY_MS);
   };
 
   const handleExportHTML = () => {
