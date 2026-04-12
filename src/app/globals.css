@@ -119,6 +119,7 @@ body {
   background: #e0e0e0;
   padding: 32px 24px;
   overflow-y: auto;
+  overflow-x: auto;  /* allow horizontal scroll so page never shrinks */
   flex: 1;
 }
 
@@ -131,7 +132,7 @@ body {
   background: #ffffff;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
   width: 794px;         /* A4 at 96 dpi ≈ 210 mm */
-  max-width: 100%;
+  flex-shrink: 0;       /* never shrink — scroll instead */
   min-height: 1123px;   /* A4 at 96 dpi ≈ 297 mm */
   margin: 0 auto;
   /* Margins applied via CSS custom properties set from React state */
@@ -177,19 +178,16 @@ body {
   color: #e5e5e5;
 }
 
-/* ── Mobile responsive: cap margins so content is readable ──── */
+/* ── Mobile responsive: reduce gutter, keep page at its configured size ──── */
 @media (max-width: 860px) {
   .editor-page-area {
     padding: 16px 8px;
+    /* overflow-x: auto already set above — page scrolls horizontally */
   }
-  /* Cap margins to prevent content from being squished on narrow screens.
-     Using min() so user settings > mobile cap are gracefully reduced. */
-  .editor-page {
-    padding-top:    min(var(--doc-margin-top,    2.5cm), 1.5cm) !important;
-    padding-bottom: min(var(--doc-margin-bottom, 2.5cm), 1.5cm) !important;
-    padding-left:   min(var(--doc-margin-left,   2.5cm), 1.2cm) !important;
-    padding-right:  min(var(--doc-margin-right,  2.5cm), 1.2cm) !important;
-  }
+  /* Do NOT change .editor-page padding on mobile.
+     The page stays at its configured 794px width and configured margins.
+     Users scroll horizontally just like on a desktop browser narrowed below 794px.
+     This matches Word / Google Docs behaviour where content never reflows. */
   .editor-page .ProseMirror {
     min-height: 400px;
   }
@@ -460,7 +458,7 @@ body {
 /* ── Etapa 2: Ruler ─────────────────────────────────────────────────────────── */
 .editor-ruler-wrap {
   width: 794px;
-  max-width: 100%;
+  flex-shrink: 0;        /* match .editor-page — never shrink */
   margin: 0 auto 0 auto;
   position: relative;
   height: 22px;
@@ -546,3 +544,44 @@ body {
   background: #1e1e1e;
 }
 
+/* ── @media print: when user presses Ctrl+P on the editor page ──────────────── */
+@media print {
+  /* Hide all UI chrome */
+  body > *:not(#__next):not(main) { display: none !important; }
+
+  /* Hide everything except the page content */
+  .editor-page-area {
+    background: none !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    display: block !important;
+  }
+
+  /* The paper — let @page margins handle spacing */
+  .editor-page {
+    width: 100% !important;
+    min-height: auto !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    flex-shrink: unset !important;
+  }
+
+  /* Hide the dashed page-break guide line */
+  .editor-page::after {
+    display: none !important;
+  }
+
+  /* Hide the ruler */
+  .editor-ruler-wrap { display: none !important; }
+
+  /* Page break nodes: no visual decoration, just force a break */
+  .ProseMirror .page-break {
+    break-after: page;
+    page-break-after: always;
+    border: none !important;
+    height: 0 !important;
+    margin: 0 !important;
+  }
+  .ProseMirror .page-break::before { display: none !important; }
+}
