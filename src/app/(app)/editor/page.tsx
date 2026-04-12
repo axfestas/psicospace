@@ -1462,7 +1462,7 @@ function HorizontalRuler({ marginLeft, marginRight, pageWidth = 794 }: { marginL
   }
   // Margin markers
   return (
-    <div className="editor-ruler-wrap" style={{ width: pageWidth, maxWidth: "100%" }}>
+    <div className="editor-ruler-wrap" style={{ width: pageWidth }}>
       <div className="editor-ruler-bar" style={{ width: pageWidth }}>
         {/* Left margin zone */}
         <div style={{ position: "absolute", left: 0, top: 0, width: ml, height: "100%", background: "rgba(209,213,219,0.35)" }} />
@@ -2255,24 +2255,31 @@ function EditorPageInner() {
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#39;");
-    const safeHeader = header.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    // Replace {página} and {total} tokens in footer
-    const footerHtml = footer
+    // Header/footer are plain text — escape for HTML display
+    const safeHeader = header
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+    const safeFooter = footer
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
       .replace(/\{página\}/gi, '<span class="pg-num">1</span>')
       .replace(/\{total\}/gi, '<span class="pg-total">…</span>');
     const isLandscape = pageOrientation === "landscape";
+    // Use table-header-group / table-footer-group so header and footer
+    // repeat on every printed page in all modern browsers.
     win.document.write(`<!DOCTYPE html><html><head>
       <meta charset="utf-8">
       <title>${safeTitle}</title>
       <style>
-        /* Hide browser-generated header/footer (filename, URL, date) */
         @page {
-          size: ${isLandscape ? "landscape" : "portrait"};
+          size: A4 ${isLandscape ? "landscape" : "portrait"};
           margin-top: ${pageMargin.top};
           margin-bottom: ${pageMargin.bottom};
           margin-left: ${pageMargin.left};
           margin-right: ${pageMargin.right};
-          /* Chrome/Edge — suppress running heads */
+          /* Suppress browser-generated URL / date running heads */
           @top-left   { content: ""; }
           @top-center { content: ""; }
           @top-right  { content: ""; }
@@ -2280,7 +2287,6 @@ function EditorPageInner() {
           @bottom-center { content: ""; }
           @bottom-right  { content: ""; }
         }
-        /* Firefox / Safari: hide built-in header/footer */
         html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         body {
           margin: 0;
@@ -2291,6 +2297,35 @@ function EditorPageInner() {
           color: #111;
           counter-reset: footnote;
         }
+        /* Repeating header / footer via display:table-header/footer-group */
+        .print-wrap {
+          display: table;
+          width: 100%;
+          border-collapse: collapse;
+        }
+        .print-header { display: table-header-group; }
+        .print-footer { display: table-footer-group; }
+        .print-body   { display: table-row-group; }
+        .print-header td,
+        .print-footer td,
+        .print-body   td { display: table-cell; padding: 0; }
+        .doc-header {
+          border-bottom: 1px solid #ccc;
+          padding-bottom: 6px;
+          margin-bottom: 0.6em;
+          font-size: 0.85em;
+          color: #555;
+          white-space: pre-wrap;
+        }
+        .doc-footer {
+          border-top: 1px solid #ccc;
+          padding-top: 6px;
+          margin-top: 0.6em;
+          font-size: 0.85em;
+          color: #555;
+          white-space: pre-wrap;
+          text-align: center;
+        }
         /* Headings */
         h1 { font-size: 2em; font-weight: bold; margin: 0.67em 0; }
         h2 { font-size: 1.5em; font-weight: bold; margin: 0.75em 0; }
@@ -2299,7 +2334,6 @@ function EditorPageInner() {
         h5 { font-size: 0.83em; font-weight: bold; margin: 1.5em 0; }
         h6 { font-size: 0.75em; font-weight: bold; margin: 1.67em 0; }
         p { margin: 0.5em 0; }
-        /* Text styles */
         strong { font-weight: bold; }
         em { font-style: italic; }
         u { text-decoration: underline; }
@@ -2319,7 +2353,6 @@ function EditorPageInner() {
         ul ul { list-style: circle; }
         ul ul ul { list-style: square; }
         li { margin: 0.25em 0; }
-        /* Task list */
         ul[data-type="taskList"] { list-style: none; padding-left: 1em; }
         ul[data-type="taskList"] li { display: flex; align-items: flex-start; gap: 0.5em; }
         ul[data-type="taskList"] li input[type="checkbox"] { margin-top: 0.2em; }
@@ -2328,13 +2361,12 @@ function EditorPageInner() {
         td, th { border: 1px solid #ccc; padding: 6px 8px; vertical-align: top; }
         th { background: #f5f5f5; font-weight: bold; }
         /* Blockquote */
-        blockquote { border-left: 4px solid #ccc; margin: 1em 0 1em 0; padding-left: 1em; color: #555; }
+        blockquote { border-left: 4px solid #ccc; margin: 1em 0; padding-left: 1em; color: #555; }
         /* Images */
         img { max-width: 100%; height: auto; }
         img[data-align="left"]  { display: block; margin-right: auto; }
         img[data-align="center"] { display: block; margin: 0 auto; }
         img[data-align="right"] { display: block; margin-left: auto; }
-        /* Horizontal rule */
         hr { border: none; border-top: 1px solid #ccc; margin: 1em 0; }
         /* Footnotes */
         .footnote-ref { counter-increment: footnote; }
@@ -2346,21 +2378,20 @@ function EditorPageInner() {
         del.track-delete { color: #dc2626; text-decoration: line-through; }
         /* Highlight */
         mark { padding: 0.1em 0.2em; border-radius: 2px; }
-        /* Document header/footer */
-        .doc-header { border-bottom: 1px solid #ccc; padding-bottom: 4px; margin-bottom: 1em; font-size: 0.85em; color: #555; }
-        .doc-footer { border-top: 1px solid #ccc; padding-top: 4px; margin-top: 2em; font-size: 0.85em; color: #555; }
-        /* Title */
-        .doc-title { font-size: 1.6em; font-weight: bold; border-bottom: 1px solid #eee; padding-bottom: 0.4em; margin-bottom: 1em; }
       </style>
       </head><body>
-        ${safeHeader ? `<div class="doc-header">${safeHeader}</div>` : ""}
-        <div class="doc-title">${safeTitle}</div>
-        ${content}
-        ${footer ? `<div class="doc-footer">${footerHtml}</div>` : ""}
+        <div class="print-wrap">
+          ${safeHeader ? `<div class="print-header"><div class="doc-header">${safeHeader}</div></div>` : ""}
+          ${safeFooter ? `<div class="print-footer"><div class="doc-footer">${safeFooter}</div></div>` : ""}
+          <div class="print-body"><div>${content}</div></div>
+        </div>
       </body></html>`);
     win.document.close();
     win.focus();
-    win.print();
+    // Small delay so the browser finishes rendering before the print dialog opens.
+    // 300 ms is sufficient for all inline styles and fonts to be applied.
+    const PRINT_RENDER_DELAY_MS = 300;
+    setTimeout(() => win.print(), PRINT_RENDER_DELAY_MS);
   };
 
   const handleExportHTML = () => {
