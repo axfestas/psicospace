@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Presentation, ExternalLink, Trash2, BookOpen } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
+import { BookOpen } from "lucide-react";
 import { DocumentViewerModal } from "@/components/ui/document-viewer-modal";
+import { PdfPreview } from "@/components/ui/pdf-preview";
 
 interface LibraryItem {
   id: string;
@@ -19,13 +19,10 @@ interface LibraryItem {
 }
 
 export default function BibliotecaPage() {
-  const { user } = useAuth();
   const [items, setItems] = useState<LibraryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [viewer, setViewer] = useState<{ url: string; title: string; type: "PDF" | "SLIDE" | "LINK" } | null>(null);
-
-  const isDocente = user && ["DOCENTE", "ADMIN", "SUPERADMIN"].includes(user.role);
 
   const loadItems = useCallback(async () => {
     const res = await fetch("/api/biblioteca");
@@ -37,18 +34,6 @@ export default function BibliotecaPage() {
   }, []);
 
   useEffect(() => { loadItems(); }, [loadItems]);
-
-  const handleDelete = async (id: string) => {
-    if (!confirm("Remover este item da biblioteca?")) return;
-    await fetch(`/api/biblioteca/${id}`, { method: "DELETE" });
-    loadItems();
-  };
-
-  const getTypeIcon = (type: string) => {
-    if (type === "PDF") return <FileText className="h-5 w-5 text-red-500" />;
-    if (type === "SLIDE") return <Presentation className="h-5 w-5 text-orange-500" />;
-    return <ExternalLink className="h-5 w-5 text-blue-500" />;
-  };
 
   const getTypeBadge = (type: string) => {
     const variants: Record<string, "danger" | "warning" | "info"> = {
@@ -89,41 +74,40 @@ export default function BibliotecaPage() {
 
       {filtered.length === 0 ? (
         <Card>
-          <CardContent className="pt-6 text-center text-gray-500">
+          <div className="pt-6 pb-6 text-center text-gray-500">
             {items.length === 0 ? "Nenhum item na biblioteca ainda." : "Nenhum resultado encontrado."}
-          </CardContent>
+          </div>
         </Card>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filtered.map((item) => (
-            <Card key={item.id} className="flex flex-col">
-              <CardContent className="pt-4 flex-1 space-y-2">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    {getTypeIcon(item.type)}
-                    <button
-                      onClick={() => setViewer({ url: item.url, title: item.title, type: item.type })}
-                      className="font-medium text-gray-900 dark:text-gray-100 hover:underline truncate text-left"
-                    >
-                      {item.title}
-                    </button>
-                  </div>
-                  <div className="flex items-center gap-1 flex-shrink-0">
-                    {getTypeBadge(item.type)}
-                    {isDocente && (
-                      <button
-                        onClick={() => handleDelete(item.id)}
-                        className="text-gray-400 hover:text-red-500 p-1"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    )}
-                  </div>
+            <Card key={item.id} className="flex flex-col overflow-hidden p-0">
+              {/* Preview thumbnail — clickable */}
+              <PdfPreview
+                url={item.url}
+                type={item.type}
+                title={item.title}
+                onClick={() => setViewer({ url: item.url, title: item.title, type: item.type })}
+              />
+
+              {/* Card body */}
+              <div className="p-3 flex flex-col gap-1">
+                <div className="flex items-start justify-between gap-1">
+                  <button
+                    onClick={() => setViewer({ url: item.url, title: item.title, type: item.type })}
+                    className="text-sm font-medium text-gray-900 dark:text-gray-100 hover:underline text-left leading-snug line-clamp-2"
+                  >
+                    {item.title}
+                  </button>
+                  {getTypeBadge(item.type)}
                 </div>
                 {item.description && (
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{item.description}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">{item.description}</p>
                 )}
-              </CardContent>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                  Por {item.uploadedBy.name}
+                </p>
+              </div>
             </Card>
           ))}
         </div>
