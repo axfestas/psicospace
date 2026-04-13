@@ -35,7 +35,7 @@ import {
   MessageSquare, Upload, LayoutTemplate, Eye, EyeOff, Target, Clock,
   Maximize2, Minimize2, Tag, Keyboard, Hash, Filter, ChevronRight, Pencil,
   Scissors, GitMerge, SpellCheck, BookText, GraduationCap,
-  AlignHorizontalDistributeCenter, Ruler, FilePlus2,
+  AlignHorizontalDistributeCenter, Ruler, FilePlus2, Copy,
 } from "lucide-react";
 
 interface Document {
@@ -182,7 +182,59 @@ const DOCUMENT_TEMPLATES: DocTemplate[] = [
 <p style="margin-top: 3em">_____________________________</p>
 <p>Secretário(a) / Responsável</p>`,
   },
-];
+  {
+    id: "tcc",
+    label: "TCC / Monografia",
+    description: "Estrutura ABNT para trabalho de conclusão de curso",
+    title: "Trabalho de Conclusão de Curso",
+    html: `<h1 style="text-align: center; line-height: 1.5;">TÍTULO DO TRABALHO DE CONCLUSÃO DE CURSO</h1>
+<p style="text-align: center; line-height: 1.5;"><strong>Autor:</strong> Nome do Autor</p>
+<p style="text-align: center; line-height: 1.5;"><strong>Orientador:</strong> Prof. Dr. Nome do Orientador</p>
+<p style="text-align: center; line-height: 1.5;"><strong>Instituição:</strong> Nome da Instituição</p>
+<p style="text-align: center; line-height: 1.5;"><strong>Curso:</strong> Nome do Curso &nbsp;—&nbsp; <strong>Ano:</strong> ____</p>
+<h2 style="text-align: center; line-height: 1.5;">RESUMO</h2>
+<p style="text-align: justify; line-height: 1.5;">Escreva aqui o resumo do trabalho (máximo 500 palavras). Apresente de forma concisa o problema, os objetivos, a metodologia, os principais resultados e as conclusões.</p>
+<p style="text-align: justify; line-height: 1.5;"><strong>Palavras-chave:</strong> palavra1; palavra2; palavra3; palavra4; palavra5.</p>
+<h2 style="line-height: 1.5;">1 INTRODUÇÃO</h2>
+<p style="text-align: justify; line-height: 1.5;">Apresente o contexto, justificativa, problema de pesquisa e objetivos (geral e específicos).</p>
+<h2 style="line-height: 1.5;">2 REFERENCIAL TEÓRICO</h2>
+<p style="text-align: justify; line-height: 1.5;">Desenvolva a fundamentação teórica que embasará a pesquisa.</p>
+<h2 style="line-height: 1.5;">3 METODOLOGIA</h2>
+<p style="text-align: justify; line-height: 1.5;">Descreva o tipo de pesquisa, participantes/amostra, instrumentos e procedimentos de coleta e análise de dados.</p>
+<h2 style="line-height: 1.5;">4 RESULTADOS E DISCUSSÃO</h2>
+<p style="text-align: justify; line-height: 1.5;">Apresente os resultados e articule-os com a literatura.</p>
+<h2 style="line-height: 1.5;">5 CONCLUSÃO</h2>
+<p style="text-align: justify; line-height: 1.5;">Sintetize as contribuições do trabalho, limitações e sugestões para estudos futuros.</p>
+<h2 style="line-height: 1.5;">REFERÊNCIAS</h2>
+<p style="text-align: justify; line-height: 1.5;">SOBRENOME, Nome. <em>Título da obra</em>. Cidade: Editora, Ano.</p>`,
+  },
+  {
+    id: "caso-clinico",
+    label: "Caso Clínico",
+    description: "Relato de caso clínico em Psicologia",
+    title: "Relato de Caso Clínico",
+    html: `<h1 style="text-align: center; line-height: 1.5;">RELATO DE CASO CLÍNICO</h1>
+<p style="text-align: center; line-height: 1.5;"><strong>Psicólogo(a):</strong> _____________________________</p>
+<p style="text-align: center; line-height: 1.5;"><strong>Data do atendimento:</strong> ___/___/______</p>
+<h2 style="line-height: 1.5;">1. IDENTIFICAÇÃO DO PACIENTE</h2>
+<p style="text-align: justify; line-height: 1.5;"><strong>Iniciais:</strong> ___ &nbsp; <strong>Idade:</strong> ___ anos &nbsp; <strong>Gênero:</strong> ___ &nbsp; <strong>Escolaridade:</strong> ___</p>
+<p style="text-align: justify; line-height: 1.5;"><strong>Encaminhamento / Demanda inicial:</strong></p>
+<p style="text-align: justify; line-height: 1.5;">_________________________________________________________</p>
+<h2 style="line-height: 1.5;">2. HISTÓRIA DE VIDA</h2>
+<p style="text-align: justify; line-height: 1.5;">Descreva de forma resumida a história de vida relevante ao caso.</p>
+<h2 style="line-height: 1.5;">3. QUEIXA PRINCIPAL E SINTOMATOLOGIA</h2>
+<p style="text-align: justify; line-height: 1.5;">Descreva a queixa apresentada e os sintomas observados/relatados.</p>
+<h2 style="line-height: 1.5;">4. HIPÓTESE DIAGNÓSTICA</h2>
+<p style="text-align: justify; line-height: 1.5;">Hipótese diagnóstica com base no CID-11 / DSM-5 (se aplicável).</p>
+<h2 style="line-height: 1.5;">5. ABORDAGEM E PLANO TERAPÊUTICO</h2>
+<p style="text-align: justify; line-height: 1.5;">Descreva a abordagem teórica adotada, técnicas utilizadas e objetivos terapêuticos.</p>
+<h2 style="line-height: 1.5;">6. EVOLUÇÃO DO CASO</h2>
+<p style="text-align: justify; line-height: 1.5;">Descreva a evolução observada ao longo das sessões.</p>
+<h2 style="line-height: 1.5;">7. CONSIDERAÇÕES FINAIS</h2>
+<p style="text-align: justify; line-height: 1.5;">Reflexões sobre o caso e aprendizados clínicos.</p>
+<h2 style="line-height: 1.5;">REFERÊNCIAS</h2>
+<p style="text-align: justify; line-height: 1.5;">SOBRENOME, Nome. <em>Título da obra</em>. Cidade: Editora, Ano.</p>`,
+  },
 
 // ── Custom FontSize extension (no extra npm package needed) ──────────────────
 const FontSize = Extension.create({
@@ -2129,6 +2181,17 @@ function EditorPageInner() {
     loadDocuments();
   };
 
+  const handleDuplicateDocument = useCallback(async (id: string, docTitle: string) => {
+    const doc = documents.find((d) => d.id === id);
+    if (!doc) return;
+    await fetch("/api/documents", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: `Cópia de ${docTitle}`, content: doc.content }),
+    });
+    loadDocuments();
+  }, [documents, loadDocuments]);
+
   const handleAddTag = (tag: string) => {
     const t = tag.trim().toLowerCase().replace(/\s+/g, "-");
     if (!t || docTags.includes(t)) return;
@@ -2704,6 +2767,13 @@ function EditorPageInner() {
                         </div>
                         <div className="hidden group-hover:flex items-center gap-1 -mt-0.5 -mr-0.5">
                           <button
+                            onClick={(e) => { e.stopPropagation(); handleDuplicateDocument(doc.id, doc.title); }}
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                            title="Duplicar documento"
+                          >
+                            <Copy className="h-3.5 w-3.5" />
+                          </button>
+                          <button
                             onClick={(e) => { e.stopPropagation(); handleDeleteDocument(doc.id); }}
                             className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                             title="Excluir documento"
@@ -2763,111 +2833,7 @@ function EditorPageInner() {
         </div>
       )}
       <div className="flex h-full gap-4">
-      {/* Document list sidebar (lg+) */}
-      <div className="w-56 flex-shrink-0 hidden lg:flex flex-col gap-2">
-        <Card className="flex-1 overflow-hidden">
-          <CardContent className="p-3 h-full flex flex-col gap-2">
-            {/* Header */}
-            <div className="flex items-center justify-between flex-shrink-0">
-              <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Documentos</span>
-              <div className="flex items-center gap-1">
-                <button onClick={() => setShowTemplatePicker(true)} className="text-gray-400 hover:text-blue-600" title="Novo a partir de template">
-                  <LayoutTemplate className="h-3.5 w-3.5" />
-                </button>
-                <button onClick={handleNewDocument} className="text-blue-600 hover:text-blue-700" title="Novo documento em branco">
-                  <Plus className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-            {/* Search */}
-            <div className="relative flex-shrink-0">
-              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400" />
-              <input
-                value={docSearch}
-                onChange={(e) => setDocSearch(e.target.value)}
-                placeholder="Buscar..."
-                className="w-full text-xs pl-6 pr-2 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
-              />
-              {docSearch && (
-                <button onClick={() => setDocSearch("")} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                  <X className="h-3 w-3" />
-                </button>
-              )}
-            </div>
-            {/* Tag filter */}
-            {docTags.length > 0 && (
-              <div className="flex flex-wrap gap-1 flex-shrink-0">
-                {docTags.map((tag) => (
-                  <button
-                    key={tag}
-                    onClick={() => setTagFilter(tagFilter === tag ? "" : tag)}
-                    className={`text-[10px] px-1.5 py-0.5 rounded-full border transition-colors ${
-                      tagFilter === tag
-                        ? "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-600 text-blue-700 dark:text-blue-300"
-                        : "bg-gray-100 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-gray-400"
-                    }`}
-                  >
-                    #{tag}
-                  </button>
-                ))}
-              </div>
-            )}
-            {/* Document list */}
-            <div className="space-y-1 overflow-y-auto flex-1">
-              {documents.length === 0 && (
-                <p className="text-xs text-gray-400 text-center py-4">Nenhum documento</p>
-              )}
-              {documents
-                .filter((doc) => {
-                  if (docSearch && !doc.title.toLowerCase().includes(docSearch.toLowerCase())) return false;
-                  if (tagFilter) {
-                    // tags are stored in content JSON
-                    try {
-                      const meta = parseDocContent(doc.content || "");
-                      if (!meta.tags?.includes(tagFilter)) return false;
-                    } catch { return false; }
-                  }
-                  return true;
-                })
-                .map((doc) => (
-                <div
-                  key={doc.id}
-                  className={`group flex items-center justify-between rounded-lg p-2 cursor-pointer ${
-                    currentDoc?.id === doc.id
-                      ? "bg-blue-50 dark:bg-blue-900/20"
-                      : "hover:bg-gray-50 dark:hover:bg-gray-800"
-                  }`}
-                  onClick={() => handleViewDocument(doc.id)}
-                >
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <FileText className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
-                    <span className="truncate text-xs text-gray-700 dark:text-gray-300">{doc.title}</span>
-                  </div>
-                  <div className="hidden group-hover:flex items-center gap-0.5 flex-shrink-0 ml-1">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); router.push(`/editor?id=${doc.id}`); }}
-                      className="text-gray-400 hover:text-blue-600"
-                      title="Editar"
-                    >
-                      <Pencil className="h-3 w-3" />
-                    </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleDeleteDocument(doc.id); }}
-                      className="text-gray-400 hover:text-red-500"
-                      title="Excluir"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-        {showToc && (
-          <TableOfContents entries={tocEntries} onClose={() => setShowToc(false)} onNavigate={handleTocNavigate} />
-        )}
-      </div>
+      {/* Document list sidebar removed — TOC accessible via toolbar "Exibir" tab */}
 
       {/* Main editor area */}
       <div className="flex-1 flex flex-col min-w-0">
@@ -3330,6 +3296,35 @@ function EditorPageInner() {
                     <ToolbarButton onClick={() => editor.chain().focus().toggleUnderline().run()} active={editor.isActive("underline")} title="Sublinhado">
                       <UnderlineIcon className="h-3.5 w-3.5" />
                     </ToolbarButton>
+                    <ToolbarButton onClick={() => editor.chain().focus().toggleStrike().run()} active={editor.isActive("strike")} title="Tachado">
+                      <Strikethrough className="h-3.5 w-3.5" />
+                    </ToolbarButton>
+                    <ToolbarButton onClick={() => editor.chain().focus().toggleCode().run()} active={editor.isActive("code")} title="Código inline">
+                      <Code className="h-3.5 w-3.5" />
+                    </ToolbarButton>
+                    <div className="w-px h-5 bg-gray-200 dark:bg-gray-600 mx-0.5 self-center" />
+                    <ToolbarButton
+                      onClick={() => {
+                        editor.chain().focus().setHighlight({ color: "#FEF08A" }).run();
+                      }}
+                      active={editor.isActive("highlight")}
+                      title="Destacar texto (marca-texto amarelo)"
+                    >
+                      <Highlighter className="h-3.5 w-3.5 text-yellow-500" />
+                    </ToolbarButton>
+                    <ToolbarButton
+                      onClick={() => {
+                        editor.chain().focus().setHighlight({ color: "#FEF08A" }).run();
+                        setShowAddCommentDialog(true);
+                      }}
+                      title="Destacar e adicionar comentário"
+                    >
+                      <span className="flex items-center gap-0.5">
+                        <Highlighter className="h-3 w-3 text-yellow-500" />
+                        <MessageSquare className="h-3 w-3 text-blue-500" />
+                      </span>
+                    </ToolbarButton>
+                    <div className="w-px h-5 bg-gray-200 dark:bg-gray-600 mx-0.5 self-center" />
                     <ToolbarButton onClick={() => setShowLinkDialog(true)} active={editor.isActive("link")} title="Link">
                       <Link2 className="h-3.5 w-3.5" />
                     </ToolbarButton>
@@ -3485,6 +3480,10 @@ function EditorPageInner() {
             html={editor?.getHTML() || ""}
             onClose={() => setShowDocStats(false)}
           />
+        )}
+        {/* TOC panel */}
+        {showToc && (
+          <TableOfContents entries={tocEntries} onClose={() => setShowToc(false)} onNavigate={handleTocNavigate} />
         )}
         </div>
       </div>
