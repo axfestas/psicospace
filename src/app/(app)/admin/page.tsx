@@ -60,8 +60,12 @@ export default function AdminPage() {
   const [loadingPeriods, setLoadingPeriods] = useState(false);
   const [newPeriod, setNewPeriod] = useState({ name: "", order: "" });
   const [addingPeriod, setAddingPeriod] = useState(false);
+  const [editingPeriod, setEditingPeriod] = useState<Period | null>(null);
+  const [editPeriodForm, setEditPeriodForm] = useState({ name: "", order: "" });
   const [newDiscipline, setNewDiscipline] = useState({ name: "", description: "", periodId: "" });
   const [addingDiscipline, setAddingDiscipline] = useState(false);
+  const [editingDiscipline, setEditingDiscipline] = useState<{ id: string; name: string; description?: string; periodId: string } | null>(null);
+  const [editDisciplineForm, setEditDisciplineForm] = useState({ name: "", description: "", periodId: "" });
 
   const [migrationsData, setMigrationsData] = useState<MigrationsData | null>(null);
   const [loadingMigrations, setLoadingMigrations] = useState(false);
@@ -173,6 +177,43 @@ export default function AdminPage() {
     if (!confirm("Excluir esta disciplina e todos os seus materiais?")) return;
     await fetch(`/api/disciplines/${id}`, { method: "DELETE" });
     loadPeriods();
+  };
+
+  const handleEditPeriod = (period: Period) => {
+    setEditingPeriod(period);
+    setEditPeriodForm({ name: period.name, order: String(period.order) });
+  };
+
+  const handleSaveEditPeriod = async () => {
+    if (!editingPeriod) return;
+    const order = parseInt(editPeriodForm.order, 10);
+    if (!editPeriodForm.name || isNaN(order)) return;
+    const res = await fetch(`/api/periods/${editingPeriod.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: editPeriodForm.name, order }),
+    });
+    if (res.ok) { setEditingPeriod(null); loadPeriods(); }
+  };
+
+  const handleEditDiscipline = (discipline: { id: string; name: string; description?: string }, periodId: string) => {
+    setEditingDiscipline({ ...discipline, description: discipline.description ?? "", periodId });
+    setEditDisciplineForm({ name: discipline.name, description: discipline.description ?? "", periodId });
+  };
+
+  const handleSaveEditDiscipline = async () => {
+    if (!editingDiscipline) return;
+    if (!editDisciplineForm.name || !editDisciplineForm.periodId) return;
+    const res = await fetch(`/api/disciplines/${editingDiscipline.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: editDisciplineForm.name,
+        description: editDisciplineForm.description,
+        periodId: editDisciplineForm.periodId,
+      }),
+    });
+    if (res.ok) { setEditingDiscipline(null); loadPeriods(); }
   };
 
   const handleApplyMigrations = async () => {
@@ -402,14 +443,41 @@ export default function AdminPage() {
             <div className="space-y-2">
               {periods.map((period) => (
                 <Card key={period.id}>
-                  <CardContent className="pt-4 pb-4 flex items-center justify-between">
-                    <div>
-                      <p className="font-medium text-gray-900 dark:text-gray-100">{period.name}</p>
-                      <p className="text-xs text-gray-500">Ordem: {period.order} · {period.disciplines.length} disciplinas</p>
-                    </div>
-                    <button onClick={() => handleDeletePeriod(period.id)} className="text-gray-400 hover:text-red-500 p-1">
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                  <CardContent className="pt-4 pb-4">
+                    {editingPeriod?.id === period.id ? (
+                      <div className="space-y-2">
+                        <div className="flex gap-2">
+                          <Input
+                            value={editPeriodForm.name}
+                            onChange={(e) => setEditPeriodForm({ ...editPeriodForm, name: e.target.value })}
+                            className="h-8 text-sm"
+                            placeholder="Nome do período"
+                          />
+                          <Input
+                            value={editPeriodForm.order}
+                            onChange={(e) => setEditPeriodForm({ ...editPeriodForm, order: e.target.value })}
+                            className="h-8 text-sm w-24"
+                            type="number"
+                            placeholder="Ordem"
+                          />
+                        </div>
+                        <div className="flex gap-1">
+                          <button onClick={handleSaveEditPeriod} className="text-green-600 hover:text-green-700 p-1"><Check className="h-4 w-4" /></button>
+                          <button onClick={() => setEditingPeriod(null)} className="text-gray-400 hover:text-gray-600 p-1"><X className="h-4 w-4" /></button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium text-gray-900 dark:text-gray-100">{period.name}</p>
+                          <p className="text-xs text-gray-500">Ordem: {period.order} · {period.disciplines.length} disciplinas</p>
+                        </div>
+                        <div className="flex gap-1">
+                          <button onClick={() => handleEditPeriod(period)} className="text-gray-400 hover:text-blue-600 p-1"><Edit2 className="h-4 w-4" /></button>
+                          <button onClick={() => handleDeletePeriod(period.id)} className="text-gray-400 hover:text-red-500 p-1"><Trash2 className="h-4 w-4" /></button>
+                        </div>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               ))}
@@ -480,11 +548,44 @@ export default function AdminPage() {
                     <div className="space-y-2">
                       {period.disciplines.map((discipline) => (
                         <Card key={discipline.id}>
-                          <CardContent className="pt-3 pb-3 flex items-center justify-between">
-                            <p className="font-medium text-gray-900 dark:text-gray-100 text-sm">{discipline.name}</p>
-                            <button onClick={() => handleDeleteDiscipline(discipline.id)} className="text-gray-400 hover:text-red-500 p-1">
-                              <Trash2 className="h-4 w-4" />
-                            </button>
+                          <CardContent className="pt-3 pb-3">
+                            {editingDiscipline?.id === discipline.id ? (
+                              <div className="space-y-2">
+                                <Input
+                                  value={editDisciplineForm.name}
+                                  onChange={(e) => setEditDisciplineForm({ ...editDisciplineForm, name: e.target.value })}
+                                  className="h-8 text-sm"
+                                  placeholder="Nome da disciplina"
+                                />
+                                <Input
+                                  value={editDisciplineForm.description}
+                                  onChange={(e) => setEditDisciplineForm({ ...editDisciplineForm, description: e.target.value })}
+                                  className="h-8 text-sm"
+                                  placeholder="Descrição (opcional)"
+                                />
+                                <select
+                                  value={editDisciplineForm.periodId}
+                                  onChange={(e) => setEditDisciplineForm({ ...editDisciplineForm, periodId: e.target.value })}
+                                  className="flex h-8 w-full rounded-md border border-gray-300 bg-white px-3 py-1 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                                >
+                                  {periods.map((p) => (
+                                    <option key={p.id} value={p.id}>{p.name}</option>
+                                  ))}
+                                </select>
+                                <div className="flex gap-1">
+                                  <button onClick={handleSaveEditDiscipline} className="text-green-600 hover:text-green-700 p-1"><Check className="h-4 w-4" /></button>
+                                  <button onClick={() => setEditingDiscipline(null)} className="text-gray-400 hover:text-gray-600 p-1"><X className="h-4 w-4" /></button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="flex items-center justify-between">
+                                <p className="font-medium text-gray-900 dark:text-gray-100 text-sm">{discipline.name}</p>
+                                <div className="flex gap-1">
+                                  <button onClick={() => handleEditDiscipline(discipline, period.id)} className="text-gray-400 hover:text-blue-600 p-1"><Edit2 className="h-4 w-4" /></button>
+                                  <button onClick={() => handleDeleteDiscipline(discipline.id)} className="text-gray-400 hover:text-red-500 p-1"><Trash2 className="h-4 w-4" /></button>
+                                </div>
+                              </div>
+                            )}
                           </CardContent>
                         </Card>
                       ))}
