@@ -19,7 +19,7 @@ import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import FontFamily from "@tiptap/extension-font-family";
 import Placeholder from "@tiptap/extension-placeholder";
-import { Extension, Node, Mark, mergeAttributes } from "@tiptap/core";
+import { Extension, Node, Mark, mergeAttributes, type JSONContent } from "@tiptap/core";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -73,6 +73,7 @@ interface CommentData {
 
 interface DocMeta {
   html: string;
+  json?: JSONContent;
   header?: string;
   footer?: string;
   margin?: PageMargin;
@@ -87,6 +88,7 @@ interface VersionSnapshot {
   at: string;
   title: string;
   html: string;
+  json?: JSONContent;
   header?: string;
   footer?: string;
 }
@@ -2016,7 +2018,7 @@ function EditorPageInner() {
       setCurrentDoc(data.document);
       setTitle(data.document.title);
       const meta = parseDocContent(data.document.content || "");
-      editor?.commands.setContent(meta.html || "");
+      editor?.commands.setContent((meta.json ?? meta.html) || "");
       if (meta.header !== undefined) setHeader(meta.header);
       if (meta.footer !== undefined) setFooter(meta.footer);
       if (meta.margin) setPageMargin(normalizeLegacyMargin(meta.margin));
@@ -2044,6 +2046,7 @@ function EditorPageInner() {
       at: new Date().toISOString(),
       title,
       html: editor.getHTML(),
+      json: editor.getJSON(),
       header: header || undefined,
       footer: footer || undefined,
     };
@@ -2051,6 +2054,7 @@ function EditorPageInner() {
     setVersions(nextVersions);
     const content = serializeDocContent({
       html: editor.getHTML(),
+      json: editor.getJSON(),
       header: header || undefined,
       footer: footer || undefined,
       margin: pageMargin,
@@ -2148,7 +2152,7 @@ function EditorPageInner() {
   };
 
   const handleRestoreVersion = (v: VersionSnapshot) => {
-    editor?.commands.setContent(v.html);
+    editor?.commands.setContent((v.json ?? v.html) || "");
     setTitle(v.title);
     if (v.header !== undefined) setHeader(v.header);
     if (v.footer !== undefined) setFooter(v.footer);
