@@ -57,7 +57,7 @@ export function PdfPreview({ url, type, title, onClick }: PdfPreviewProps) {
         const ctx = canvas.getContext("2d");
         if (!ctx) { setState("error"); return; }
 
-        await page.render({ canvasContext: ctx, viewport: scaledViewport }).promise;
+        await page.render({ canvas, canvasContext: ctx, viewport: scaledViewport }).promise;
         if (!cancelled) setState("done");
       } catch {
         if (!cancelled) setState("error");
