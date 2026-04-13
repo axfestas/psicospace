@@ -18,8 +18,19 @@ export async function PATCH(
     const { name, order } = await request.json();
 
     const data: { name?: string; order?: number } = {};
-    if (name !== undefined) data.name = name;
-    if (order !== undefined) data.order = Number(order);
+    if (name !== undefined) {
+      if (typeof name !== "string" || name.trim() === "") {
+        return NextResponse.json({ error: "Nome não pode estar vazio" }, { status: 400 });
+      }
+      data.name = name.trim();
+    }
+    if (order !== undefined) {
+      const n = Number(order);
+      if (!Number.isInteger(n) || n < 1) {
+        return NextResponse.json({ error: "Ordem deve ser um número inteiro positivo" }, { status: 400 });
+      }
+      data.order = n;
+    }
 
     if (Object.keys(data).length === 0) {
       return NextResponse.json({ error: "Nenhum campo para atualizar" }, { status: 400 });

@@ -27,12 +27,9 @@ export function PdfPreview({ url, type, title, onClick }: PdfPreviewProps) {
       try {
         const pdfjsLib = await import("pdfjs-dist");
 
-        // Set worker source — webpack resolves this URL at build time
+        // Set worker source — served as a static public file
         if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
-          pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-            "pdfjs-dist/build/pdf.worker.min.mjs",
-            import.meta.url
-          ).toString();
+          pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
         }
 
         const loadingTask = pdfjsLib.getDocument({

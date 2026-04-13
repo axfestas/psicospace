@@ -18,9 +18,21 @@ export async function PATCH(
     const { name, description, periodId } = await request.json();
 
     const data: { name?: string; description?: string; periodId?: string } = {};
-    if (name !== undefined) data.name = name;
-    if (description !== undefined) data.description = description;
-    if (periodId !== undefined) data.periodId = periodId;
+    if (name !== undefined) {
+      if (typeof name !== "string" || name.trim() === "") {
+        return NextResponse.json({ error: "Nome não pode estar vazio" }, { status: 400 });
+      }
+      data.name = name.trim();
+    }
+    if (description !== undefined) {
+      data.description = typeof description === "string" ? description.trim() : "";
+    }
+    if (periodId !== undefined) {
+      if (typeof periodId !== "string" || periodId.trim() === "") {
+        return NextResponse.json({ error: "periodId inválido" }, { status: 400 });
+      }
+      data.periodId = periodId.trim();
+    }
 
     if (Object.keys(data).length === 0) {
       return NextResponse.json({ error: "Nenhum campo para atualizar" }, { status: 400 });
