@@ -32,9 +32,17 @@ export function PdfPreview({ url, type, title, onClick }: PdfPreviewProps) {
           pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
         }
 
+        // Send credentials (auth cookie) only for same-origin URLs such as
+        // /api/files/… — external URLs must NOT use withCredentials because
+        // that requires the server to send Access-Control-Allow-Credentials,
+        // and most external hosts don't, causing a CORS failure.
+        const isSameOrigin =
+          url.startsWith("/") ||
+          (typeof window !== "undefined" &&
+            url.startsWith(window.location.origin));
         const loadingTask = pdfjsLib.getDocument({
           url,
-          withCredentials: true,
+          withCredentials: isSameOrigin,
         });
 
         const pdf = await loadingTask.promise;

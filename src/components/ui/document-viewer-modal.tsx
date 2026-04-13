@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { X, Download, Presentation } from "lucide-react";
+import { X, Download, Presentation, Globe, ExternalLink } from "lucide-react";
 
 interface DocumentViewerModalProps {
   url: string;
@@ -56,8 +56,27 @@ export function DocumentViewerModal({ url, title, type, onClose }: DocumentViewe
               Baixar Apresentação
             </a>
           </div>
+        ) : type === "LINK" ? (
+          /* External links often block iframe embedding (X-Frame-Options).
+             Open them reliably in a new tab instead. */
+          <div className="flex flex-col items-center justify-center h-full gap-6 text-white">
+            <Globe className="h-20 w-20 text-blue-400" />
+            <p className="text-lg font-medium text-center px-4">{title}</p>
+            <p className="text-sm text-gray-400 text-center px-8">
+              Links externos são abertos em uma nova aba do navegador.
+            </p>
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white font-semibold px-6 py-3 rounded-lg transition-colors"
+            >
+              <ExternalLink className="h-5 w-5" />
+              Abrir Link
+            </a>
+          </div>
         ) : (
-          /* PDF and external links can be rendered in an iframe */
+          /* PDF files can be rendered inline in an iframe */
           <iframe
             src={url}
             className="w-full h-full border-0"
