@@ -467,7 +467,7 @@ const QUIZ_QUESTIONS = [
     correct: 2,
   },
   {
-    question: "Qual lobe cerebral processa a compreensão da linguagem (Área de Wernicke)?",
+    question: "Qual lobo cerebral processa a compreensão da linguagem (Área de Wernicke)?",
     options: ["Lobo Frontal", "Lobo Parietal", "Lobo Temporal", "Lobo Occipital"],
     correct: 2,
   },
@@ -717,7 +717,7 @@ export default function NeuroLabPage() {
   const activeRegionIds = activeStimulus?.regions ?? [];
   const isActive = (id: string) => activationMode && activeRegionIds.includes(id);
 
-  const regionById = (id: string) => BRAIN_REGIONS.find((r) => r.id === id)!;
+  const regionById = (id: string) => BRAIN_REGIONS.find((r) => r.id === id);
 
   const handleRegionClick = (id: string) => {
     const region = regionById(id);
@@ -842,7 +842,7 @@ export default function NeuroLabPage() {
       />
     );
 
-    const cbRegion = regionById("cerebellum");
+    const cbRegion = regionById("cerebellum")!;
     const cbActive = isActive("cerebellum");
     const cbSel    = selected?.id === "cerebellum";
 
@@ -962,7 +962,7 @@ export default function NeuroLabPage() {
       />
     );
 
-    const cbRegion = regionById("cerebellum");
+    const cbRegion = regionById("cerebellum")!;
     const cbActive = isActive("cerebellum");
 
     return (
@@ -1094,7 +1094,7 @@ export default function NeuroLabPage() {
       </>
     );
 
-    const cbR = regionById("cerebellum");
+    const cbR = regionById("cerebellum")!;
     return (
       <svg viewBox="0 -20 480 370" className="w-full select-none" style={{ maxHeight: 380 }}>
         <defs>
