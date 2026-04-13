@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { X } from "lucide-react";
+import { X, Download, Presentation } from "lucide-react";
 
 interface DocumentViewerModalProps {
   url: string;
@@ -10,7 +10,7 @@ interface DocumentViewerModalProps {
   onClose: () => void;
 }
 
-export function DocumentViewerModal({ url, title, onClose }: DocumentViewerModalProps) {
+export function DocumentViewerModal({ url, title, type, onClose }: DocumentViewerModalProps) {
   // Close on Escape
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -35,14 +35,36 @@ export function DocumentViewerModal({ url, title, onClose }: DocumentViewerModal
         </button>
       </div>
 
-      {/* Iframe — loads the URL directly within the site */}
+      {/* Content area */}
       <div className="flex-1 overflow-hidden">
-        <iframe
-          src={url}
-          className="w-full h-full border-0"
-          title={title}
-          allow="fullscreen"
-        />
+        {type === "SLIDE" ? (
+          /* Presentations (PPTX/PPT) cannot be displayed inline in a browser.
+             Offer a download link instead. */
+          <div className="flex flex-col items-center justify-center h-full gap-6 text-white">
+            <Presentation className="h-20 w-20 text-orange-400" />
+            <p className="text-lg font-medium text-center px-4">{title}</p>
+            <p className="text-sm text-gray-400 text-center px-8">
+              Apresentações não podem ser visualizadas diretamente no navegador.<br />
+              Faça o download para abrir no PowerPoint ou LibreOffice.
+            </p>
+            <a
+              href={url}
+              download
+              className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white font-semibold px-6 py-3 rounded-lg transition-colors"
+            >
+              <Download className="h-5 w-5" />
+              Baixar Apresentação
+            </a>
+          </div>
+        ) : (
+          /* PDF and external links can be rendered in an iframe */
+          <iframe
+            src={url}
+            className="w-full h-full border-0"
+            title={title}
+            allow="fullscreen"
+          />
+        )}
       </div>
     </div>
   );
