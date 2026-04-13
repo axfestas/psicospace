@@ -235,6 +235,7 @@ const DOCUMENT_TEMPLATES: DocTemplate[] = [
 <h2 style="line-height: 1.5;">REFERÊNCIAS</h2>
 <p style="text-align: justify; line-height: 1.5;">SOBRENOME, Nome. <em>Título da obra</em>. Cidade: Editora, Ano.</p>`,
   },
+];
 
 // ── Custom FontSize extension (no extra npm package needed) ──────────────────
 const FontSize = Extension.create({
