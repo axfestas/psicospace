@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
     const auth = await getAuthUser();
     if (!auth) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
-    const { title, dueDate } = await request.json();
+    const { title, dueDate, group } = await request.json();
     if (!title) {
       return NextResponse.json({ error: "Título é obrigatório" }, { status: 400 });
     }
@@ -36,6 +36,7 @@ export async function POST(request: NextRequest) {
         title,
         userId: auth.userId,
         dueDate: dueDate ? new Date(dueDate) : null,
+        group: group || null,
       },
     });
 

@@ -21,7 +21,7 @@ export async function PUT(
     if (!auth) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
     const { id } = await params;
-    const { title, completed, dueDate } = await request.json();
+    const { title, completed, dueDate, group } = await request.json();
     if (dueDate === "") {
       return NextResponse.json(
         { error: "dueDate deve ser null para remover o prazo." },
@@ -40,6 +40,7 @@ export async function PUT(
         title,
         completed,
         dueDate: normalizeDueDateUpdate(dueDate),
+        ...(group !== undefined ? { group: group || null } : {}),
       },
     });
 

@@ -151,6 +151,12 @@ ALTER TABLE "Material" ADD COLUMN "libraryItemId" TEXT REFERENCES "LibraryItem"(
 ALTER TABLE "LibraryItem" ADD COLUMN "thumbnailUrl" TEXT;
     `,
   },
+  {
+    name: "20260417020000_add_task_group",
+    sql: `
+ALTER TABLE "Task" ADD COLUMN "group" TEXT;
+    `,
+  },
 ];
 
 // ---------------------------------------------------------------------------

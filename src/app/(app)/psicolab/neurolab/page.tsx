@@ -421,6 +421,22 @@ const STIMULUS_PRESETS: StimulusPreset[] = [
     description:
       "Toda percepção sensorial passa pelo tálamo, chega ao córtex específico (visual, auditivo, somatossensorial) e é integrada no parietal e ínsula.",
   },
+  {
+    id: "sleep",
+    label: "Sono e Vigília",
+    emoji: "😴",
+    regions: ["hypothalamus", "thalamus", "brainstem", "cingulate", "prefrontal"],
+    description:
+      "O hipotálamo (NSQ e núcleos de sono/vigília) e o tronco encefálico regulam o ciclo sono-vigília. O tálamo controla a passagem de sinais durante o sono; o pré-frontal está suprimido no sono profundo.",
+  },
+  {
+    id: "motivation",
+    label: "Motivação",
+    emoji: "🎯",
+    regions: ["prefrontal", "hippocampus", "amygdala", "hypothalamus", "cingulate"],
+    description:
+      "Motivação envolve o sistema de recompensa límbico: hipotálamo (fome, impulsos), amígdala (valência emocional), hipocampo (contexto/memória) e pré-frontal (regulação e planejamento de objetivos).",
+  },
 ];
 
 // ─── QUIZ ────────────────────────────────────────────────────────────────────
