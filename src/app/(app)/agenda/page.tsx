@@ -72,6 +72,14 @@ export default function AgendaPage() {
     endAt: "",
   });
 
+  // ── Drag & drop state ────────────────────────────────────────────────────
+  const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
+  const [dragOverGroup, setDragOverGroup] = useState<string | null>(null);
+
+  // ── Group editing state ──────────────────────────────────────────────────
+  const [editingGroupName, setEditingGroupName] = useState<string | null>(null);
+  const [newGroupName, setNewGroupName] = useState("");
+
   // Schedule state (localStorage)
   const [scheduleSlots, setScheduleSlots] = useState<ScheduleSlot[]>([]);
   const [editingSlot, setEditingSlot] = useState<{ day: string; time: string } | null>(null);
@@ -298,14 +306,80 @@ export default function AgendaPage() {
   );
   const ungroupedTasks = useMemo(() => tasks.filter((t) => !t.group), [tasks]);
 
+  // ── Drag & drop handlers ─────────────────────────────────────────────────
+  const handleDragStart = (e: React.DragEvent<HTMLLIElement>, taskId: string) => {
+    e.dataTransfer.effectAllowed = "move";
+    setDraggedTaskId(taskId);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedTaskId(null);
+    setDragOverGroup(null);
+  };
+
+  const handleDragOverGroup = (e: React.DragEvent<HTMLDivElement>, targetGroup: string | null) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDragOverGroup(targetGroup);
+  };
+
+  const handleDropOnGroup = async (e: React.DragEvent<HTMLDivElement>, targetGroup: string | null) => {
+    e.preventDefault();
+    if (!draggedTaskId) return;
+    setDraggedTaskId(null);
+    setDragOverGroup(null);
+    const task = tasks.find((t) => t.id === draggedTaskId);
+    if (!task) return;
+    const sameGroup = (task.group ?? null) === targetGroup;
+    if (sameGroup) return;
+    await fetch(`/api/tasks/${draggedTaskId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ group: targetGroup }),
+    });
+    loadData();
+  };
+
+  // ── Group rename handlers ─────────────────────────────────────────────────
+  const handleStartEditGroup = (groupName: string) => {
+    setEditingGroupName(groupName);
+    setNewGroupName(groupName);
+  };
+
+  const handleSaveEditGroup = async () => {
+    if (!editingGroupName) return;
+    const trimmed = newGroupName.trim();
+    if (!trimmed || trimmed === editingGroupName) {
+      setEditingGroupName(null);
+      setNewGroupName("");
+      return;
+    }
+    const affected = tasks.filter((t) => t.group === editingGroupName);
+    await Promise.all(
+      affected.map((t) =>
+        fetch(`/api/tasks/${t.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ group: trimmed }),
+        })
+      )
+    );
+    setEditingGroupName(null);
+    setNewGroupName("");
+    loadData();
+  };
+
   const { firstDay, daysInMonth } = getDaysInMonth(currentDate);
   const monthName = currentDate.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
 
-  const renderTaskItem = (task: Task, groupColor?: (typeof GROUP_COLORS)[0]) => (
+  const renderTaskItem = (task: Task) => (
     <li
       key={task.id}
-      className={`flex items-center gap-3 rounded-lg border p-3 ${
-        groupColor ? `${groupColor.border}` : "border-gray-100 dark:border-gray-700"
+      draggable
+      onDragStart={(e) => handleDragStart(e, task.id)}
+      onDragEnd={handleDragEnd}
+      className={`flex items-center gap-3 rounded-lg border p-3 transition-opacity bg-white dark:bg-gray-900 border-gray-100 dark:border-gray-700 ${
+        draggedTaskId === task.id ? "opacity-40" : "opacity-100"
       }`}
     >
       {editingTaskId === task.id ? (
@@ -546,31 +620,80 @@ export default function AgendaPage() {
               {allGroups.map((group) => {
                 const groupColor = getGroupColor(group, allGroups);
                 const groupTasks = tasks.filter((t) => t.group === group);
+                const isDropTarget = dragOverGroup === group && draggedTaskId !== null;
                 return (
-                  <div key={group} className={`rounded-xl border p-4 ${groupColor.bg} ${groupColor.border}`}>
+                  <div
+                    key={group}
+                    className={`rounded-xl border p-4 transition-colors ${groupColor.bg} ${groupColor.border} ${isDropTarget ? "ring-2 ring-blue-400 dark:ring-blue-500" : ""}`}
+                    onDragOver={(e) => handleDragOverGroup(e, group)}
+                    onDragLeave={() => setDragOverGroup(null)}
+                    onDrop={(e) => handleDropOnGroup(e, group)}
+                  >
                     <div className="flex items-center gap-2 mb-3">
                       <span className={`inline-block w-2.5 h-2.5 rounded-full ${groupColor.dot}`} />
-                      <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">{group}</h3>
+                      {editingGroupName === group ? (
+                        <>
+                          <Input
+                            value={newGroupName}
+                            onChange={(e) => setNewGroupName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") handleSaveEditGroup();
+                              if (e.key === "Escape") { setEditingGroupName(null); setNewGroupName(""); }
+                            }}
+                            className="h-6 text-xs w-36 py-0 px-1.5"
+                            autoFocus
+                          />
+                          <button onClick={handleSaveEditGroup} type="button" className="text-green-600 hover:text-green-700"><Check className="h-3.5 w-3.5" /></button>
+                          <button onClick={() => { setEditingGroupName(null); setNewGroupName(""); }} type="button" className="text-gray-400 hover:text-gray-600"><X className="h-3.5 w-3.5" /></button>
+                        </>
+                      ) : (
+                        <>
+                          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">{group}</h3>
+                          <button
+                            onClick={() => handleStartEditGroup(group)}
+                            type="button"
+                            className="text-gray-400 hover:text-blue-600"
+                            title="Renomear grupo"
+                          >
+                            <Edit2 className="h-3.5 w-3.5" />
+                          </button>
+                        </>
+                      )}
                       <span className={`ml-auto rounded-full px-2 py-0.5 text-xs font-medium ${groupColor.badge}`}>
                         {groupTasks.filter((t) => !t.completed).length} pendente(s)
                       </span>
                     </div>
                     <ul className="space-y-2">
-                      {groupTasks.map((task) => renderTaskItem(task, groupColor))}
+                      {groupTasks.map((task) => renderTaskItem(task))}
+                      {isDropTarget && (
+                        <li className="rounded-lg border-2 border-dashed border-blue-400 dark:border-blue-500 p-3 text-center text-xs text-blue-500 dark:text-blue-400 select-none">
+                          Soltar aqui
+                        </li>
+                      )}
                     </ul>
                   </div>
                 );
               })}
 
               {/* Ungrouped tasks */}
-              {ungroupedTasks.length > 0 && (
-                <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+              {(ungroupedTasks.length > 0 || (draggedTaskId !== null && dragOverGroup === "")) && (
+                <div
+                  className={`rounded-xl border border-gray-200 dark:border-gray-700 p-4 transition-colors ${dragOverGroup === "" ? "ring-2 ring-blue-400 dark:ring-blue-500" : ""}`}
+                  onDragOver={(e) => handleDragOverGroup(e, "")}
+                  onDragLeave={() => setDragOverGroup(null)}
+                  onDrop={(e) => handleDropOnGroup(e, null)}
+                >
                   <div className="flex items-center gap-2 mb-3">
                     <span className="inline-block w-2.5 h-2.5 rounded-full bg-gray-400" />
                     <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-400">Sem grupo</h3>
                   </div>
                   <ul className="space-y-2">
                     {ungroupedTasks.map((task) => renderTaskItem(task))}
+                    {dragOverGroup === "" && draggedTaskId !== null && (
+                      <li className="rounded-lg border-2 border-dashed border-blue-400 dark:border-blue-500 p-3 text-center text-xs text-blue-500 dark:text-blue-400 select-none">
+                        Soltar aqui
+                      </li>
+                    )}
                   </ul>
                 </div>
               )}
