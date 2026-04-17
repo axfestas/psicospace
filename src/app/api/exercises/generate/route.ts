@@ -191,7 +191,13 @@ Se não houver conteúdo suficiente, retorne exatamente: "${INSUFFICIENT_CONTENT
           if (content.toLowerCase().includes(INSUFFICIENT_CONTENT_MSG)) {
             return NextResponse.json({ error: INSUFFICIENT_CONTENT_MSG }, { status: 422 });
           }
-          generated = parseGeneratedQuestions(content).slice(0, safeCount);
+          const parsed = parseGeneratedQuestions(content);
+          if (parsed.length === 0) {
+            // Parsing returned no valid questions — likely a format deviation; treat as generation failure.
+            console.warn("[exercises/generate] AI response produced 0 valid questions:", content.slice(0, 200));
+            return NextResponse.json({ error: "Falha ao interpretar questões geradas" }, { status: 502 });
+          }
+          generated = parsed.slice(0, safeCount);
         } else {
           const details = await aiResponse.text();
           console.error("[exercises/generate] AI call failed", details);
