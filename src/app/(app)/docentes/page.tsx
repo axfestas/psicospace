@@ -60,6 +60,8 @@ const FILE_ACCEPT: Record<"PDF" | "SLIDE", string> = {
   SLIDE:
     ".ppt,.pptx,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation",
 };
+const THUMBNAIL_WIDTH = 320;
+const THUMBNAIL_JPEG_QUALITY = 0.82;
 
 export default function DocentesPage() {
   const { user } = useAuth();
@@ -143,7 +145,7 @@ export default function DocentesPage() {
       const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
       const page = await pdf.getPage(1);
       const viewport = page.getViewport({ scale: 1 });
-      const scale = 320 / viewport.width;
+      const scale = THUMBNAIL_WIDTH / viewport.width;
       const scaledViewport = page.getViewport({ scale });
       const canvas = document.createElement("canvas");
       canvas.width = scaledViewport.width;
@@ -151,7 +153,7 @@ export default function DocentesPage() {
       const ctx = canvas.getContext("2d");
       if (!ctx) return null;
       await page.render({ canvas, canvasContext: ctx, viewport: scaledViewport }).promise;
-      return canvas.toDataURL("image/jpeg", 0.82);
+      return canvas.toDataURL("image/jpeg", THUMBNAIL_JPEG_QUALITY);
     } catch {
       return null;
     }
