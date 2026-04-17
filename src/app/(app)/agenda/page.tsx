@@ -127,7 +127,7 @@ export default function AgendaPage() {
     loadData();
   };
 
-  const toDateInputValue = (value?: string) => {
+  const formatDateForInput = (value?: string) => {
     if (!value) return "";
     const d = new Date(value);
     const year = d.getFullYear();
@@ -139,7 +139,7 @@ export default function AgendaPage() {
   const handleStartEditTask = (task: Task) => {
     setEditingTaskId(task.id);
     setEditTaskTitle(task.title);
-    setEditTaskDueDate(toDateInputValue(task.dueDate));
+    setEditTaskDueDate(formatDateForInput(task.dueDate));
   };
 
   const handleSaveEditTask = async () => {

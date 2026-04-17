@@ -27,7 +27,10 @@ export async function PUT(
     }
 
     if (!ALLOWED_TYPES.has(type)) {
-      return NextResponse.json({ error: "Tipo de material inválido" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Tipo de material inválido. Tipos válidos: PDF, SLIDE, LINK" },
+        { status: 400 }
+      );
     }
 
     const material = await prisma.material.findUnique({ where: { id } });

@@ -51,8 +51,8 @@ export async function POST(request: NextRequest) {
         to: targetEmail,
         name: currentUser?.name || "Super Admin",
         overdueTasks: [],
-        soonTasks: [{ title: "Tarefa de teste de e-mail", dueDate: nowIso }],
-        soonEvents: [{ title: "Evento de teste de notificação", startAt: nowIso }],
+        soonTasks: [{ title: "Tarefa de teste", dueDate: nowIso }],
+        soonEvents: [{ title: "Evento de teste", startAt: nowIso }],
       });
       emailSent = true;
     } catch (error) {
