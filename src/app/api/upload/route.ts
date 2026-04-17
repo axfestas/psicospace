@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
       extensionIndex > -1 ? lowerFileName.slice(extensionIndex + 1) : "";
     let detectedContentType = mimeType;
     let ext = ALLOWED_TYPES[mimeType];
-    if (!ext && fileExtension in ALLOWED_EXTENSIONS) {
+    if (!ext && Object.prototype.hasOwnProperty.call(ALLOWED_EXTENSIONS, fileExtension)) {
       detectedContentType = ALLOWED_EXTENSIONS[fileExtension];
       ext = ALLOWED_TYPES[detectedContentType];
     }

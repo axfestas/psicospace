@@ -430,7 +430,7 @@ export default function ExerciciosPage() {
             </CardTitle>
             <p className="text-xs text-gray-500">
               A IA usa exclusivamente o conteúdo do arquivo selecionado.
-              {!process.env.NEXT_PUBLIC_HAS_AI && " (Modo placeholder — configure OPENAI_API_KEY para geração real)"}
+              {!process.env.NEXT_PUBLIC_HAS_AI && " (Modo placeholder — configure GROQ_API_KEY para geração real)"}
             </p>
           </CardHeader>
           <CardContent className="space-y-4">
