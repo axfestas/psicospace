@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
       });
       emailSent = true;
     } catch (error) {
-      emailError = error instanceof Error ? error.message : "Falha ao enviar e-mail de teste.";
+      emailError = error instanceof Error ? error.message : "Erro desconhecido ao enviar e-mail.";
       console.error("[admin/migrations/test-delivery] email error", error);
     }
 
