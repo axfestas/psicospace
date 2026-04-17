@@ -51,6 +51,7 @@ export interface Task {
   title: string;
   completed: boolean;
   dueDate?: string;
+  group?: string;
   createdAt: string;
 }
 

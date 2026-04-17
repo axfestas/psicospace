@@ -124,6 +124,7 @@ model Task {
   userId    String
   createdAt DateTime  @default(now())
   dueDate   DateTime?
+  group     String?
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
