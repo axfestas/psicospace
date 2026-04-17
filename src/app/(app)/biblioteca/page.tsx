@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { BookOpen } from "lucide-react";
 import { DocumentViewerModal } from "@/components/ui/document-viewer-modal";
-import { PdfPreview } from "@/components/ui/pdf-preview";
 
 interface LibraryItem {
   id: string;
@@ -82,34 +81,22 @@ export default function BibliotecaPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filtered.map((item) => (
-            <Card key={item.id} className="flex flex-col overflow-hidden p-0">
-              {/* Preview thumbnail — clickable */}
-              <PdfPreview
-                type={item.type}
-                url={item.url}
-                title={item.title}
-                thumbnailUrl={item.thumbnailUrl}
-                onClick={() => setViewer({ url: item.url, title: item.title, type: item.type })}
-              />
-
-              {/* Card body */}
-              <div className="p-3 flex flex-col gap-1">
-                <div className="flex items-start justify-between gap-1">
-                  <button
-                    onClick={() => setViewer({ url: item.url, title: item.title, type: item.type })}
-                    className="text-sm font-medium text-gray-900 dark:text-gray-100 hover:underline text-left leading-snug line-clamp-2"
-                  >
-                    {item.title}
-                  </button>
-                  {getTypeBadge(item.type)}
-                </div>
-                {item.description && (
-                  <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">{item.description}</p>
-                )}
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                  Por {item.uploadedBy.name}
-                </p>
+            <Card key={item.id} className="p-4">
+              <div className="flex items-start justify-between gap-2">
+                <button
+                  onClick={() => setViewer({ url: item.url, title: item.title, type: item.type })}
+                  className="text-base font-medium text-gray-900 dark:text-gray-100 hover:underline text-left leading-snug line-clamp-2"
+                >
+                  {item.title}
+                </button>
+                {getTypeBadge(item.type)}
               </div>
+              {item.description && (
+                <p className="mt-2 text-sm text-gray-600 dark:text-gray-300 line-clamp-2">{item.description}</p>
+              )}
+              <p className="mt-3 text-xs text-gray-400 dark:text-gray-500">
+                Por {item.uploadedBy.name}
+              </p>
             </Card>
           ))}
         </div>
