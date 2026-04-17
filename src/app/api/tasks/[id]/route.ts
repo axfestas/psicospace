@@ -7,7 +7,7 @@ export const runtime = "edge";
 function normalizeDueDateUpdate(
   dueDate: string | null | undefined
 ): Date | null | undefined {
-  if (dueDate === null || dueDate === "") return null;
+  if (dueDate === null) return null;
   if (dueDate === undefined) return undefined;
   return new Date(dueDate);
 }
@@ -22,6 +22,12 @@ export async function PUT(
 
     const { id } = await params;
     const { title, completed, dueDate } = await request.json();
+    if (dueDate === "") {
+      return NextResponse.json(
+        { error: "dueDate deve ser null para remover o prazo." },
+        { status: 400 }
+      );
+    }
 
     const task = await prisma.task.findUnique({ where: { id } });
     if (!task || task.userId !== auth.userId) {
