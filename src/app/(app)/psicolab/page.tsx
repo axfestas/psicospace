@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import {
   Brain, FlaskConical, BookOpen, Activity, Zap, Users, Sparkles,
-  MessageSquare, Baby, GraduationCap, Languages, ArrowRight,
+  Baby, GraduationCap, Languages, ArrowRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -109,16 +109,16 @@ const labs = [
   },
   {
     href: "/psicolab/clinico",
-    icon: MessageSquare,
-    emoji: "🛋️",
+    icon: GraduationCap,
+    emoji: "🔬",
     color: "from-teal-400 to-teal-600",
     glow: "shadow-teal-500/30",
     badge: "bg-teal-500",
-    title: "Simulador Clínico",
-    subtitle: "Prática Terapêutica",
+    title: "Metodologia Científica",
+    subtitle: "Pesquisa em Psicologia",
     description:
-      "Pratique como terapeuta: escolha uma abordagem (Freud, Rogers, Beck) e conduza sessões com pacientes virtuais.",
-    tags: ["Psicanálise", "TCC", "Humanismo"],
+      "Desenvolva raciocínio científico: analise cenários de pesquisa, identifique hipóteses, variáveis e erros metodológicos.",
+    tags: ["Hipótese", "Variáveis", "Metodologia"],
     available: true,
   },
   {
