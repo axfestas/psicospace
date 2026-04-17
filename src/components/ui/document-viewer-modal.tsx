@@ -188,9 +188,9 @@ export function DocumentViewerModal({ url, title, type, onClose }: DocumentViewe
           />
         )}
         {/* Pomodoro break overlay — displayed on top of content during a break */}
-        {pomodoro.isBreak && (
+        {(pomodoro.phase === "shortBreak" || pomodoro.phase === "longBreak") && (
           <PomodoroBreakOverlay
-            phase={pomodoro.phase as "shortBreak" | "longBreak"}
+            phase={pomodoro.phase}
             secondsLeft={pomodoro.secondsLeft}
             totalSeconds={pomodoro.totalSeconds}
             completedPomodoros={pomodoro.completedPomodoros}

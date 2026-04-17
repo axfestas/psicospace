@@ -49,6 +49,13 @@ function cyclePosition(completed: number): number {
   return pos === 0 && completed > 0 ? LONG_BREAK_EVERY : pos;
 }
 
+function nextBreak(nextCompleted: number): { phase: "shortBreak" | "longBreak"; seconds: number } {
+  const isLong = nextCompleted % LONG_BREAK_EVERY === 0;
+  return isLong
+    ? { phase: "longBreak", seconds: LONG_BREAK_SECONDS }
+    : { phase: "shortBreak", seconds: SHORT_BREAK_SECONDS };
+}
+
 // ── Hook ───────────────────────────────────────────────────────────────────────
 
 export function usePomodoroTimer(): PomodoroState {
@@ -71,11 +78,10 @@ export function usePomodoroTimer(): PomodoroState {
 
     if (phase === "work") {
       const nextCompleted = completedPomodoros + 1;
-      const isLong = nextCompleted % LONG_BREAK_EVERY === 0;
-      const nextPhase: PomodoroPhase = isLong ? "longBreak" : "shortBreak";
+      const { phase: nextPhase, seconds } = nextBreak(nextCompleted);
       setCompletedPomodoros(nextCompleted);
       setPhase(nextPhase);
-      setSecondsLeft(phaseTotalSeconds(nextPhase));
+      setSecondsLeft(seconds);
     } else {
       setPhase("work");
       setSecondsLeft(WORK_SECONDS);
@@ -97,11 +103,10 @@ export function usePomodoroTimer(): PomodoroState {
   const skipPhase = useCallback(() => {
     if (phase === "work") {
       const nextCompleted = completedPomodoros + 1;
-      const isLong = nextCompleted % LONG_BREAK_EVERY === 0;
-      const nextPhase: PomodoroPhase = isLong ? "longBreak" : "shortBreak";
+      const { phase: nextPhase, seconds } = nextBreak(nextCompleted);
       setCompletedPomodoros(nextCompleted);
       setPhase(nextPhase);
-      setSecondsLeft(phaseTotalSeconds(nextPhase));
+      setSecondsLeft(seconds);
     } else if (phase !== "idle") {
       setPhase("work");
       setSecondsLeft(WORK_SECONDS);
