@@ -311,6 +311,14 @@ VALUES
   ('shopitem_badge_freud',   'Badge: Freud',                    'O pai da psicanálise em forma de insígnia rara',   'BADGE',        'badge', 'ESPECIAL',  'LENDÁRIO', 500,  true);
     `,
   },
+  {
+    name: "20260417222800_shopitem_badge_neutral_language",
+    sql: `
+UPDATE "ShopItem"
+SET "name" = 'Badge: Psicólogue'
+WHERE "id" = 'shopitem_badge_psico';
+    `,
+  },
 ];
 
 // ---------------------------------------------------------------------------
