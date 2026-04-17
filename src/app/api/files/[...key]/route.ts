@@ -25,7 +25,7 @@ function buildContentDispositionFilename(fileName: string): string {
   const baseName = fileName.replace(/[\r\n]/g, "");
   const asciiName = baseName
     .normalize("NFKD")
-    .replace(/[^A-Za-z0-9!#$&+.^_`|~-]/g, "_")
+    .replace(/[^A-Za-z0-9!#$&+.^_`~-]/g, "_")
     .slice(0, 150) || "file";
   const utf8Name = encodeURIComponent(baseName)
     .replace(/['()*]/g, (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`);

@@ -40,7 +40,7 @@ export async function PUT(
       return NextResponse.json({ error: "Sem permissão para editar este material" }, { status: 403 });
     }
 
-    const currentUrl = normalizeStoredMaterialUrl(material.url, material.type);
+    const currentUrl = normalizeStoredMaterialUrl(material.url, type);
     const incomingUrl =
       typeof url === "string" && url.trim().length > 0
         ? normalizeStoredMaterialUrl(url, type)
