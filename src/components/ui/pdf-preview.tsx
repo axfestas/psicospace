@@ -14,8 +14,33 @@ interface PdfPreviewProps {
 
 /** Renders a small preview thumbnail for library items. */
 const THUMBNAIL_WIDTH = 280;
+// 0.82 preserves readable text while keeping thumbnail upload/render lightweight.
 const PDF_THUMBNAIL_QUALITY = 0.82;
 const generatedPreviewCache = new Map<string, string | null>();
+// Keep cache bounded for long-lived sessions with many cards open.
+const MAX_PREVIEW_CACHE_ITEMS = 120;
+let pdfJsModulePromise: Promise<typeof import("pdfjs-dist")> | null = null;
+
+function cacheGeneratedPreview(key: string, value: string | null) {
+  generatedPreviewCache.set(key, value);
+  while (generatedPreviewCache.size > MAX_PREVIEW_CACHE_ITEMS) {
+    const oldestKey = generatedPreviewCache.keys().next().value;
+    if (!oldestKey) break;
+    generatedPreviewCache.delete(oldestKey);
+  }
+}
+
+async function loadPdfJs() {
+  if (!pdfJsModulePromise) {
+    pdfJsModulePromise = import("pdfjs-dist").then((pdfjsLib) => {
+      if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
+      }
+      return pdfjsLib;
+    });
+  }
+  return pdfJsModulePromise;
+}
 
 export function PdfPreview({ type, url, title, thumbnailUrl, onClick }: PdfPreviewProps) {
   const [generatedPreview, setGeneratedPreview] = useState<string | null>(null);
@@ -50,11 +75,7 @@ export function PdfPreview({ type, url, title, thumbnailUrl, onClick }: PdfPrevi
       }
 
       try {
-        const pdfjsLib = await import("pdfjs-dist");
-        if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
-          pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
-        }
-
+        const pdfjsLib = await loadPdfJs();
         const pdf = await pdfjsLib.getDocument({ url: normalizedUrl, withCredentials: true }).promise;
         const page = await pdf.getPage(1);
         const viewport = page.getViewport({ scale: 1 });
@@ -65,18 +86,18 @@ export function PdfPreview({ type, url, title, thumbnailUrl, onClick }: PdfPrevi
         canvas.height = scaledViewport.height;
         const ctx = canvas.getContext("2d");
         if (!ctx) {
-          generatedPreviewCache.set(normalizedUrl, null);
+          cacheGeneratedPreview(normalizedUrl, null);
           if (!cancelled) setGeneratedPreview(null);
           return;
         }
 
         await page.render({ canvas, canvasContext: ctx, viewport: scaledViewport }).promise;
         const previewDataUrl = canvas.toDataURL("image/jpeg", PDF_THUMBNAIL_QUALITY);
-        generatedPreviewCache.set(normalizedUrl, previewDataUrl);
+        cacheGeneratedPreview(normalizedUrl, previewDataUrl);
         if (!cancelled) setGeneratedPreview(previewDataUrl);
       } catch (error) {
         console.warn("[biblioteca] Falha ao gerar preview de PDF", error);
-        generatedPreviewCache.set(normalizedUrl, null);
+        cacheGeneratedPreview(normalizedUrl, null);
         if (!cancelled) setGeneratedPreview(null);
       }
     };

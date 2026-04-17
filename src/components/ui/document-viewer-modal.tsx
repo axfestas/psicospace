@@ -11,6 +11,19 @@ interface DocumentViewerModalProps {
   onClose: () => void;
 }
 
+function getFileStatusMessage(status: number): string {
+  switch (status) {
+    case 401:
+      return "Você precisa estar autenticado para abrir este arquivo.";
+    case 403:
+      return "Você não tem permissão para acessar este arquivo.";
+    case 404:
+      return "Arquivo não encontrado no storage.";
+    default:
+      return "Não foi possível abrir o arquivo agora.";
+  }
+}
+
 export function DocumentViewerModal({ url, title, type, onClose }: DocumentViewerModalProps) {
   const [iframeError, setIframeError] = useState(false);
   const [retryTick, setRetryTick] = useState(0);
@@ -52,36 +65,33 @@ export function DocumentViewerModal({ url, title, type, onClose }: DocumentViewe
     const validateFile = async () => {
       setFileCheck({ checking: true, error: null });
       try {
-        const response = await fetch(normalizedUrl, {
-          method: "GET",
+        let response = await fetch(normalizedUrl, {
+          method: "HEAD",
           cache: "no-store",
           credentials: "include",
           signal: controller.signal,
         });
-
-        // We only need headers/status to validate availability.
-        if (response.body) {
-          response.body.cancel().catch(() => undefined);
+        if (response.status === 405) {
+          response = await fetch(normalizedUrl, {
+            method: "GET",
+            headers: { Range: "bytes=0-0" },
+            cache: "no-store",
+            credentials: "include",
+            signal: controller.signal,
+          });
         }
 
         if (cancelled) return;
 
         if (!response.ok) {
-          const statusMessage =
-            response.status === 401
-              ? "Você precisa estar autenticado para abrir este arquivo."
-              : response.status === 403
-              ? "Você não tem permissão para acessar este arquivo."
-              : response.status === 404
-              ? "Arquivo não encontrado no storage."
-              : "Não foi possível abrir o arquivo agora.";
-          setFileCheck({ checking: false, error: statusMessage });
+          setFileCheck({ checking: false, error: getFileStatusMessage(response.status) });
           return;
         }
 
         setFileCheck({ checking: false, error: null });
-      } catch {
+      } catch (error) {
         if (cancelled) return;
+        console.error("[viewer] File check failed", error);
         setFileCheck({
           checking: false,
           error: "Falha ao carregar o arquivo. Verifique sua conexão e tente novamente.",
