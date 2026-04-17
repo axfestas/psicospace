@@ -81,9 +81,7 @@ function parseGeneratedQuestions(raw: string): ParsedQuestion[] {
  * POST /api/exercises/generate
  *
  * Gera questões de múltipla escolha a partir de um material ou item de biblioteca.
- * Prioridade de provedores de IA (em ordem):
- *   1. GROQ_API_KEY  — Groq (gratuito, usa LLaMA)
- *   2. OPENAI_API_KEY — OpenAI (fallback, pago)
+ * Requer GROQ_API_KEY (Groq, gratuito, usa LLaMA).
  * Usa EXCLUSIVAMENTE o conteúdo fornecido.
  *
  * Prompt baseado nas REGRAS OBRIGATÓRIAS:
@@ -96,7 +94,6 @@ function parseGeneratedQuestions(raw: string): ParsedQuestion[] {
  */
 
 interface AIProviderConfig {
-  name: string;
   url: string;
   key: string;
   model: string;
@@ -106,19 +103,9 @@ function resolveAIProvider(): AIProviderConfig | null {
   const groqKey = process.env.GROQ_API_KEY;
   if (groqKey) {
     return {
-      name: "groq",
       url: "https://api.groq.com/openai/v1/chat/completions",
       key: groqKey,
       model: "llama-3.1-8b-instant",
-    };
-  }
-  const openaiKey = process.env.OPENAI_API_KEY;
-  if (openaiKey) {
-    return {
-      name: "openai",
-      url: "https://api.openai.com/v1/chat/completions",
-      key: openaiKey,
-      model: "gpt-4o-mini",
     };
   }
   return null;
@@ -232,11 +219,11 @@ Se não houver conteúdo suficiente, retorne exatamente: "${INSUFFICIENT_CONTENT
           generated = parsed.slice(0, safeCount);
         } else {
           const details = await aiResponse.text();
-          console.error("[exercises/generate] AI call failed", aiProvider.name, details);
+          console.error("[exercises/generate] AI call failed", details);
           return NextResponse.json({ error: "Falha ao gerar questões com IA" }, { status: 502 });
         }
       } catch (e) {
-        console.error("[exercises/generate] AI parsing failed", aiProvider.name, e);
+        console.error("[exercises/generate] AI parsing failed", e);
         return NextResponse.json({ error: "Falha ao interpretar questões geradas" }, { status: 502 });
       }
     }
