@@ -32,6 +32,10 @@ function buildContentDispositionFilename(fileName: string): string {
   return `filename="${asciiName}"; filename*=UTF-8''${utf8Name}`;
 }
 
+function notFoundResponse() {
+  return NextResponse.json({ error: "Arquivo não encontrado" }, { status: 404 });
+}
+
 function parseSingleByteRange(rangeHeader: string, totalSize: number): { start: number; end: number } | null {
   if (!rangeHeader.startsWith("bytes=") || totalSize <= 0) return null;
 
@@ -44,8 +48,10 @@ function parseSingleByteRange(rangeHeader: string, totalSize: number): { start: 
   // Only single-range responses are supported here.
   if (ranges.length !== 1) return null;
 
-  const [startRaw, endRaw] = ranges[0].split("-");
-  if (typeof startRaw === "undefined" || typeof endRaw === "undefined") return null;
+  const dashIndex = ranges[0].indexOf("-");
+  if (dashIndex === -1) return null;
+  const startRaw = ranges[0].slice(0, dashIndex);
+  const endRaw = ranges[0].slice(dashIndex + 1);
 
   if (!startRaw) {
     // Suffix range: bytes=-N
@@ -86,12 +92,12 @@ export async function GET(
     let object: CfR2ObjectBody | null = null;
     let status = 200;
     let contentRange: string | null = null;
-    let partialContentLength: number | null = null;
+    let rangedContentLength: number | null = null;
 
     if (rangeHeader) {
       const head = await bucket.head(key);
       if (!head) {
-        return NextResponse.json({ error: "Arquivo não encontrado" }, { status: 404 });
+        return notFoundResponse();
       }
 
       const parsedRange = parseSingleByteRange(rangeHeader, head.size);
@@ -107,25 +113,30 @@ export async function GET(
       }
 
       const { start, end } = parsedRange;
-      partialContentLength = end - start + 1;
+      rangedContentLength = end - start + 1;
       contentRange = `bytes ${start}-${end}/${head.size}`;
       status = 206;
-      object = await bucket.get(key, { range: { offset: start, length: partialContentLength } });
+      object = await bucket.get(key, { range: { offset: start, length: rangedContentLength } });
     } else {
       object = await bucket.get(key);
     }
 
     if (!object) {
-      return NextResponse.json({ error: "Arquivo não encontrado" }, { status: 404 });
+      return notFoundResponse();
     }
 
     const headers = new Headers();
     object.writeHttpMetadata(headers);
     headers.set("accept-ranges", "bytes");
+    // This is an authenticated endpoint and can serve private material.
+    // Revalidation avoids clients retaining long-lived private cached copies.
     headers.set("cache-control", "private, max-age=0, must-revalidate");
-    if (contentRange && partialContentLength !== null) {
+    if (status === 206) {
+      if (contentRange === null || rangedContentLength === null) {
+        throw new Error("Internal error: contentRange or rangedContentLength unexpectedly null in 206 response");
+      }
       headers.set("content-range", contentRange);
-      headers.set("content-length", String(partialContentLength));
+      headers.set("content-length", String(rangedContentLength));
     } else if (!headers.get("content-length")) {
       headers.set("content-length", String(object.size));
     }
