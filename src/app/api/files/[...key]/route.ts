@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getRequestContext } from "@cloudflare/next-on-pages";
 import { getAuthUser } from "@/lib/auth";
 import { getFileExtensionFromUrl } from "@/lib/file-urls";
-import { ifRangeMatches, parseSingleByteRange } from "@/lib/http-range";
-import { isEmptyContentMd5Etag, selectResponseEtag, toLastModifiedHeader } from "@/lib/http-validators";
+import { parseSingleByteRange } from "@/lib/http-range";
+import { selectResponseEtag, toLastModifiedHeader } from "@/lib/http-validators";
 
 export const runtime = "edge";
 
@@ -53,7 +53,6 @@ async function handleFileRequest(
     const { env } = getRequestContext();
     const bucket = env["bk-psi"];
     const rangeHeader = request.headers.get("range");
-    const ifRangeHeader = request.headers.get("if-range");
 
     const headObject = await bucket.head(key);
     if (!headObject) {
@@ -65,13 +64,7 @@ async function handleFileRequest(
     let contentRange: string | null = null;
     let responseContentLength: number | null = null;
 
-    // Sanitize the object's ETag before passing it to If-Range validation.
-    // If R2 returns the empty-content MD5 sentinel (d41d8...) we treat it as
-    // "no ETag" so that the bogus value cannot interfere with range negotiation:
-    // an If-Range ETag check against null falls back to the date validator or,
-    // when there is no If-Range at all, always serves the range.
-    const safeObjectHttpEtag = isEmptyContentMd5Etag(headObject.httpEtag) ? null : (headObject.httpEtag ?? null);
-    const shouldServeRange = rangeHeader && ifRangeMatches(ifRangeHeader, safeObjectHttpEtag, headObject.uploaded ?? null);
+    const shouldServeRange = !!rangeHeader;
 
     if (shouldServeRange && rangeHeader) {
       const parsedRange = parseSingleByteRange(rangeHeader, headObject.size);
