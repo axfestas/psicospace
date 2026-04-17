@@ -95,6 +95,25 @@ export function parseCharacter(character: {
   };
 }
 
+async function awardStreakBonus(walletId: string, userId: string, newStreak: number, now: Date) {
+  await prisma.psicoWallet.update({
+    where: { userId },
+    data: {
+      balance: { increment: REWARD_DAILY_STREAK_BONUS },
+      updatedAt: now.toISOString(),
+    },
+  });
+  await prisma.psicoTransaction.create({
+    data: {
+      walletId,
+      amount: REWARD_DAILY_STREAK_BONUS,
+      type: "EARN",
+      reason: "daily_streak_bonus",
+      referenceId: `streak_${newStreak}_${now.toISOString().slice(0, 10)}`,
+    },
+  });
+}
+
 async function updateCharacterProgress(userId: string, xpGain: number) {
   const { wallet, character } = await ensureEconomyState(userId);
   const now = new Date();
@@ -130,25 +149,8 @@ async function updateCharacterProgress(userId: string, xpGain: number) {
     },
   });
 
-  // Award daily streak bonus when the streak extends for a new day
   if (streakIncremented) {
-    const bonus = REWARD_DAILY_STREAK_BONUS;
-    await prisma.psicoWallet.update({
-      where: { userId },
-      data: {
-        balance: { increment: bonus },
-        updatedAt: now.toISOString(),
-      },
-    });
-    await prisma.psicoTransaction.create({
-      data: {
-        walletId: wallet.id,
-        amount: bonus,
-        type: "EARN",
-        reason: "daily_streak_bonus",
-        referenceId: `streak_${newStreak}_${now.toISOString().slice(0, 10)}`,
-      },
-    });
+    await awardStreakBonus(wallet.id, userId, newStreak, now);
   }
 }
 

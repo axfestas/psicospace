@@ -95,6 +95,17 @@ const LEVEL_TITLES: Record<number, string> = {
   10: "Mestre",
 };
 
+const RARITY_CLASSES: Record<string, string> = {
+  LENDÁRIO: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
+  ÉPICO: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
+  RARO: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
+  INCOMUM: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
+};
+
+function getRarityClassName(rarity: string): string {
+  return RARITY_CLASSES[rarity] ?? "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300";
+}
+
 function getLevelTitle(level: number): string {
   return LEVEL_TITLES[Math.min(level, 10)] ?? `Nível ${level}`;
 }
@@ -379,14 +390,7 @@ export default function PsicoGamePage() {
                       <div className="flex flex-wrap gap-1 mt-1">
                         <Badge variant="default" className="text-xs">{item.type}</Badge>
                         {item.rarity && item.rarity !== "COMUM" && (
-                          <span
-                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                              item.rarity === "LENDÁRIO" ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300" :
-                              item.rarity === "ÉPICO" ? "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300" :
-                              item.rarity === "RARO" ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300" :
-                              "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
-                            }`}
-                          >
+                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${getRarityClassName(item.rarity)}`}>
                             {item.rarity}
                           </span>
                         )}
