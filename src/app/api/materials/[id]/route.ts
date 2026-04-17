@@ -47,7 +47,7 @@ export async function PUT(
         : undefined;
 
     if (type === "LINK" && !incomingUrl) {
-      return NextResponse.json({ error: "URL é obrigatória para materiais do tipo LINK" }, { status: 400 });
+      return NextResponse.json({ error: "URL é obrigatório para materiais do tipo LINK" }, { status: 400 });
     }
 
     const finalUrl = type === "LINK" ? incomingUrl! : incomingUrl ?? currentUrl;
