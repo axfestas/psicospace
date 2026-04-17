@@ -1213,6 +1213,34 @@ export default function NeuroLabPage() {
         </p>
       </div>
 
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-900">
+          <h2 className="mb-3 text-base font-bold text-gray-900 dark:text-gray-100">Tópicos abordados I</h2>
+          <ul className="space-y-1.5 text-sm text-gray-600 dark:text-gray-300">
+            <li>▪ Organização do sistema nervoso e do cérebro</li>
+            <li>▪ Propriedades dos neurônios</li>
+            <li>▪ Circuitos neuronais</li>
+            <li>▪ Processamento sensorial I</li>
+            <li className="pl-4">➢ Percepção corporal</li>
+            <li>▪ Processamento motor</li>
+          </ul>
+        </div>
+        <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-900">
+          <h2 className="mb-3 text-base font-bold text-gray-900 dark:text-gray-100">Tópicos abordados II</h2>
+          <ul className="space-y-1.5 text-sm text-gray-600 dark:text-gray-300">
+            <li>▪ Processamento sensorial II</li>
+            <li className="pl-4">➢ Visão, audição, quimiopercepção</li>
+            <li>▪ Memória, aprendizagem e plasticidade cerebral</li>
+            <li>▪ Sono e vigília</li>
+            <li>▪ Motivação</li>
+            <li className="pl-4">➢ Comportamento alimentar</li>
+            <li className="pl-4">➢ Comportamento sexual</li>
+            <li className="pl-4">➢ Dependência química</li>
+            <li>▪ Emoção e psicopatologia</li>
+          </ul>
+        </div>
+      </div>
+
       {/* ── View selector tabs */}
       <div className="grid grid-cols-3 gap-2 rounded-xl border border-gray-200 bg-gray-50 p-1.5 dark:border-gray-700 dark:bg-gray-900">
         {VIEW_TABS.map((tab) => (
