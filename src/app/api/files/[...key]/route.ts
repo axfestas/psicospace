@@ -66,9 +66,9 @@ async function handleFileRequest(
         return notFoundResponse();
       }
 
-      const ifRangeValid = rangeHeader && ifRangeMatches(ifRangeHeader, headObject.httpEtag ?? null, headObject.uploaded ?? null);
+      const rangeConditionMet = rangeHeader && ifRangeMatches(ifRangeHeader, headObject.httpEtag ?? null, headObject.uploaded ?? null);
 
-      if (ifRangeValid && rangeHeader) {
+      if (rangeConditionMet && rangeHeader) {
         const parsedRange = parseSingleByteRange(rangeHeader, headObject.size);
         if (!parsedRange) {
           return new NextResponse(null, {
@@ -158,7 +158,7 @@ async function handleFileRequest(
       headers.set("content-disposition", `attachment; ${contentDispositionFileName}`);
     }
 
-    return new NextResponse(includeBody ? object.body : null, { status, headers });
+    return new NextResponse(includeBody && object ? object.body : null, { status, headers });
   } catch (err) {
     console.error("[/api/files] Unexpected error:", err);
     return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 });
