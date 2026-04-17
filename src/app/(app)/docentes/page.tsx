@@ -385,10 +385,12 @@ export default function DocentesPage() {
   const handleSaveEditMaterial = async () => {
     if (!editingMaterialId || !editMaterialForm.title) return;
     const normalizedUrl = editMaterialForm.url.trim();
-    const urlToSubmit =
-      editMaterialForm.type === "LINK"
-        ? normalizedUrl
-        : normalizedUrl || undefined;
+    let urlToSubmit: string | undefined;
+    if (editMaterialForm.type === "LINK") {
+      urlToSubmit = normalizedUrl;
+    } else if (normalizedUrl) {
+      urlToSubmit = normalizedUrl;
+    }
     if (editMaterialForm.type === "LINK" && !urlToSubmit) return;
     setEditSaving(true);
     setEditError(null);

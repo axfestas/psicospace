@@ -97,10 +97,11 @@ export async function DELETE(
       return NextResponse.json({ error: "Sem permissão para remover este item" }, { status: 403 });
     }
 
-    const [{ count: deletedMaterials }] = await prisma.$transaction([
+    const transactionResults = await prisma.$transaction([
       prisma.material.deleteMany({ where: { libraryItemId: id } }),
       prisma.libraryItem.delete({ where: { id } }),
     ]);
+    const deletedMaterials = transactionResults[0].count;
     return NextResponse.json({ success: true, deletedMaterials });
   } catch (error) {
     console.error("[biblioteca/[id] DELETE]", error);
