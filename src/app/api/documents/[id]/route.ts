@@ -18,7 +18,10 @@ export async function GET(
       return NextResponse.json({ error: "Documento não encontrado" }, { status: 404 });
     }
 
-    return NextResponse.json({ document });
+    return NextResponse.json(
+      { document },
+      { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } }
+    );
   } catch (error) {
     console.error("[documents/[id]]", error);
     return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 });
@@ -35,6 +38,10 @@ export async function PUT(
 
     const { id } = await params;
     const { title, content } = await request.json();
+    const normalizedTitle = typeof title === "string" ? title.trim() : "";
+    if (!normalizedTitle) {
+      return NextResponse.json({ error: "Título é obrigatório" }, { status: 400 });
+    }
 
     const document = await prisma.document.findUnique({ where: { id } });
     if (!document || document.userId !== auth.userId) {
@@ -43,7 +50,7 @@ export async function PUT(
 
     const updated = await prisma.document.update({
       where: { id },
-      data: { title, content },
+      data: { title: normalizedTitle, content },
     });
 
     return NextResponse.json({ document: updated });

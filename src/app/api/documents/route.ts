@@ -15,7 +15,10 @@ export async function GET() {
       select: { id: true, title: true, createdAt: true, updatedAt: true },
     });
 
-    return NextResponse.json({ documents });
+    return NextResponse.json(
+      { documents },
+      { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } }
+    );
   } catch (error) {
     console.error("[documents]", error);
     return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 });
@@ -28,12 +31,13 @@ export async function POST(request: NextRequest) {
     if (!auth) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
     const { title, content } = await request.json();
-    if (!title) {
+    const normalizedTitle = typeof title === "string" ? title.trim() : "";
+    if (!normalizedTitle) {
       return NextResponse.json({ error: "Título é obrigatório" }, { status: 400 });
     }
 
     const document = await prisma.document.create({
-      data: { title, content: content || "", userId: auth.userId },
+      data: { title: normalizedTitle, content: content || "", userId: auth.userId },
     });
 
     return NextResponse.json({ document }, { status: 201 });
