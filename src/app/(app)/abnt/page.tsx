@@ -96,12 +96,16 @@ export default function ABNTPage() {
     const term = search.trim().toLowerCase();
     if (!term) return sections;
     return sections
-      .map((section) => ({
-        ...section,
-        content: section.content.filter((item) =>
+      .map((section) => {
+        const sectionMatches = section.title.toLowerCase().includes(term);
+        const filteredContent = section.content.filter((item) =>
           `${item.label} ${item.value}`.toLowerCase().includes(term)
-        ),
-      }))
+        );
+        return {
+          ...section,
+          content: sectionMatches ? section.content : filteredContent,
+        };
+      })
       .filter(
         (section) =>
           section.title.toLowerCase().includes(term) || section.content.length > 0

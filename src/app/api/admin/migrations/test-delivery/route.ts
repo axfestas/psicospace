@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
       data: {
         userId: auth.userId,
         title: "🧪 Teste de notificação",
-        message: `Notificação de teste criada em ${new Date().toLocaleString("pt-BR")}.`,
+        message: `Notificação de teste criado em ${new Date().toLocaleString("pt-BR")}.`,
         type: "info",
       },
     });
