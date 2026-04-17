@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { REWARD_EXERCISE_CORRECT } from "@/lib/psico-constants";
+import { REWARD_EXERCISE_CORRECT, REWARD_SESSION_COMPLETED, REWARD_DAILY_STREAK_BONUS } from "@/lib/psico-constants";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   Coins,
   Star,
@@ -16,6 +17,7 @@ import {
   BookOpen,
   CheckCircle,
   Package,
+  UserCircle,
 } from "lucide-react";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -52,6 +54,8 @@ interface ShopItem {
   description?: string;
   type: string;
   slot: string;
+  category?: string;
+  rarity?: string;
   price: number;
   imageUrl?: string | null;
   owned?: boolean;
@@ -70,6 +74,12 @@ interface CoreData {
 const REASON_LABELS: Record<string, string> = {
   exercise_completed: "Exercício concluído",
   item_purchased: "Item comprado",
+  session_completed: "Sessão de estudo concluída",
+  recall_answered: "Active recall respondido",
+  microtask_done: "Microtarefa concluída",
+  daily_streak_bonus: "Bônus de sequência diária",
+  reading_reward: "Recompensa por leitura",
+  weekly_mission: "Missão semanal concluída",
 };
 
 const LEVEL_TITLES: Record<number, string> = {
@@ -92,6 +102,7 @@ function getLevelTitle(level: number): string {
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function PsicoGamePage() {
+  const { user } = useAuth();
   const [wallet, setWallet] = useState<Wallet | null>(null);
   const [character, setCharacter] = useState<Character | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -160,14 +171,6 @@ export default function PsicoGamePage() {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">PsicoGame</h1>
           <p className="text-sm text-gray-500">Seu progresso e recompensas</p>
         </div>
-        {wallet && (
-          <div className="ml-auto flex items-center gap-1.5 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-full px-3 py-1">
-            <Coins className="h-4 w-4 text-yellow-500" />
-            <span className="text-sm font-bold text-yellow-700 dark:text-yellow-300">
-              {wallet.balance} Psico
-            </span>
-          </div>
-        )}
       </div>
 
       {buyMessage && (
@@ -202,12 +205,28 @@ export default function PsicoGamePage() {
       {/* ── TAB: character ──────────────────────────────────────────────────── */}
       {activeTab === "character" && character && (
         <div className="space-y-4">
-          {/* Level card */}
+          {/* Level card with avatar */}
           <Card>
             <CardContent className="pt-6 space-y-4">
               <div className="flex items-center gap-4">
-                <div className="h-16 w-16 rounded-full bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center text-white text-2xl font-bold flex-shrink-0">
-                  {character.level}
+                {/* Player avatar */}
+                <div className="relative h-20 w-20 flex-shrink-0">
+                  {user?.avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={user.avatarUrl}
+                      alt="Avatar"
+                      className="h-full w-full rounded-full object-cover ring-4 ring-purple-400 dark:ring-purple-600"
+                    />
+                  ) : (
+                    <div className="h-full w-full rounded-full bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center text-white text-3xl font-bold ring-4 ring-purple-200 dark:ring-purple-800">
+                      {user?.name ? user.name[0].toUpperCase() : <UserCircle className="h-10 w-10" />}
+                    </div>
+                  )}
+                  {/* Level badge overlay */}
+                  <div className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full bg-yellow-500 flex items-center justify-center text-white text-xs font-bold ring-2 ring-white dark:ring-gray-800 shadow">
+                    {character.level}
+                  </div>
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-lg font-bold text-gray-900 dark:text-gray-100">
@@ -235,7 +254,7 @@ export default function PsicoGamePage() {
           </Card>
 
           {/* Stats */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <Card>
               <CardContent className="pt-5 pb-4">
                 <div className="flex items-center gap-3">
@@ -275,19 +294,6 @@ export default function PsicoGamePage() {
                 </div>
               </CardContent>
             </Card>
-            <Card>
-              <CardContent className="pt-5 pb-4">
-                <div className="flex items-center gap-3">
-                  <Coins className="h-6 w-6 text-yellow-500" />
-                  <div>
-                    <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                      {wallet?.balance ?? 0}
-                    </p>
-                    <p className="text-xs text-gray-500">Psico disponível</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
           </div>
 
               {/* How to earn */}
@@ -302,18 +308,35 @@ export default function PsicoGamePage() {
                   text: "Responder exercício aprovado corretamente",
                   value: `+${REWARD_EXERCISE_CORRECT} Psiquê`,
                 },
+                {
+                  icon: "📖",
+                  text: "Concluir uma sessão de estudo",
+                  value: `+${REWARD_SESSION_COMPLETED} Psiquê`,
+                },
+                {
+                  icon: "🔥",
+                  text: "Manter sequência diária (streak)",
+                  value: `+${REWARD_DAILY_STREAK_BONUS} Psiquê`,
+                },
+                {
+                  icon: "📚",
+                  text: "Leitura e páginas concluídas",
+                  value: "Em breve",
+                },
+                {
+                  icon: "🎯",
+                  text: "Missões semanais",
+                  value: "Em breve",
+                },
               ].map((item, i) => (
                 <div key={i} className="flex items-center justify-between text-sm">
                   <span className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
                     <span>{item.icon}</span>
                     {item.text}
                   </span>
-                  <span className="text-green-600 dark:text-green-400 font-medium">{item.value}</span>
+                  <span className={`font-medium ${item.value.startsWith("+") ? "text-green-600 dark:text-green-400" : "text-gray-400"}`}>{item.value}</span>
                 </div>
               ))}
-              <p className="text-xs text-gray-400 pt-1">
-                * A única fonte de ganho é a validação de exercícios aprovados da Área Docente.
-              </p>
             </CardContent>
           </Card>
         </div>
@@ -353,12 +376,26 @@ export default function PsicoGamePage() {
                       {item.description && (
                         <p className="text-xs text-gray-500 mt-0.5">{item.description}</p>
                       )}
-                      <Badge variant="default" className="text-xs mt-1">{item.type}</Badge>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        <Badge variant="default" className="text-xs">{item.type}</Badge>
+                        {item.rarity && item.rarity !== "COMUM" && (
+                          <span
+                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                              item.rarity === "LENDÁRIO" ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300" :
+                              item.rarity === "ÉPICO" ? "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300" :
+                              item.rarity === "RARO" ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300" :
+                              "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                            }`}
+                          >
+                            {item.rarity}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1 text-yellow-600 dark:text-yellow-400 font-bold text-sm">
                         <Coins className="h-4 w-4" />
-                        {item.price} Psico
+                        {item.price} Psiquê
                       </div>
                       {item.owned ? (
                         <span className="text-xs text-green-600 dark:text-green-400 font-medium">
@@ -390,11 +427,41 @@ export default function PsicoGamePage() {
 
       {activeTab === "inventory" && (
         <div className="space-y-4">
+          {/* Avatar preview */}
+          <Card>
+            <CardContent className="pt-5 pb-4">
+              <div className="flex items-center gap-4">
+                <div className="relative h-16 w-16 flex-shrink-0">
+                  {user?.avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={user.avatarUrl}
+                      alt="Avatar"
+                      className="h-full w-full rounded-full object-cover ring-4 ring-purple-400 dark:ring-purple-600"
+                    />
+                  ) : (
+                    <div className="h-full w-full rounded-full bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center text-white text-2xl font-bold ring-4 ring-purple-200 dark:ring-purple-800">
+                      {user?.name ? user.name[0].toUpperCase() : <UserCircle className="h-8 w-8" />}
+                    </div>
+                  )}
+                  <div className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full bg-yellow-500 flex items-center justify-center text-white text-xs font-bold ring-2 ring-white dark:ring-gray-800 shadow">
+                    {character?.level ?? 1}
+                  </div>
+                </div>
+                <div>
+                  <p className="font-semibold text-gray-900 dark:text-gray-100">{user?.name ?? "Jogador"}</p>
+                  <p className="text-xs text-gray-500">{inventory.length} item{inventory.length !== 1 ? "s" : ""} no inventário</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {inventory.length === 0 ? (
             <Card>
               <CardContent className="py-12 text-center text-gray-500">
                 <Package className="h-10 w-10 mx-auto mb-2 opacity-30" />
                 <p className="text-sm">Seu inventário está vazio.</p>
+                <p className="text-xs mt-1">Compre itens na loja para personalizar seu avatar.</p>
               </CardContent>
             </Card>
           ) : (
@@ -446,7 +513,7 @@ export default function PsicoGamePage() {
                 <span
                   className={`font-bold text-sm ${tx.type === "EARN" ? "text-green-600 dark:text-green-400" : "text-red-500 dark:text-red-400"}`}
                 >
-                  {tx.type === "EARN" ? "+" : "-"}{tx.amount} Psico
+                  {tx.type === "EARN" ? "+" : "-"}{tx.amount} Psiquê
                 </span>
               </div>
             ))
