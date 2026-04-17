@@ -89,7 +89,7 @@ export default function BibliotecaPage() {
               aria-label={`Abrir documento: ${item.title}`}
               onClick={() => setViewer({ url: item.url, title: item.title, type: item.type })}
               onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
+                if (e.key === "Enter") {
                   e.preventDefault();
                   setViewer({ url: item.url, title: item.title, type: item.type });
                 }
