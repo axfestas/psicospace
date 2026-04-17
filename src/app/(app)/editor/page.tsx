@@ -41,7 +41,7 @@ import {
 interface Document {
   id: string;
   title: string;
-  content: string;
+  content?: string;
   updatedAt: string;
 }
 
@@ -2096,9 +2096,9 @@ function EditorPageInner() {
         router.push(`/editor?id=${data.document.id}`);
       }
 
-      if (persistedDoc) {
-        setDocuments((prev) => [persistedDoc, ...prev.filter((d) => d.id !== persistedDoc.id)]);
-      }
+      if (!persistedDoc) throw new Error("Documento inválido retornado pelo servidor");
+      const savedDoc = persistedDoc;
+      setDocuments((prev) => [savedDoc, ...prev.filter((d) => d.id !== savedDoc.id)]);
 
       setVersions(nextVersions);
       setIsDirty(false);
@@ -2112,15 +2112,15 @@ function EditorPageInner() {
         setSaved(true);
         setTimeout(() => setSaved(false), 2000);
       }
-      await loadDocuments();
     } catch (error) {
       console.error("Erro ao salvar documento:", error);
-      setSaveError("Não foi possível salvar. Tente novamente.");
+      const details = error instanceof Error ? error.message : "erro desconhecido";
+      setSaveError(`Não foi possível salvar (${details}).`);
       setSavingStatus("idle");
     } finally {
       setSaving(false);
     }
-  }, [editor, currentDoc, title, header, footer, pageMargin, pageOrientation, comments, versions, docTags, router, loadDocuments]);
+  }, [editor, currentDoc, title, header, footer, pageMargin, pageOrientation, comments, versions, docTags, router]);
 
   const handleNewDocument = () => {
     setCurrentDoc(null);
@@ -2214,14 +2214,29 @@ function EditorPageInner() {
   };
 
   const handleDuplicateDocument = useCallback(async (id: string, docTitle: string) => {
-    const doc = documents.find((d) => d.id === id);
-    if (!doc) return;
-    await fetch("/api/documents", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: `Cópia de ${docTitle}`, content: doc.content }),
-    });
-    loadDocuments();
+    try {
+      const doc = documents.find((d) => d.id === id);
+      if (!doc) return;
+      let content = doc.content;
+      if (content === undefined) {
+        const docRes = await fetch(`/api/documents/${id}`, { cache: "no-store" });
+        if (docRes.ok) {
+          const data = await docRes.json();
+          content = data.document?.content || "";
+        } else {
+          content = "";
+        }
+      }
+      const res = await fetch("/api/documents", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: `Cópia de ${docTitle}`, content }),
+      });
+      if (!res.ok) throw new Error("Falha ao duplicar documento");
+      loadDocuments();
+    } catch (error) {
+      console.error("Erro ao duplicar documento:", error);
+    }
   }, [documents, loadDocuments]);
 
   const handleAddTag = (tag: string) => {
