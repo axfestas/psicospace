@@ -3,6 +3,11 @@
 import { useEffect, useState } from "react";
 import { X, Download, Presentation, Globe, ExternalLink, AlertTriangle } from "lucide-react";
 import { isInternalFileUrl, normalizeStoredMaterialUrl, resolveViewerKind } from "@/lib/file-urls";
+import {
+  usePomodoroTimer,
+  PomodoroHeaderButton,
+  PomodoroBreakOverlay,
+} from "@/components/ui/pomodoro-timer";
 
 interface DocumentViewerModalProps {
   url: string;
@@ -11,27 +16,10 @@ interface DocumentViewerModalProps {
   onClose: () => void;
 }
 
-function getFileStatusMessage(status: number): string {
-  switch (status) {
-    case 401:
-      return "Você precisa estar autenticado para abrir este arquivo.";
-    case 403:
-      return "Você não tem permissão para acessar este arquivo.";
-    case 404:
-      return "Arquivo não encontrado no storage.";
-    default:
-      return "Não foi possível abrir o arquivo agora.";
-  }
-}
-
 export function DocumentViewerModal({ url, title, type, onClose }: DocumentViewerModalProps) {
   const [iframeError, setIframeError] = useState(false);
-  const [retryTick, setRetryTick] = useState(0);
-  const [fileCheck, setFileCheck] = useState<{ checking: boolean; error: string | null }>({
-    checking: false,
-    error: null,
-  });
   const normalizedUrl = normalizeStoredMaterialUrl(url, type);
+  const pomodoro = usePomodoroTimer();
 
   // Close on Escape
   useEffect(() => {
@@ -42,8 +30,6 @@ export function DocumentViewerModal({ url, title, type, onClose }: DocumentViewe
 
   useEffect(() => {
     setIframeError(false);
-    setRetryTick(0);
-    setFileCheck({ checking: false, error: null });
   }, [normalizedUrl, type]);
 
   // Full absolute URL for the file (needed for new-tab links and downloads)
@@ -54,57 +40,6 @@ export function DocumentViewerModal({ url, title, type, onClose }: DocumentViewe
   const viewerKind = resolveViewerKind(type, normalizedUrl);
   const showExternalLinkView = viewerKind === "LINK" && !isInternalFileUrl(normalizedUrl);
   const canDownloadFile = viewerKind !== "LINK" || isInternalFileUrl(normalizedUrl);
-  const needsInternalFileCheck = !showExternalLinkView && viewerKind !== "SLIDE" && isInternalFileUrl(normalizedUrl);
-
-  useEffect(() => {
-    if (!needsInternalFileCheck) return;
-
-    const controller = new AbortController();
-    let cancelled = false;
-
-    const validateFile = async () => {
-      setFileCheck({ checking: true, error: null });
-      try {
-        let response = await fetch(normalizedUrl, {
-          method: "HEAD",
-          cache: "no-store",
-          credentials: "include",
-          signal: controller.signal,
-        });
-        if (response.status === 405) {
-          response = await fetch(normalizedUrl, {
-            method: "GET",
-            headers: { Range: "bytes=0-1" },
-            cache: "no-store",
-            credentials: "include",
-            signal: controller.signal,
-          });
-        }
-
-        if (cancelled) return;
-
-        if (!response.ok) {
-          setFileCheck({ checking: false, error: getFileStatusMessage(response.status) });
-          return;
-        }
-
-        setFileCheck({ checking: false, error: null });
-      } catch (error) {
-        if (cancelled) return;
-        console.error("[viewer] File check failed", error);
-        setFileCheck({
-          checking: false,
-          error: "Falha ao carregar o arquivo. Verifique sua conexão e tente novamente.",
-        });
-      }
-    };
-
-    validateFile();
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
-  }, [normalizedUrl, needsInternalFileCheck, retryTick]);
 
   return (
     <div
@@ -140,6 +75,17 @@ export function DocumentViewerModal({ url, title, type, onClose }: DocumentViewe
               Nova aba
             </a>
           )}
+          {/* Pomodoro timer button */}
+          <PomodoroHeaderButton
+            phase={pomodoro.phase}
+            formattedTime={pomodoro.formattedTime}
+            completedPomodoros={pomodoro.completedPomodoros}
+            isActive={pomodoro.isActive}
+            isBreak={pomodoro.isBreak}
+            onStart={pomodoro.start}
+            onStop={pomodoro.stop}
+            onSkip={pomodoro.skipPhase}
+          />
           <button
             onClick={onClose}
             className="text-gray-300 hover:text-white p-1"
@@ -151,7 +97,7 @@ export function DocumentViewerModal({ url, title, type, onClose }: DocumentViewe
       </div>
 
       {/* Content area */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-hidden relative">
         {viewerKind === "SLIDE" ? (
           /* Presentations (PPTX/PPT) cannot be displayed inline in a browser.
              Offer a download link instead. */
@@ -189,36 +135,6 @@ export function DocumentViewerModal({ url, title, type, onClose }: DocumentViewe
               <ExternalLink className="h-5 w-5" />
               Abrir Link
             </a>
-          </div>
-        ) : fileCheck.checking ? (
-          <div className="flex items-center justify-center h-full text-gray-300 text-sm">
-            Carregando arquivo...
-          </div>
-        ) : fileCheck.error ? (
-          <div className="flex flex-col items-center justify-center h-full gap-6 text-white">
-            <AlertTriangle className="h-16 w-16 text-yellow-400" />
-            <p className="text-lg font-medium text-center px-4">{title}</p>
-            <p className="text-sm text-gray-400 text-center px-8">{fileCheck.error}</p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  setFileCheck({ checking: false, error: null });
-                  setRetryTick((value) => value + 1);
-                }}
-                className="flex items-center gap-2 bg-gray-600 hover:bg-gray-500 text-white font-semibold px-5 py-2.5 rounded-lg transition-colors"
-              >
-                Atualizar
-              </button>
-              <a
-                href={absoluteUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white font-semibold px-5 py-2.5 rounded-lg transition-colors"
-              >
-                <ExternalLink className="h-4 w-4" />
-                Abrir em nova aba
-              </a>
-            </div>
           </div>
         ) : iframeError ? (
           /* Iframe failed to load — show a friendly fallback */
@@ -269,6 +185,17 @@ export function DocumentViewerModal({ url, title, type, onClose }: DocumentViewe
             title={title}
             allow="fullscreen"
             onError={() => setIframeError(true)}
+          />
+        )}
+        {/* Pomodoro break overlay — displayed on top of content during a break */}
+        {(pomodoro.phase === "shortBreak" || pomodoro.phase === "longBreak") && (
+          <PomodoroBreakOverlay
+            phase={pomodoro.phase}
+            secondsLeft={pomodoro.secondsLeft}
+            totalSeconds={pomodoro.totalSeconds}
+            completedPomodoros={pomodoro.completedPomodoros}
+            formattedTime={pomodoro.formattedTime}
+            onSkip={pomodoro.skipPhase}
           />
         )}
       </div>
