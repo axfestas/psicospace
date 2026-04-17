@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAuthUser } from "@/lib/auth";
+import { isInternalFileUrl, normalizeStoredMaterialUrl } from "@/lib/file-urls";
 
 export const runtime = "edge";
 
@@ -19,11 +20,8 @@ export async function PUT(
     const { id } = await params;
     const { title, type, url } = await request.json();
 
-    if (!title || !type || !url) {
-      return NextResponse.json(
-        { error: "Título, tipo e URL são obrigatórios" },
-        { status: 400 }
-      );
+    if (!title || !type) {
+      return NextResponse.json({ error: "Título e tipo são obrigatórios" }, { status: 400 });
     }
 
     if (!ALLOWED_TYPES.has(type)) {
@@ -42,9 +40,31 @@ export async function PUT(
       return NextResponse.json({ error: "Sem permissão para editar este material" }, { status: 403 });
     }
 
+    const currentUrl = normalizeStoredMaterialUrl(material.url, type);
+    const incomingUrl =
+      typeof url === "string" && url.trim().length > 0
+        ? normalizeStoredMaterialUrl(url, type)
+        : undefined;
+
+    let finalUrl = currentUrl;
+    if (type === "LINK") {
+      if (!incomingUrl) {
+        return NextResponse.json({ error: "URL é obrigatório para materiais do tipo LINK" }, { status: 400 });
+      }
+      finalUrl = incomingUrl;
+    } else if (incomingUrl) {
+      finalUrl = incomingUrl;
+    }
+    if (type !== "LINK" && !isInternalFileUrl(finalUrl)) {
+      return NextResponse.json(
+        { error: "Para PDFs e slides, envie o arquivo por upload." },
+        { status: 400 }
+      );
+    }
+
     const updated = await prisma.material.update({
       where: { id },
-      data: { title, type, url },
+      data: { title, type, url: finalUrl },
     });
 
     return NextResponse.json({ material: updated });

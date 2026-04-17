@@ -1,0 +1,77 @@
+type StoredMaterialType = "PDF" | "SLIDE" | "LINK";
+
+const FILE_API_PREFIX = "/api/files/";
+const PDF_EXTENSIONS = new Set(["pdf"]);
+const IMAGE_EXTENSIONS = new Set(["jpg", "jpeg", "png", "gif", "webp", "bmp", "svg", "avif"]);
+const SLIDE_EXTENSIONS = new Set(["ppt", "pptx"]);
+
+function getPathname(value: string): string {
+  try {
+    return new URL(value).pathname;
+  } catch {
+    return value;
+  }
+}
+
+export function getFileExtensionFromUrl(value: string): string | null {
+  const pathname = getPathname(value).split("?")[0].split("#")[0];
+  const lastSegment = pathname.split("/").pop() ?? "";
+  const dotIndex = lastSegment.lastIndexOf(".");
+  if (dotIndex <= 0 || dotIndex === lastSegment.length - 1) return null;
+  return lastSegment.slice(dotIndex + 1).toLowerCase();
+}
+
+export function normalizeStoredMaterialUrl(url: string, type?: StoredMaterialType): string {
+  const trimmed = url.trim();
+  if (!trimmed) return trimmed;
+  if (type === "LINK") return trimmed;
+
+  if (trimmed.startsWith(FILE_API_PREFIX)) return trimmed;
+
+  if (/^https?:\/\//i.test(trimmed)) {
+    try {
+      const parsed = new URL(trimmed);
+      if (parsed.pathname.startsWith(FILE_API_PREFIX)) return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+      return trimmed;
+    } catch {
+      return trimmed;
+    }
+  }
+
+  // Preserve domain-like URLs without protocol (ex.: example.com/file.pdf),
+  // which may come from legacy LINK entries.
+  if (/^[a-z0-9-]+(\.[a-z0-9-]+)+\/.+/.test(trimmed) || trimmed.startsWith("//")) {
+    return trimmed;
+  }
+
+  if (trimmed.startsWith("api/files/")) return `/${trimmed}`;
+  if (trimmed.includes("/") && !trimmed.startsWith("/")) return `${FILE_API_PREFIX}${trimmed}`;
+  return trimmed;
+}
+
+export function isInternalFileUrl(url: string, type?: StoredMaterialType): boolean {
+  return normalizeStoredMaterialUrl(url, type).startsWith(FILE_API_PREFIX);
+}
+
+export type ViewerKind = "PDF" | "IMAGE" | "SLIDE" | "LINK" | "UNKNOWN";
+
+export function detectViewerKindFromUrl(url: string): ViewerKind {
+  const extension = getFileExtensionFromUrl(url);
+  if (!extension) return "UNKNOWN";
+  if (PDF_EXTENSIONS.has(extension)) return "PDF";
+  if (IMAGE_EXTENSIONS.has(extension)) return "IMAGE";
+  if (SLIDE_EXTENSIONS.has(extension)) return "SLIDE";
+  return "UNKNOWN";
+}
+
+export function resolveViewerKind(type: StoredMaterialType, url: string): ViewerKind {
+  const normalizedUrl = normalizeStoredMaterialUrl(url, type);
+  const detectedKind = detectViewerKindFromUrl(normalizedUrl);
+
+  if (type === "LINK" && !isInternalFileUrl(normalizedUrl)) return "LINK";
+  if (detectedKind !== "UNKNOWN") return detectedKind;
+  if (type === "PDF") return "PDF";
+  if (type === "SLIDE") return "SLIDE";
+  if (type === "LINK") return "LINK";
+  return "UNKNOWN";
+}

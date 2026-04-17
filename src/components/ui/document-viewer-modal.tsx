@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { X, Download, Presentation, Globe, ExternalLink, AlertTriangle } from "lucide-react";
+import { isInternalFileUrl, normalizeStoredMaterialUrl, resolveViewerKind } from "@/lib/file-urls";
 
 interface DocumentViewerModalProps {
   url: string;
@@ -12,6 +13,7 @@ interface DocumentViewerModalProps {
 
 export function DocumentViewerModal({ url, title, type, onClose }: DocumentViewerModalProps) {
   const [iframeError, setIframeError] = useState(false);
+  const normalizedUrl = normalizeStoredMaterialUrl(url, type);
 
   // Close on Escape
   useEffect(() => {
@@ -20,11 +22,18 @@ export function DocumentViewerModal({ url, title, type, onClose }: DocumentViewe
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
 
+  useEffect(() => {
+    setIframeError(false);
+  }, [normalizedUrl, type]);
+
   // Full absolute URL for the file (needed for new-tab links and downloads)
   const absoluteUrl =
-    typeof window !== "undefined" && url.startsWith("/")
-      ? `${window.location.origin}${url}`
-      : url;
+    typeof window !== "undefined" && normalizedUrl.startsWith("/")
+      ? `${window.location.origin}${normalizedUrl}`
+      : normalizedUrl;
+  const viewerKind = resolveViewerKind(type, normalizedUrl);
+  const showExternalLinkView = viewerKind === "LINK" && !isInternalFileUrl(normalizedUrl);
+  const canDownloadFile = viewerKind !== "LINK" || isInternalFileUrl(normalizedUrl);
 
   return (
     <div
@@ -36,7 +45,7 @@ export function DocumentViewerModal({ url, title, type, onClose }: DocumentViewe
         <span className="text-sm font-medium text-white truncate max-w-[70%]">{title}</span>
         <div className="flex items-center gap-2 flex-shrink-0">
           {/* Download button — always present so user can get the file even if preview fails */}
-          {(type === "PDF" || type === "SLIDE") && (
+          {canDownloadFile && (
             <a
               href={absoluteUrl}
               download
@@ -48,7 +57,7 @@ export function DocumentViewerModal({ url, title, type, onClose }: DocumentViewe
             </a>
           )}
           {/* Open-in-new-tab — lets the browser render the PDF natively outside the iframe */}
-          {type === "PDF" && (
+          {(viewerKind === "PDF" || viewerKind === "IMAGE") && (
             <a
               href={absoluteUrl}
               target="_blank"
@@ -72,7 +81,7 @@ export function DocumentViewerModal({ url, title, type, onClose }: DocumentViewe
 
       {/* Content area */}
       <div className="flex-1 overflow-hidden">
-        {type === "SLIDE" ? (
+        {viewerKind === "SLIDE" ? (
           /* Presentations (PPTX/PPT) cannot be displayed inline in a browser.
              Offer a download link instead. */
           <div className="flex flex-col items-center justify-center h-full gap-6 text-white">
@@ -91,7 +100,7 @@ export function DocumentViewerModal({ url, title, type, onClose }: DocumentViewe
               Baixar Apresentação
             </a>
           </div>
-        ) : type === "LINK" ? (
+        ) : showExternalLinkView ? (
           /* External links often block iframe embedding (X-Frame-Options).
              Open them reliably in a new tab instead. */
           <div className="flex flex-col items-center justify-center h-full gap-6 text-white">
@@ -101,7 +110,7 @@ export function DocumentViewerModal({ url, title, type, onClose }: DocumentViewe
               Links externos são abertos em uma nova aba do navegador.
             </p>
             <a
-              href={url}
+              href={normalizedUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white font-semibold px-6 py-3 rounded-lg transition-colors"
@@ -139,13 +148,22 @@ export function DocumentViewerModal({ url, title, type, onClose }: DocumentViewe
               </a>
             </div>
           </div>
+        ) : viewerKind === "IMAGE" ? (
+          <div className="h-full w-full overflow-auto bg-black flex items-center justify-center p-4">
+            <img
+              src={normalizedUrl}
+              alt={title}
+              className="max-h-full max-w-full object-contain"
+              onError={() => setIframeError(true)}
+            />
+          </div>
         ) : (
           /* PDF files — rendered inline in an iframe.
              If the browser cannot display the PDF (e.g. mobile), the onError
              handler shows the fallback buttons above. */
           <iframe
-            key={url}
-            src={url}
+            key={normalizedUrl}
+            src={normalizedUrl}
             className="w-full h-full border-0"
             title={title}
             allow="fullscreen"

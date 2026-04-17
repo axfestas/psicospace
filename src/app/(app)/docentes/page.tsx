@@ -292,13 +292,19 @@ export default function DocentesPage() {
   };
 
   const handleSaveEditMaterial = async () => {
-    if (!editingMaterialId || !editMaterialForm.title || !editMaterialForm.url) return;
+    if (!editingMaterialId || !editMaterialForm.title) return;
+    const urlToSubmit = editMaterialForm.type === "LINK" ? editMaterialForm.url : null;
+    if (editMaterialForm.type === "LINK" && (!urlToSubmit || !urlToSubmit.trim())) return;
     setEditSaving(true);
     setEditError(null);
     const res = await fetch(`/api/materials/${editingMaterialId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(editMaterialForm),
+      body: JSON.stringify({
+        title: editMaterialForm.title,
+        type: editMaterialForm.type,
+        url: urlToSubmit,
+      }),
     });
     if (res.ok) {
       setEditingMaterialId(null);
@@ -552,12 +558,18 @@ export default function DocentesPage() {
                                       <option value="PDF">PDF</option>
                                       <option value="LINK">LINK</option>
                                     </select>
-                                    <Input
-                                      value={editMaterialForm.url}
-                                      onChange={(e) => setEditMaterialForm({ ...editMaterialForm, url: e.target.value })}
-                                      placeholder="URL do material"
-                                      className="flex-1"
-                                    />
+                                    {editMaterialForm.type === "LINK" ? (
+                                      <Input
+                                        value={editMaterialForm.url}
+                                        onChange={(e) => setEditMaterialForm({ ...editMaterialForm, url: e.target.value })}
+                                        placeholder="URL do material"
+                                        className="flex-1"
+                                      />
+                                    ) : (
+                                      <div className="flex h-10 flex-1 items-center rounded-md border border-gray-200 bg-gray-50 px-3 text-xs text-gray-500 dark:border-gray-700 dark:bg-gray-900/60 dark:text-gray-400">
+                                        Arquivo de upload vinculado ao material (URL oculta).
+                                      </div>
+                                    )}
                                   </div>
                                   {editError && <p className="text-xs text-red-600 dark:text-red-400">{editError}</p>}
                                   <div className="flex gap-2">
