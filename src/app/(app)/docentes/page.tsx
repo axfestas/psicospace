@@ -61,6 +61,7 @@ const FILE_ACCEPT: Record<"PDF" | "SLIDE", string> = {
     ".ppt,.pptx,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation",
 };
 const THUMBNAIL_WIDTH = 320;
+// Keeps preview sharp enough while avoiding unnecessarily large uploads.
 const THUMBNAIL_JPEG_QUALITY = 0.82;
 
 export default function DocentesPage() {
@@ -123,7 +124,7 @@ export default function DocentesPage() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  const uploadThumbnailDataUrl = useCallback(async (dataUrl: string): Promise<string | null> => {
+  const uploadThumbnailFromDataUrl = useCallback(async (dataUrl: string): Promise<string | null> => {
     const thumbResponse = await fetch(dataUrl);
     const thumbBlob = await thumbResponse.blob();
     const thumbFile = new File([thumbBlob], "thumbnail.jpg", { type: "image/jpeg" });
@@ -135,7 +136,7 @@ export default function DocentesPage() {
     return uploadData.url ?? null;
   }, []);
 
-  const generatePdfThumbnailDataUrl = useCallback(async (file: File): Promise<string | null> => {
+  const generatePdfThumbnail = useCallback(async (file: File): Promise<string | null> => {
     try {
       const pdfjsLib = await import("pdfjs-dist");
       if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
@@ -173,9 +174,9 @@ export default function DocentesPage() {
       const data = await res.json();
       let thumbnailUrl: string | undefined;
       if (selectedType === "PDF") {
-        const thumbDataUrl = await generatePdfThumbnailDataUrl(file);
+        const thumbDataUrl = await generatePdfThumbnail(file);
         if (thumbDataUrl) {
-          const uploadedThumbUrl = await uploadThumbnailDataUrl(thumbDataUrl);
+          const uploadedThumbUrl = await uploadThumbnailFromDataUrl(thumbDataUrl);
           if (uploadedThumbUrl) thumbnailUrl = uploadedThumbUrl;
         }
       }
