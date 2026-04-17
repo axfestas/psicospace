@@ -18,6 +18,12 @@ function isExerciseEligibleForReward(exercise: { materialId: string | null; libr
   return Boolean(exercise.materialId || exercise.libraryItemId);
 }
 
+function calculateRewardedAt(previousRewardedAt: Date | null, awarded: boolean) {
+  if (previousRewardedAt) return new Date(previousRewardedAt).toISOString();
+  if (awarded) return new Date().toISOString();
+  return null;
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -77,12 +83,7 @@ export async function POST(
       rewardAmount = reward.amount;
     }
 
-    let resolvedRewardedAt: string | null = null;
-    if (previous?.rewardedAt) {
-      resolvedRewardedAt = new Date(previous.rewardedAt).toISOString();
-    } else if (awarded) {
-      resolvedRewardedAt = new Date().toISOString();
-    }
+    const resolvedRewardedAt = calculateRewardedAt(previous?.rewardedAt ?? null, awarded);
     const resolvedRewardAmount = previous?.rewardedAt ? previous.rewardAmount : rewardAmount;
 
     const attempt = await prisma.exerciseAttempt.upsert({

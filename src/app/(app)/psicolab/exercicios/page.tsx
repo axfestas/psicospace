@@ -148,9 +148,9 @@ export default function PsicoLabExercisesPage() {
             >
               <p className="font-medium text-sm">{exercise.title}</p>
               <div className="mt-1 flex flex-wrap gap-1">
-                <Badge variant="default" className="text-[10px]">{exercise.type}</Badge>
+                <Badge variant="default" className="text-xs">{exercise.type}</Badge>
                 {(exercise.material || exercise.libraryItem) && (
-                  <Badge variant="default" className="text-[10px]">
+                  <Badge variant="default" className="text-xs">
                     {exercise.material?.title ?? exercise.libraryItem?.title}
                   </Badge>
                 )}
