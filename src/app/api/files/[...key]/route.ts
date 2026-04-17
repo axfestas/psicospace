@@ -28,6 +28,20 @@ export async function GET(
     // content. 1-year immutable is safe here — old keys are never reused.
     headers.set("cache-control", "private, max-age=31536000, immutable");
 
+    // Derive the original filename from the key (format: userId/timestamp-filename)
+    const filename = segments[segments.length - 1].replace(/^\d+-/, "");
+    const contentType = headers.get("content-type") ?? "";
+
+    // Ensure the browser renders the file inline rather than downloading it.
+    // For browsers that don't support inline PDF rendering (e.g. mobile), a
+    // fallback download/open-in-new-tab button is shown in the viewer modal.
+    if (contentType.startsWith("application/pdf") || contentType.startsWith("image/")) {
+      headers.set("content-disposition", `inline; filename="${filename}"`);
+    } else {
+      // Slides and other non-viewable types should trigger a download
+      headers.set("content-disposition", `attachment; filename="${filename}"`);
+    }
+
     return new NextResponse(object.body, { headers });
   } catch (err) {
     console.error("[/api/files] Unexpected error:", err);
