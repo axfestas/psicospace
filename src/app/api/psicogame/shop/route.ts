@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAuthUser } from "@/lib/auth";
+import { getUserEconomyCore } from "@/lib/psico-economy";
 
 export const runtime = "edge";
 
@@ -14,11 +15,8 @@ export async function GET() {
       orderBy: { price: "asc" },
     });
 
-    // Get user's owned items
-    const character = await prisma.characterProgress.findUnique({
-      where: { userId: auth.userId },
-    });
-    const ownedItems: string[] = character ? JSON.parse(character.ownedItems || "[]") : [];
+    const core = await getUserEconomyCore(auth.userId);
+    const ownedItems = core.character.ownedItems;
 
     return NextResponse.json({
       items: items.map((item) => ({

@@ -38,6 +38,20 @@ const labs = [
     available: true,
   },
   {
+    href: "/psicolab/exercicios",
+    icon: BookOpen,
+    emoji: "📝",
+    color: "from-fuchsia-400 to-fuchsia-600",
+    glow: "shadow-fuchsia-500/30",
+    badge: "bg-fuchsia-500",
+    title: "Desafios de Exercícios",
+    subtitle: "Validação + Psiquê",
+    description:
+      "Resolva exercícios aprovados da Área Docente e ganhe Psiquê apenas quando sua resposta for validada.",
+    tags: ["Aprovados", "Validação", "Recompensas"],
+    available: true,
+  },
+  {
     href: "/psicolab/abordagens",
     icon: BookOpen,
     emoji: "📚",
@@ -316,4 +330,3 @@ export default function PsicoLabPage() {
     </div>
   );
 }
-
