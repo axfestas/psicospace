@@ -27,7 +27,7 @@ export function selectResponseEtag({
     if (!candidate) continue;
     const normalized = normalizeEtagValue(candidate);
     if (!normalized || normalized === "*") continue;
-    if ((size ?? 0) > 0 && normalized.toLowerCase() === EMPTY_CONTENT_MD5) {
+    if (normalized.toLowerCase() === EMPTY_CONTENT_MD5 && size !== 0) {
       continue;
     }
     const headerEtag = toHeaderEtag(candidate);

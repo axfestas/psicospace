@@ -55,41 +55,38 @@ async function handleFileRequest(
     const rangeHeader = request.headers.get("range");
     const ifRangeHeader = request.headers.get("if-range");
 
-    let headObject: CfR2Object | null = null;
+    const headObject = await bucket.head(key);
+    if (!headObject) {
+      return notFoundResponse();
+    }
+
     let object: CfR2ObjectBody | null = null;
     let status = 200;
     let contentRange: string | null = null;
     let responseContentLength: number | null = null;
 
-    if (rangeHeader || !includeBody) {
-      headObject = await bucket.head(key);
-      if (!headObject) {
-        return notFoundResponse();
+    const shouldServeRange = rangeHeader && ifRangeMatches(ifRangeHeader, headObject.httpEtag ?? null, headObject.uploaded ?? null);
+
+    if (shouldServeRange && rangeHeader) {
+      const parsedRange = parseSingleByteRange(rangeHeader, headObject.size);
+      if (!parsedRange) {
+        return new NextResponse(null, {
+          status: 416,
+          headers: {
+            "accept-ranges": "bytes",
+            "content-range": `bytes */${headObject.size}`,
+            "cache-control": "private, max-age=0, must-revalidate",
+          },
+        });
       }
 
-      const shouldServeRange = rangeHeader && ifRangeMatches(ifRangeHeader, headObject.httpEtag ?? null, headObject.uploaded ?? null);
+      const { start, end } = parsedRange;
+      responseContentLength = end - start + 1;
+      contentRange = `bytes ${start}-${end}/${headObject.size}`;
+      status = 206;
 
-      if (shouldServeRange && rangeHeader) {
-        const parsedRange = parseSingleByteRange(rangeHeader, headObject.size);
-        if (!parsedRange) {
-          return new NextResponse(null, {
-            status: 416,
-            headers: {
-              "accept-ranges": "bytes",
-              "content-range": `bytes */${headObject.size}`,
-              "cache-control": "private, max-age=0, must-revalidate",
-            },
-          });
-        }
-
-        const { start, end } = parsedRange;
-        responseContentLength = end - start + 1;
-        contentRange = `bytes ${start}-${end}/${headObject.size}`;
-        status = 206;
-
-        if (includeBody) {
-          object = await bucket.get(key, { range: { offset: start, length: responseContentLength } });
-        }
+      if (includeBody) {
+        object = await bucket.get(key, { range: { offset: start, length: responseContentLength } });
       }
     }
 
@@ -100,34 +97,26 @@ async function handleFileRequest(
     if (includeBody && !object) {
       return notFoundResponse();
     }
-    if (!includeBody && !headObject) {
-      return notFoundResponse();
-    }
-
-    const metadataSource = object ?? headObject;
-    if (!metadataSource) {
-      return notFoundResponse();
-    }
     const headers = new Headers();
-    metadataSource.writeHttpMetadata(headers);
+    headObject.writeHttpMetadata(headers);
     headers.set("accept-ranges", "bytes");
     // This is an authenticated endpoint and can serve private material.
     // Revalidation avoids clients retaining long-lived private cached copies.
     headers.set("cache-control", "private, max-age=0, must-revalidate");
     headers.delete("etag");
     const safeEtag = selectResponseEtag({
-      httpEtag: metadataSource.httpEtag,
-      etag: metadataSource.etag,
-      size: metadataSource.size,
+      httpEtag: headObject.httpEtag,
+      etag: headObject.etag,
+      size: headObject.size,
     });
     if (safeEtag) headers.set("etag", safeEtag);
 
     headers.delete("last-modified");
-    const safeLastModified = toLastModifiedHeader(metadataSource.uploaded);
+    const safeLastModified = toLastModifiedHeader(headObject.uploaded);
     if (safeLastModified) headers.set("last-modified", safeLastModified);
 
     if (responseContentLength === null && status !== 206) {
-      responseContentLength = metadataSource.size;
+      responseContentLength = headObject.size;
     }
     if (status === 206) {
       if (contentRange === null || responseContentLength === null) {

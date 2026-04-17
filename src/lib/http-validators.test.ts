@@ -26,6 +26,25 @@ test("selectResponseEtag drops empty-content md5 for non-empty files", () => {
   );
 });
 
+test("selectResponseEtag drops empty-content md5 when object size is unknown", () => {
+  assert.equal(
+    selectResponseEtag({
+      httpEtag: "\"d41d8cd98f00b204e9800998ecf8427e\"",
+    }),
+    null
+  );
+});
+
+test("selectResponseEtag allows empty-content md5 only for known zero-byte objects", () => {
+  assert.equal(
+    selectResponseEtag({
+      httpEtag: "\"d41d8cd98f00b204e9800998ecf8427e\"",
+      size: 0,
+    }),
+    "\"d41d8cd98f00b204e9800998ecf8427e\""
+  );
+});
+
 test("toLastModifiedHeader formats valid date and rejects invalid values", () => {
   assert.equal(toLastModifiedHeader(new Date("2026-04-17T18:00:00.000Z")), "Fri, 17 Apr 2026 18:00:00 GMT");
   assert.equal(toLastModifiedHeader(new Date("invalid date")), null);
