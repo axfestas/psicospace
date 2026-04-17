@@ -14,6 +14,17 @@ const ALLOWED_TYPES: Record<string, string> = {
   "image/webp": "webp",
 };
 
+const ALLOWED_EXTENSIONS: Record<string, string> = {
+  pdf: "application/pdf",
+  ppt: "application/vnd.ms-powerpoint",
+  pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  gif: "image/gif",
+  webp: "image/webp",
+};
+
 const MAX_SIZE_BYTES = 50 * 1024 * 1024; // 50 MB
 
 export async function POST(request: NextRequest) {
@@ -34,11 +45,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Campo 'file' ausente" }, { status: 400 });
     }
 
-    const mimeType = file.type;
-    const ext = ALLOWED_TYPES[mimeType];
+    const mimeType = file.type.toLowerCase();
+    const lowerFileName = file.name.toLowerCase();
+    const extensionIndex = lowerFileName.lastIndexOf(".");
+    const fileExtension =
+      extensionIndex > -1 ? lowerFileName.slice(extensionIndex + 1) : "";
+    let detectedContentType = mimeType;
+    let ext = ALLOWED_TYPES[mimeType];
+    if (!ext && fileExtension in ALLOWED_EXTENSIONS) {
+      detectedContentType = ALLOWED_EXTENSIONS[fileExtension];
+      ext = ALLOWED_TYPES[detectedContentType];
+    }
     if (!ext) {
       return NextResponse.json(
-        { error: `Tipo de arquivo não suportado: ${mimeType}` },
+        { error: `Tipo de arquivo não suportado: ${mimeType || fileExtension || "desconhecido"}` },
         { status: 415 }
       );
     }
@@ -61,7 +81,7 @@ export async function POST(request: NextRequest) {
 
     const { env } = getRequestContext();
     await env["bk-psi"].put(key, bytes, {
-      httpMetadata: { contentType: mimeType },
+      httpMetadata: { contentType: detectedContentType },
     });
 
     return NextResponse.json(

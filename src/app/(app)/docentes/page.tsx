@@ -100,10 +100,18 @@ export default function DocentesPage() {
   const [libUploadError, setLibUploadError] = useState<string | null>(null);
   const [libThumbnailWarning, setLibThumbnailWarning] = useState<string | null>(null);
   const [libSaving, setLibSaving] = useState(false);
-  const [libReplacingId, setLibReplacingId] = useState<string | null>(null);
-  const [libReplaceError, setLibReplaceError] = useState<string | null>(null);
-  const [replaceLibraryItem, setReplaceLibraryItem] = useState<LibraryItem | null>(null);
-  const libReplaceFileInputRef = useRef<HTMLInputElement>(null);
+  const [editingLibraryItemId, setEditingLibraryItemId] = useState<string | null>(null);
+  const [libraryEditForm, setLibraryEditForm] = useState<{
+    title: string;
+    description: string;
+    type: "PDF" | "SLIDE" | "LINK";
+    url: string;
+    thumbnailUrl?: string;
+  }>({ title: "", description: "", type: "PDF", url: "" });
+  const [libEditSaving, setLibEditSaving] = useState(false);
+  const [libEditUploading, setLibEditUploading] = useState(false);
+  const [libEditError, setLibEditError] = useState<string | null>(null);
+  const libEditFileInputRef = useRef<HTMLInputElement>(null);
   const libFileInputRef = useRef<HTMLInputElement>(null);
 
   const isDocente = user && ["DOCENTE", "ADMIN", "SUPERADMIN"].includes(user.role);
@@ -235,36 +243,40 @@ export default function DocentesPage() {
     loadData();
   };
 
-  const handleStartReplaceLibraryFile = (item: LibraryItem) => {
-    if (item.type === "LINK") return;
-    setReplaceLibraryItem(item);
-    setLibReplaceError(null);
-    if (libReplaceFileInputRef.current) {
-      libReplaceFileInputRef.current.value = "";
-      libReplaceFileInputRef.current.click();
-    }
+  const handleStartEditLibraryItem = (item: LibraryItem) => {
+    setEditingLibraryItemId(item.id);
+    setLibraryEditForm({
+      title: item.title,
+      description: item.description ?? "",
+      type: item.type,
+      url: item.url,
+      thumbnailUrl: item.thumbnailUrl ?? undefined,
+    });
+    setLibEditError(null);
+    setLibEditUploading(false);
   };
 
-  const handleReplaceLibraryFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLibraryEditFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !replaceLibraryItem || replaceLibraryItem.type === "LINK") return;
-    setLibReplacingId(replaceLibraryItem.id);
-    setLibReplaceError(null);
+    const selectedType = libraryEditForm.type;
+    if (!file || selectedType === "LINK") return;
+    setLibEditUploading(true);
+    setLibEditError(null);
 
     const formData = new FormData();
     formData.append("file", file);
     const uploadRes = await fetch("/api/upload", { method: "POST", body: formData });
     if (!uploadRes.ok) {
       const data = await uploadRes.json().catch(() => ({}));
-      setLibReplaceError((data as { error?: string }).error ?? "Falha ao enviar novo arquivo.");
-      setLibReplacingId(null);
-      if (libReplaceFileInputRef.current) libReplaceFileInputRef.current.value = "";
+      setLibEditError((data as { error?: string }).error ?? "Falha ao enviar novo arquivo.");
+      setLibEditUploading(false);
+      if (libEditFileInputRef.current) libEditFileInputRef.current.value = "";
       return;
     }
 
     const uploadData = await uploadRes.json();
     let thumbnailUrl: string | undefined;
-    if (replaceLibraryItem.type === "PDF") {
+    if (selectedType === "PDF") {
       const thumbDataUrl = await generatePdfThumbnail(file);
       if (thumbDataUrl) {
         const uploadedThumbUrl = await uploadThumbnailFromDataUrl(thumbDataUrl);
@@ -274,30 +286,43 @@ export default function DocentesPage() {
       }
     }
 
-    const updateRes = await fetch(`/api/biblioteca/${replaceLibraryItem.id}`, {
+    setLibraryEditForm((prev) => ({
+      ...prev,
+      url: uploadData.url,
+      thumbnailUrl: selectedType === "PDF" ? thumbnailUrl : undefined,
+    }));
+    setLibEditUploading(false);
+    if (libEditFileInputRef.current) libEditFileInputRef.current.value = "";
+  };
+
+  const handleSaveLibraryEdit = async () => {
+    if (!editingLibraryItemId || !libraryEditForm.title || !libraryEditForm.url) return;
+    setLibEditSaving(true);
+    setLibEditError(null);
+    const updateRes = await fetch(`/api/biblioteca/${editingLibraryItemId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        title: replaceLibraryItem.title,
-        description: replaceLibraryItem.description ?? "",
-        type: replaceLibraryItem.type,
-        url: uploadData.url,
+        title: libraryEditForm.title,
+        description: libraryEditForm.description,
+        type: libraryEditForm.type,
+        url: libraryEditForm.url,
         thumbnailUrl:
-          replaceLibraryItem.type === "PDF"
-            ? thumbnailUrl ?? replaceLibraryItem.thumbnailUrl ?? null
+          libraryEditForm.type === "PDF"
+            ? libraryEditForm.thumbnailUrl ?? null
             : null,
       }),
     });
-
     if (!updateRes.ok) {
       const data = await updateRes.json().catch(() => ({}));
-      setLibReplaceError((data as { error?: string }).error ?? "Falha ao trocar arquivo da biblioteca.");
-    } else {
-      await loadData();
+      setLibEditError((data as { error?: string }).error ?? "Falha ao editar item da biblioteca.");
+      setLibEditSaving(false);
+      return;
     }
-    setLibReplacingId(null);
-    setReplaceLibraryItem(null);
-    if (libReplaceFileInputRef.current) libReplaceFileInputRef.current.value = "";
+    await loadData();
+    setEditingLibraryItemId(null);
+    setLibraryEditForm({ title: "", description: "", type: "PDF", url: "" });
+    setLibEditSaving(false);
   };
 
   // ── Discipline material handlers ──────────────────────────────────────────
@@ -550,54 +575,126 @@ export default function DocentesPage() {
               <p className="text-sm text-gray-400">Nenhum arquivo na biblioteca ainda.</p>
             ) : (
               <div className="space-y-2">
-                <input
-                  ref={libReplaceFileInputRef}
-                  type="file"
-                  accept={
-                    replaceLibraryItem?.type && replaceLibraryItem.type !== "LINK"
-                      ? FILE_ACCEPT[replaceLibraryItem.type]
-                      : FILE_ACCEPT.PDF
-                  }
-                  onChange={handleReplaceLibraryFile}
-                  className="hidden"
-                />
-                {libReplaceError && (
-                  <p className="text-xs text-red-600 dark:text-red-400">{libReplaceError}</p>
-                )}
                 {libraryItems.map((item) => (
-                  <div key={item.id} className="flex items-center justify-between gap-3 rounded-lg border border-gray-100 dark:border-gray-700 p-3">
-                    <div className="flex items-center gap-2 min-w-0">
-                      {item.type === "PDF" ? <FileText className="h-4 w-4 text-red-500 flex-shrink-0" /> :
-                       item.type === "SLIDE" ? <Presentation className="h-4 w-4 text-orange-500 flex-shrink-0" /> :
-                       <ExternalLink className="h-4 w-4 text-blue-500 flex-shrink-0" />}
-                      <button
-                        onClick={() => setViewer({ url: item.url, title: item.title, type: item.type })}
-                        className="text-sm font-medium text-gray-900 dark:text-gray-100 hover:underline truncate text-left"
-                      >
-                        {item.title}
-                      </button>
-                      <Badge variant={item.type === "PDF" ? "danger" : item.type === "SLIDE" ? "warning" : "info"}>{item.type}</Badge>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      {item.type !== "LINK" && (
-                        <button
-                          onClick={() => handleStartReplaceLibraryFile(item)}
-                          className="text-gray-400 hover:text-blue-600 p-1 flex-shrink-0"
-                          title="Trocar arquivo"
-                          disabled={libReplacingId === item.id}
-                        >
-                          <Upload className="h-4 w-4" />
-                        </button>
-                      )}
-                      <button
-                        onClick={() => handleDeleteLibraryItem(item.id)}
-                        className="text-gray-400 hover:text-red-500 p-1 flex-shrink-0"
-                        title="Remover da biblioteca"
-                        disabled={libReplacingId === item.id}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
+                  <div key={item.id} className="rounded-lg border border-gray-100 dark:border-gray-700 p-3">
+                    {editingLibraryItemId === item.id ? (
+                      <div className="space-y-2">
+                        <Input
+                          value={libraryEditForm.title}
+                          onChange={(e) => setLibraryEditForm((prev) => ({ ...prev, title: e.target.value }))}
+                          placeholder="Título"
+                        />
+                        <Input
+                          value={libraryEditForm.description}
+                          onChange={(e) => setLibraryEditForm((prev) => ({ ...prev, description: e.target.value }))}
+                          placeholder="Descrição (opcional)"
+                        />
+                        <div className="flex flex-wrap gap-2 items-center">
+                          <select
+                            value={libraryEditForm.type}
+                            onChange={(e) => {
+                              const nextType = e.target.value as "PDF" | "SLIDE" | "LINK";
+                              const nextIsLink = nextType === "LINK";
+                              setLibraryEditForm((prev) => {
+                                const prevIsLink = prev.type === "LINK";
+                                return {
+                                  ...prev,
+                                  type: nextType,
+                                  url: prevIsLink === nextIsLink ? prev.url : "",
+                                  thumbnailUrl: prev.thumbnailUrl,
+                                };
+                              });
+                            }}
+                            className="flex h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                          >
+                            <option value="PDF">PDF</option>
+                            <option value="SLIDE">Slide</option>
+                            <option value="LINK">Link</option>
+                          </select>
+                          {libraryEditForm.type === "LINK" ? (
+                            <Input
+                              value={libraryEditForm.url}
+                              onChange={(e) => setLibraryEditForm((prev) => ({ ...prev, url: e.target.value }))}
+                              placeholder="URL do link"
+                              className="flex-1"
+                            />
+                          ) : (
+                            <div className="flex items-center gap-2 flex-1">
+                              <input
+                                ref={libEditFileInputRef}
+                                type="file"
+                                accept={FILE_ACCEPT[libraryEditForm.type]}
+                                onChange={handleLibraryEditFileUpload}
+                                className="hidden"
+                              />
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => libEditFileInputRef.current?.click()}
+                                disabled={libEditUploading}
+                              >
+                                <Upload className="h-3 w-3 mr-1" />
+                                {libEditUploading ? "Enviando..." : "Trocar arquivo"}
+                              </Button>
+                              {libraryEditForm.url && !libEditUploading && (
+                                <span className="text-xs text-green-600 dark:text-green-400">✓ Arquivo definido</span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                        {libEditError && (
+                          <p className="text-xs text-red-600 dark:text-red-400">{libEditError}</p>
+                        )}
+                        <div className="flex items-center gap-2">
+                          <Button size="sm" onClick={handleSaveLibraryEdit} loading={libEditSaving}>
+                            {libEditSaving ? "Salvando..." : "Salvar"}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setEditingLibraryItemId(null);
+                              setLibraryEditForm({ title: "", description: "", type: "PDF", url: "" });
+                              setLibEditError(null);
+                            }}
+                            disabled={libEditSaving}
+                          >
+                            Cancelar
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2 min-w-0">
+                          {item.type === "PDF" ? <FileText className="h-4 w-4 text-red-500 flex-shrink-0" /> :
+                           item.type === "SLIDE" ? <Presentation className="h-4 w-4 text-orange-500 flex-shrink-0" /> :
+                           <ExternalLink className="h-4 w-4 text-blue-500 flex-shrink-0" />}
+                          <button
+                            onClick={() => setViewer({ url: item.url, title: item.title, type: item.type })}
+                            className="text-sm font-medium text-gray-900 dark:text-gray-100 hover:underline truncate text-left"
+                          >
+                            {item.title}
+                          </button>
+                          <Badge variant={item.type === "PDF" ? "danger" : item.type === "SLIDE" ? "warning" : "info"}>{item.type}</Badge>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => handleStartEditLibraryItem(item)}
+                            className="text-gray-400 hover:text-blue-600 p-1 flex-shrink-0"
+                            title="Editar item"
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteLibraryItem(item.id)}
+                            className="text-gray-400 hover:text-red-500 p-1 flex-shrink-0"
+                            title="Remover da biblioteca"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
