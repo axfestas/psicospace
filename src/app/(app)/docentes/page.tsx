@@ -95,6 +95,7 @@ export default function DocentesPage() {
   const [libForm, setLibForm] = useState<{ title: string; description: string; type: "PDF" | "SLIDE" | "LINK"; url: string; thumbnailUrl?: string }>({ title: "", description: "", type: "PDF", url: "" });
   const [libUploading, setLibUploading] = useState(false);
   const [libUploadError, setLibUploadError] = useState<string | null>(null);
+  const [libThumbnailWarning, setLibThumbnailWarning] = useState<string | null>(null);
   const [libSaving, setLibSaving] = useState(false);
   const libFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -131,7 +132,10 @@ export default function DocentesPage() {
     const thumbForm = new FormData();
     thumbForm.append("file", thumbFile);
     const uploadRes = await fetch("/api/upload", { method: "POST", body: thumbForm });
-    if (!uploadRes.ok) return null;
+    if (!uploadRes.ok) {
+      console.warn("[docentes] Thumbnail upload falhou", uploadRes.status);
+      return null;
+    }
     const uploadData = await uploadRes.json();
     return uploadData.url ?? null;
   }, []);
@@ -155,7 +159,8 @@ export default function DocentesPage() {
       if (!ctx) return null;
       await page.render({ canvas, canvasContext: ctx, viewport: scaledViewport }).promise;
       return canvas.toDataURL("image/jpeg", THUMBNAIL_JPEG_QUALITY);
-    } catch {
+    } catch (error) {
+      console.warn("[docentes] Geração de thumbnail falhou", error);
       return null;
     }
   }, []);
@@ -167,6 +172,7 @@ export default function DocentesPage() {
     const selectedType = libForm.type;
     setLibUploading(true);
     setLibUploadError(null);
+    setLibThumbnailWarning(null);
     const formData = new FormData();
     formData.append("file", file);
     const res = await fetch("/api/upload", { method: "POST", body: formData });
@@ -177,7 +183,13 @@ export default function DocentesPage() {
         const thumbDataUrl = await generatePdfThumbnail(file);
         if (thumbDataUrl) {
           const uploadedThumbUrl = await uploadThumbnailFromDataUrl(thumbDataUrl);
-          if (uploadedThumbUrl) thumbnailUrl = uploadedThumbUrl;
+          if (uploadedThumbUrl) {
+            thumbnailUrl = uploadedThumbUrl;
+          } else {
+            setLibThumbnailWarning("PDF salvo sem miniatura automática.");
+          }
+        } else {
+          setLibThumbnailWarning("PDF salvo sem miniatura automática.");
         }
       }
       setLibForm((prev) => ({
@@ -203,6 +215,7 @@ export default function DocentesPage() {
     });
     if (res.ok) {
       setLibForm({ title: "", description: "", type: "PDF", url: "", thumbnailUrl: undefined });
+      setLibThumbnailWarning(null);
       if (libFileInputRef.current) libFileInputRef.current.value = "";
       loadData();
     }
@@ -365,7 +378,10 @@ export default function DocentesPage() {
               <div className="flex gap-2 flex-wrap items-center">
                 <select
                   value={libForm.type}
-                  onChange={(e) => setLibForm({ ...libForm, type: e.target.value as "PDF" | "SLIDE" | "LINK", url: "", thumbnailUrl: undefined })}
+                  onChange={(e) => {
+                    setLibThumbnailWarning(null);
+                    setLibForm({ ...libForm, type: e.target.value as "PDF" | "SLIDE" | "LINK", url: "", thumbnailUrl: undefined });
+                  }}
                   className="flex h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
                 >
                   <option value="PDF">PDF</option>
@@ -403,6 +419,9 @@ export default function DocentesPage() {
                     )}
                     {libUploadError && (
                       <span className="text-xs text-red-600 dark:text-red-400">{libUploadError}</span>
+                    )}
+                    {libThumbnailWarning && !libUploadError && (
+                      <span className="text-xs text-amber-600 dark:text-amber-400">{libThumbnailWarning}</span>
                     )}
                   </div>
                 )}
