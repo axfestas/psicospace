@@ -421,6 +421,22 @@ const STIMULUS_PRESETS: StimulusPreset[] = [
     description:
       "Toda percepção sensorial passa pelo tálamo, chega ao córtex específico (visual, auditivo, somatossensorial) e é integrada no parietal e ínsula.",
   },
+  {
+    id: "sleep",
+    label: "Sono e Vigília",
+    emoji: "😴",
+    regions: ["hypothalamus", "thalamus", "brainstem", "cingulate", "prefrontal"],
+    description:
+      "O hipotálamo (NSQ e núcleos de sono/vigília) e o tronco encefálico regulam o ciclo sono-vigília. O tálamo controla a passagem de sinais durante o sono; o pré-frontal está suprimido no sono profundo.",
+  },
+  {
+    id: "motivation",
+    label: "Motivação",
+    emoji: "🎯",
+    regions: ["prefrontal", "hippocampus", "amygdala", "hypothalamus", "cingulate"],
+    description:
+      "Motivação envolve o sistema de recompensa límbico: hipotálamo (fome, impulsos), amígdala (valência emocional), hipocampo (contexto/memória) e pré-frontal (regulação e planejamento de objetivos).",
+  },
 ];
 
 // ─── QUIZ ────────────────────────────────────────────────────────────────────
@@ -1211,34 +1227,6 @@ export default function NeuroLabPage() {
           Explore as divisões do cérebro humano em três perspectivas diferentes. Clique nas regiões
           para descobrir funções, ative o Modo Ativação para ver quais áreas acendem em situações reais.
         </p>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-900">
-          <h2 className="mb-3 text-base font-bold text-gray-900 dark:text-gray-100">Tópicos abordados I</h2>
-          <ul className="space-y-1.5 text-sm text-gray-600 dark:text-gray-300">
-            <li>▪ Organização do sistema nervoso e do cérebro</li>
-            <li>▪ Propriedades dos neurônios</li>
-            <li>▪ Circuitos neuronais</li>
-            <li>▪ Processamento sensorial I</li>
-            <li className="pl-4">➢ Percepção corporal</li>
-            <li>▪ Processamento motor</li>
-          </ul>
-        </div>
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-900">
-          <h2 className="mb-3 text-base font-bold text-gray-900 dark:text-gray-100">Tópicos abordados II</h2>
-          <ul className="space-y-1.5 text-sm text-gray-600 dark:text-gray-300">
-            <li>▪ Processamento sensorial II</li>
-            <li className="pl-4">➢ Visão, audição, quimiopercepção</li>
-            <li>▪ Memória, aprendizagem e plasticidade cerebral</li>
-            <li>▪ Sono e vigília</li>
-            <li>▪ Motivação</li>
-            <li className="pl-4">➢ Comportamento alimentar</li>
-            <li className="pl-4">➢ Comportamento sexual</li>
-            <li className="pl-4">➢ Dependência química</li>
-            <li>▪ Emoção e psicopatologia</li>
-          </ul>
-        </div>
       </div>
 
       {/* ── View selector tabs */}

@@ -267,6 +267,416 @@ const NERVOUS_SYSTEM: NervousSystemSection[] = [
 ];
 
 // ──────────────────────────────────────────────
+// Sensory System data
+// ──────────────────────────────────────────────
+
+interface SensorySystem {
+  id: string;
+  name: string;
+  emoji: string;
+  receptor: string;
+  pathway: string;
+  brainArea: string;
+  description: string;
+  examples: string[];
+}
+
+const SENSORY_SYSTEMS: SensorySystem[] = [
+  {
+    id: "vision",
+    name: "Visão",
+    emoji: "👁️",
+    receptor: "Fotorreceptores — cones (cor) e bastonetes (luminosidade/escuro)",
+    pathway: "Retina → Nervo óptico → Quiasma óptico → Corpo geniculado lateral (tálamo) → Córtex visual primário (V1)",
+    brainArea: "Lobo occipital (V1–V5) e áreas de associação temporal/parietal",
+    description: "Processamento de informações luminosas captadas pela retina. Cones permitem visão em cores sob luz intensa; bastonetes operam em baixa luminosidade. Áreas V1–V5 processam bordas, movimento, cor e profundidade.",
+    examples: ["Reconhecer rostos e expressões faciais", "Avaliar distâncias ao atravessar a rua", "Perceber movimento na visão periférica"],
+  },
+  {
+    id: "hearing",
+    name: "Audição",
+    emoji: "👂",
+    receptor: "Células ciliadas do órgão de Corti (orelha interna)",
+    pathway: "Nervo coclear → Núcleo coclear → Colículo inferior → Corpo geniculado medial (tálamo) → Córtex auditivo primário (A1)",
+    brainArea: "Lobo temporal (A1, giro temporal superior, Área de Wernicke)",
+    description: "Transforma ondas sonoras em impulsos nervosos. Organização tonotópica: diferentes frequências mapeadas em diferentes locais do córtex auditivo. A área de Wernicke processa a compreensão da linguagem falada.",
+    examples: ["Identificar a melodia de uma música", "Localizar a origem de um barulho", "Compreender a fala em ambiente ruidoso"],
+  },
+  {
+    id: "somatosensory",
+    name: "Tato e Percepção Corporal",
+    emoji: "🖐️",
+    receptor: "Mecanorreceptores (toque/pressão), nocireceptores (dor), termorreceptores (temperatura), fusos musculares (propriocepção)",
+    pathway: "Receptores periféricos → Nervos espinhais → Medula → Tálamo → Córtex somatossensorial (S1)",
+    brainArea: "Lobo parietal (S1 — giro pós-central, S2), Ínsula (interoceptção)",
+    description: "Inclui toque, pressão, dor, temperatura e propriocepção (sentido da posição do corpo). Organizado somatotopicamente no homúnculo sensorial. Regiões com maior acuidade (mãos, lábios) têm maior representação cortical.",
+    examples: ["Sentir a textura de um tecido pelo tato", "Perceber onde foi tocado sem olhar", "Saber a posição dos braços no escuro"],
+  },
+  {
+    id: "smell",
+    name: "Olfato",
+    emoji: "👃",
+    receptor: "Neurônios olfatórios bipolares no epitélio olfatório nasal",
+    pathway: "Epitélio olfatório → Bulbo olfatório → Córtex piriforme → Amígdala e Hipocampo (único sentido sem passar pelo tálamo)",
+    brainArea: "Córtex piriforme, Sistema límbico (amígdala, hipocampo), Córtex orbitofrontal",
+    description: "Único sentido que projeta diretamente ao sistema límbico sem passar pelo tálamo. Explica a forte conexão entre cheiros e memórias/emoções. Cerca de 400 tipos de receptores em humanos.",
+    examples: ["Cheiro de infância evocando memórias vívidas", "Detectar alimento estragado pelo olfato", "Sentir o perfume de alguém e lembrar de algo passado"],
+  },
+  {
+    id: "taste",
+    name: "Paladar",
+    emoji: "👅",
+    receptor: "Células gustativas nas papilas gustativas (língua e palato)",
+    pathway: "NC VII, IX e X → Núcleo do trato solitário (bulbo) → Tálamo → Córtex gustativo (ínsula anterior/opérculo frontal)",
+    brainArea: "Ínsula anterior, Córtex orbitofrontal (sabor hedônico), Amígdala",
+    description: "Detecta cinco qualidades básicas: doce, salgado, azedo, amargo e umami. O sabor percebido resulta da integração paladar + olfato. O córtex orbitofrontal processa o valor hedônico do alimento.",
+    examples: ["Detectar excesso de sal em uma preparação", "Sentir o amargor de um remédio", "Perceber a complexidade de sabores em uma refeição"],
+  },
+  {
+    id: "interoception",
+    name: "Interoceptção (Percepção Interna)",
+    emoji: "💓",
+    receptor: "Receptores viscerais, quimiorreceptores internos, barorreceptores, proprioceptores musculares profundos",
+    pathway: "Órgãos internos → Nervos autonômicos → Tronco encefálico → Tálamo → Ínsula anterior",
+    brainArea: "Ínsula anterior (hub primário), Córtex cingulado anterior",
+    description: "Percepção dos estados fisiológicos internos do corpo: batimentos cardíacos, fome, sede, temperatura interna, fadiga. Base da consciência corporal, emoção somática e regulação do bem-estar.",
+    examples: ["Perceber o coração acelerado sob ansiedade", "Sentir fome antes de consultar o horário", "Fadiga muscular que sinaliza hora de parar"],
+  },
+];
+
+// ──────────────────────────────────────────────
+// Motor System data
+// ──────────────────────────────────────────────
+
+interface MotorComponent {
+  id: string;
+  name: string;
+  emoji: string;
+  role: string;
+  pathway: string;
+  description: string;
+  clinical: string;
+}
+
+const MOTOR_SYSTEM: MotorComponent[] = [
+  {
+    id: "m1",
+    name: "Córtex Motor Primário (M1)",
+    emoji: "🎯",
+    role: "Execução de movimentos voluntários",
+    pathway: "M1 → Trato corticoespinhal → Neurônio motor inferior (medula) → Músculo",
+    description: "Localizado no giro pré-central (lobo frontal). Envia comandos motores diretamente aos neurônios motores inferiores via trato corticoespinhal (piramidal). Organizado somatotopicamente — homúnculo motor.",
+    clinical: "Lesão → paralisia contralateral espástica; AVC no M1 afeta controle motor fino do lado oposto",
+  },
+  {
+    id: "premotor",
+    name: "Córtex Pré-motor e ASM",
+    emoji: "📋",
+    role: "Planejamento e preparação do movimento",
+    pathway: "Córtex pré-motor/ASM → M1 → Trato corticoespinhal",
+    description: "O córtex pré-motor planeja movimentos baseados em pistas externas; a Área Suplementar Motora (ASM) organiza sequências motoras internas. Ambos disparam antes de M1 (potencial de prontidão). Ativos durante imaginação motora.",
+    clinical: "Lesão da ASM → apraxia (dificuldade de sequenciar movimentos aprendidos)",
+  },
+  {
+    id: "basal",
+    name: "Gânglios da Base",
+    emoji: "⚙️",
+    role: "Iniciação, seleção e supressão de movimentos",
+    pathway: "Córtex → Estriado (caudado + putâmen) → Globo pálido → Tálamo → Córtex motor",
+    description: "Circuitos que selecionam movimentos desejados e inibem os concorrentes. Fundamentais no aprendizado de hábitos motores. Dopamina (via nigroestriatal) regula o equilíbrio entre vias diretas (facilitação) e indiretas (inibição).",
+    clinical: "Déficit de dopamina → Doença de Parkinson (tremor, rigidez, bradicinesia). Excesso → Coreia de Huntington",
+  },
+  {
+    id: "cerebellum_m",
+    name: "Cerebelo",
+    emoji: "🔄",
+    role: "Coordenação, precisão e aprendizado motor",
+    pathway: "M1 → Cerebelo (cópia eferente) → Detecção de erro → Núcleo vermelho → Tálamo → M1",
+    description: "Compara o movimento planejado com o executado e corrige erros em tempo real (controle preditivo). Essencial para aprendizado de habilidades motoras automáticas. Contém mais da metade dos neurônios do SNC.",
+    clinical: "Lesão → ataxia (movimentos descoordenados), dismetria, disdiadococinesia, disartria",
+  },
+  {
+    id: "spinal_m",
+    name: "Medula Espinhal e Arco Reflexo",
+    emoji: "⬇️",
+    role: "Via de condução e controle reflexo",
+    pathway: "Estimulo → Receptor → Neurônio aferente → Interneurônio (medula) → Neurônio motor eferente → Músculo",
+    description: "Conduz sinais motores descendentes e sensoriais ascendentes. Controla reflexos medulares independentemente do córtex. Neurônios motores inferiores (corno anterior) são a via final comum para toda ação muscular.",
+    clinical: "Lesão completa → plegia abaixo do nível. Lesão do neurônio motor inferior → paralisia flácida + atrofia muscular",
+  },
+];
+
+// ──────────────────────────────────────────────
+// Memory Types data
+// ──────────────────────────────────────────────
+
+interface MemoryType {
+  id: string;
+  name: string;
+  emoji: string;
+  category: "explicit" | "implicit";
+  color: string;
+  brainArea: string;
+  description: string;
+  examples: string[];
+}
+
+const MEMORY_TYPES: MemoryType[] = [
+  {
+    id: "episodic",
+    name: "Memória Episódica",
+    emoji: "📅",
+    category: "explicit",
+    color: "bg-violet-50 border-violet-300 dark:bg-violet-900/20 dark:border-violet-700",
+    brainArea: "Hipocampo, Córtex pré-frontal, Cingulado posterior",
+    description: "Memórias de eventos pessoais situados no tempo e no espaço. Envolve 'viagem mental no tempo'. Altamente susceptível ao estresse crônico (cortisol prejudica o hipocampo).",
+    examples: ["Lembrar do próprio aniversário de 15 anos", "Recordar onde estava quando soube de uma notícia importante", "Memória da primeira aula na faculdade"],
+  },
+  {
+    id: "semantic",
+    name: "Memória Semântica",
+    emoji: "📚",
+    category: "explicit",
+    color: "bg-blue-50 border-blue-300 dark:bg-blue-900/20 dark:border-blue-700",
+    brainArea: "Lobo temporal anterior, Córtex pré-frontal",
+    description: "Conhecimento geral sobre o mundo, conceitos e fatos, sem contexto autobiográfico. Mais resistente ao esquecimento que a memória episódica. Permite compreensão de linguagem e raciocínio conceitual.",
+    examples: ["Saber que Brasília é a capital do Brasil", "Conhecer o conceito de neurônio", "Lembrar nomes de presidentes sem saber quando aprendeu"],
+  },
+  {
+    id: "working",
+    name: "Memória de Trabalho",
+    emoji: "🧮",
+    category: "explicit",
+    color: "bg-sky-50 border-sky-300 dark:bg-sky-900/20 dark:border-sky-700",
+    brainArea: "Córtex pré-frontal dorsolateral (CPFDL)",
+    description: "Sistema de armazenamento temporário e manipulação ativa de informações. A 'mesa de trabalho' da cognição. Capacidade limitada (~4 chunks). Fundamento do raciocínio e da aprendizagem.",
+    examples: ["Guardar um número de telefone por alguns segundos", "Resolver 47 + 38 mentalmente sem papel", "Manter o fio de uma conversa complexa"],
+  },
+  {
+    id: "procedural",
+    name: "Memória Procedural",
+    emoji: "🚴",
+    category: "implicit",
+    color: "bg-emerald-50 border-emerald-300 dark:bg-emerald-900/20 dark:border-emerald-700",
+    brainArea: "Gânglios da base, Cerebelo, Córtex motor",
+    description: "Habilidades motoras e cognitivas automatizadas. Aprendidas por prática repetida, não exigem atenção consciente durante execução. Sobrevivem mesmo em amnésias declarativas graves.",
+    examples: ["Andar de bicicleta sem pensar nos movimentos", "Digitar sem olhar para o teclado", "Nadar, dirigir, tocar instrumento musical"],
+  },
+  {
+    id: "conditioning",
+    name: "Condicionamento e Memória Emocional",
+    emoji: "🔔",
+    category: "implicit",
+    color: "bg-rose-50 border-rose-300 dark:bg-rose-900/20 dark:border-rose-700",
+    brainArea: "Amígdala (medo/emoção), Cerebelo (CC motor), Estriado (operante)",
+    description: "Aprendizagem por associação (Pavloviana) ou por consequência (Operante). Memórias emocionais formadas pela amígdala são extremamente duradouras. Base de fobias, traumas e hábitos reforçados.",
+    examples: ["Medo de jaleco branco após experiência dolorosa", "Associar o cheiro de algo à sensação de nojo", "Ansiedade condicionada a situações específicas"],
+  },
+  {
+    id: "ltp",
+    name: "Plasticidade Sináptica (LTP/LTD)",
+    emoji: "🔬",
+    category: "implicit",
+    color: "bg-amber-50 border-amber-300 dark:bg-amber-900/20 dark:border-amber-700",
+    brainArea: "Hipocampo, Córtex cerebral (distribuído)",
+    description: "Potenciação de Longa Duração (LTP): fortalecimento persistente de sinapses por estimulação repetida — base celular do aprendizado. Depressão de Longa Duração (LTD): enfraquecimento de sinapses subutilizadas. 'Neurons that fire together, wire together' (regra de Hebb).",
+    examples: ["Sinapses do hipocampo fortalecidas ao estudar algo várias vezes", "Conexões motoras do cerebelo otimizadas pela prática", "Pruning sináptico na adolescência elimina conexões pouco usadas"],
+  },
+];
+
+// ──────────────────────────────────────────────
+// Sleep Stages data
+// ──────────────────────────────────────────────
+
+interface SleepStage {
+  id: string;
+  name: string;
+  abbr: string;
+  duration: string;
+  color: string;
+  headerColor: string;
+  eeg: string;
+  description: string;
+  functions: string[];
+}
+
+const SLEEP_STAGES: SleepStage[] = [
+  {
+    id: "n1",
+    name: "N1 — Sono Leve (Transição)",
+    abbr: "N1",
+    duration: "1–5 min",
+    color: "bg-indigo-50 border-indigo-200 dark:bg-indigo-900/20 dark:border-indigo-700",
+    headerColor: "text-indigo-700 dark:text-indigo-300",
+    eeg: "Ondas teta (4–8 Hz), desaceleração das ondas alfa",
+    description: "Transição da vigília para o sono. Consciência diminuída, movimentos oculares lentos, tônus muscular reduzido. Facilmente despertado. Pode haver hipnic jerks (contrações involuntárias ao adormecer).",
+    functions: ["Relaxamento inicial e transição para o sono", "Redução da frequência cardíaca e temperatura corporal"],
+  },
+  {
+    id: "n2",
+    name: "N2 — Sono Leve-Médio",
+    abbr: "N2",
+    duration: "10–25 min",
+    color: "bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-700",
+    headerColor: "text-blue-700 dark:text-blue-300",
+    eeg: "Fusos do sono (12–15 Hz) + Complexos K",
+    description: "Compreende ~50% do tempo total de sono. Temperatura corporal cai, frequência cardíaca reduz. Os fusos do sono estão associados à consolidação de memória procedural e proteção do sono contra ruídos externos.",
+    functions: ["Consolidação de memória procedural", "Redução do metabolismo cerebral", "Proteção do sono contra estímulos externos (fusos)"],
+  },
+  {
+    id: "n3",
+    name: "N3 — Sono Profundo (Slow-Wave Sleep)",
+    abbr: "N3",
+    duration: "20–40 min",
+    color: "bg-violet-50 border-violet-200 dark:bg-violet-900/20 dark:border-violet-700",
+    headerColor: "text-violet-700 dark:text-violet-300",
+    eeg: "Ondas delta (0,5–4 Hz) — alta amplitude, baixa frequência",
+    description: "Sono mais restaurador fisicamente. Hormônio do crescimento (GH) é liberado. Difícil despertar. Consolida memória declarativa. Sistema glinfático ativo: limpeza de resíduos metabólicos cerebrais.",
+    functions: ["Liberação de GH e restauração tecidual", "Consolidação da memória declarativa", "Clearance glinfático de proteínas (beta-amiloide)", "Restauração imunológica"],
+  },
+  {
+    id: "rem",
+    name: "REM — Sono Paradoxal",
+    abbr: "REM",
+    duration: "10–60 min (aumenta nos ciclos finais)",
+    color: "bg-rose-50 border-rose-200 dark:bg-rose-900/20 dark:border-rose-700",
+    headerColor: "text-rose-700 dark:text-rose-300",
+    eeg: "Ondas beta-like (EEG dessincronizado — similar à vigília)",
+    description: "Movimentos oculares rápidos, sonhos vívidos, atonia muscular. O encéfalo está tão ativo quanto na vigília. Duração aumenta nos ciclos do final da noite. Essencial para processamento emocional.",
+    functions: ["Processamento e consolidação de memórias emocionais", "Regulação emocional (extinção de memórias aversivas)", "Criatividade e integração de informações díspares", "Desenvolvimento neural"],
+  },
+];
+
+// ──────────────────────────────────────────────
+// Motivation Systems data
+// ──────────────────────────────────────────────
+
+interface MotivationSystem {
+  id: string;
+  name: string;
+  emoji: string;
+  neurotransmitter: string;
+  brainArea: string;
+  description: string;
+  behaviors: string[];
+  clinical: string;
+}
+
+const MOTIVATION_SYSTEMS: MotivationSystem[] = [
+  {
+    id: "reward",
+    name: "Sistema de Recompensa",
+    emoji: "🎯",
+    neurotransmitter: "Dopamina — via mesolímbica (ATV → Núcleo accumbens)",
+    brainArea: "Área Tegmentar Ventral (ATV), Núcleo Accumbens, Córtex pré-frontal, Amígdala",
+    description: "Circuito fundamental de motivação que associa comportamentos a sensações de prazer e reforça sua repetição. Não sinaliza apenas prazer — principalmente sinaliza a antecipação de recompensa. Base do aprendizado por reforço.",
+    behaviors: ["Busca de prazer e novidade", "Perseverança em objetivos", "Formação de hábitos por reforço positivo", "Motivação intrínseca e engajamento"],
+    clinical: "Hipofunção → anedonia (depressão, esquizofrenia negativa). Sequestro pelo uso de drogas → dependência química",
+  },
+  {
+    id: "hunger",
+    name: "Comportamento Alimentar",
+    emoji: "🍽️",
+    neurotransmitter: "Grelina (↑ fome), Leptina (↑ saciedade), NPY, Orexina/Hipocretina",
+    brainArea: "Hipotálamo (núcleos ARC, VMH e LH), Ínsula, Córtex orbitofrontal",
+    description: "Regulação do apetite por sinais hormonais periféricos integrados no hipotálamo. O hipotálamo lateral (LH) ativa a fome; o hipotálamo ventromedial (VMH) promove saciedade.",
+    behaviors: ["Busca e ingestão de alimentos", "Preferências e aversões alimentares", "Ciclos de fome e saciedade", "Resposta à palatabilidade e valor hedônico"],
+    clinical: "Resistência à leptina → obesidade. Hipofunção de saciedade → compulsão alimentar. Percepção distorcida → anorexia/bulimia nervosa",
+  },
+  {
+    id: "sexual",
+    name: "Comportamento Sexual",
+    emoji: "❤️",
+    neurotransmitter: "Testosterona/Estrogênio (desejo), Dopamina (antecipação), Ocitocina (vinculação), Serotonina",
+    brainArea: "Hipotálamo (INAH-3, área pré-óptica medial), Amígdala, Sistema límbico, Córtex pré-frontal",
+    description: "Regulado por hormônios gonadais e circuitos límbicos. O hipotálamo integra sinais hormonais e ativa comportamentos reprodutivos. A ocitocina media vinculação e confiança.",
+    behaviors: ["Atração, desejo e excitação sexual", "Vinculação afetiva (pair bonding)", "Comportamentos de cuidado parental", "Ciúmes e comportamentos de guarda do parceiro"],
+    clinical: "Disfunções sexuais (hiposexualidade, hipersexualidade). Impacto de traumas nas respostas sexuais. ISRS podem reduzir libido como efeito adverso",
+  },
+  {
+    id: "addiction",
+    name: "Dependência Química",
+    emoji: "⚠️",
+    neurotransmitter: "Dopamina, Glutamato, GABA, Endorfinas (opioides), Endocanabinoides",
+    brainArea: "Núcleo accumbens, ATV, Córtex pré-frontal (controle inibido), Amígdala, Hipocampo (gatilhos)",
+    description: "Substâncias de abuso sequestram o circuito de recompensa, produzindo neuroadaptações (tolerância, sensibilização). Com uso crônico, o pré-frontal perde controle sobre o sistema límbico. O hipocampo e amígdala mediam craving por gatilhos contextuais.",
+    behaviors: ["Uso compulsivo apesar de consequências negativas", "Tolerância crescente (necessidade de doses maiores)", "Síndrome de abstinência ao interromper o uso", "Craving intenso por gatilhos ambientais e recaídas"],
+    clinical: "Neuroadaptações: downregulação de receptores D2, enfraquecimento do controle pré-frontal. Tratamento: farmacológico (naltrexona, metadona) + psicossocial (TCC, grupos de apoio)",
+  },
+];
+
+// ──────────────────────────────────────────────
+// Emotion & Psychopathology data
+// ──────────────────────────────────────────────
+
+interface EmotionEntry {
+  id: string;
+  name: string;
+  emoji: string;
+  brainArea: string;
+  neurotransmitter: string;
+  description: string;
+  psychopathology: string;
+}
+
+const BASIC_EMOTIONS: EmotionEntry[] = [
+  {
+    id: "fear",
+    name: "Medo e Ansiedade",
+    emoji: "😨",
+    brainArea: "Amígdala (detecção e codificação), Hipotálamo (resposta autônoma), Córtex pré-frontal ventromedial (regulação/extinção)",
+    neurotransmitter: "Noradrenalina (alarme), CRH/Cortisol (eixo HPA), GABA (regulação inibitória)",
+    description: "Resposta adaptativa a ameaças reais ou percebidas. A amígdala processa o estímulo ameaçador em <100ms e ativa o SNA simpático (luta-ou-fuga). O pré-frontal pode inibir a amígdala quando a ameaça é avaliada como não real.",
+    psychopathology: "Hiperativação da amígdala: TAG, Fobia específica, TEPT, Transtorno do Pânico. Déficit de regulação pré-frontal → respostas de medo desproporcionais",
+  },
+  {
+    id: "sadness",
+    name: "Tristeza e Depressão",
+    emoji: "😔",
+    brainArea: "Córtex pré-frontal esquerdo (↓ ativação), Cingulado subgenual (hiperativo), Sistema límbico",
+    neurotransmitter: "Serotonina (↓), Dopamina (↓ — anedonia), Noradrenalina (↓), BDNF (↓ neuroplasticidade)",
+    description: "Emoção de perda e retirada social. No TDM, há hipofunção do CPFDL (planejamento, motivação) e hiperfunção do cingulado subgenual (ruminação). Hipocampo pode diminuir com estresse crônico.",
+    psychopathology: "Transtorno depressivo maior (TDM), Distimia, Transtorno afetivo bipolar (fase depressiva), Luto complicado",
+  },
+  {
+    id: "anger",
+    name: "Raiva e Agressividade",
+    emoji: "😡",
+    brainArea: "Amígdala, Hipotálamo anterior, Córtex orbitofrontal (controle), Cingulado anterior",
+    neurotransmitter: "Testosterona (↑ agressão), Serotonina (↓ = ↑ impulsividade), Noradrenalina",
+    description: "Ativada por ameaça, injustiça ou frustração. O córtex orbitofrontal e o pré-frontal normalmente regulam expressões agressivas. Baixa serotonina está associada a impulsividade aumentada.",
+    psychopathology: "Transtorno explosivo intermitente, Agressividade impulsiva no TEPT, Disfunção do OFC em psicopatia, Irritabilidade em TDM e TAG",
+  },
+  {
+    id: "joy",
+    name: "Alegria e Prazer",
+    emoji: "😊",
+    brainArea: "Núcleo accumbens (prazer/recompensa), Córtex pré-frontal esquerdo (afeto positivo), Ínsula anterior",
+    neurotransmitter: "Dopamina (antecipação/recompensa), Serotonina (bem-estar), Endorfinas (prazer físico), Ocitocina (conexão social)",
+    description: "Associada à ativação do circuito de recompensa e à presença de neurotransmissores de bem-estar. O córtex pré-frontal esquerdo é consistentemente mais ativo em afetos positivos.",
+    psychopathology: "Anedonia (incapacidade de sentir prazer): sinal central de depressão e esquizofrenia negativa. Euforia patológica: fase maníaca do TAB",
+  },
+  {
+    id: "disgust",
+    name: "Nojo e Aversão",
+    emoji: "🤢",
+    brainArea: "Ínsula anterior (hub principal), Gânglios da base, Córtex orbitofrontal",
+    neurotransmitter: "Serotonina (circuitos de aversão), Substância P, sistemas de aversão do estriado",
+    description: "Emoção primária de aversão a estímulos potencialmente nocivos (alimentos podres, patógenos, violação moral). A ínsula anterior é ativada tanto por nojo físico quanto moral.",
+    psychopathology: "TOC subtipo contaminação/nojo, Fobia específica (nojo), Sensibilidade aumentada ao nojo moral: rigidez moral",
+  },
+  {
+    id: "social",
+    name: "Empatia e Emoções Sociais",
+    emoji: "🤝",
+    brainArea: "Córtex pré-frontal medial (teoria da mente), Junção temporoparietal (TPJ), Ínsula (empatia somática), Amígdala",
+    neurotransmitter: "Ocitocina (confiança e vínculo), Dopamina (recompensa social), Serotonina",
+    description: "Emoções que dependem da representação do estado mental do outro (teoria da mente). A TPJ suporta empatia cognitiva; a ínsula suporta empatia emocional/afetiva. Ocitocina facilita vinculação e confiança.",
+    psychopathology: "Redução de empatia: TEA, psicopatia/TPAS. Ansiedade social (fobia social), vergonha patológica, alexitimia",
+  },
+];
+
+// ──────────────────────────────────────────────
 // Neuron SVG
 // ──────────────────────────────────────────────
 
@@ -566,7 +976,7 @@ function SynapseSVG({ activeNt }: { activeNt: string | null }) {
 // Main Page
 // ──────────────────────────────────────────────
 
-type Tab = "neuron" | "synapse" | "system";
+type Tab = "neuron" | "synapse" | "system" | "sensory" | "motor" | "memory" | "sleep" | "motivation" | "emotion";
 
 export default function AnatomiaPage() {
   const [tab, setTab] = useState<Tab>("neuron");
@@ -574,15 +984,33 @@ export default function AnatomiaPage() {
   const [selectedNt, setSelectedNt] = useState<string | null>(null);
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
   const [showNeuronTypes, setShowNeuronTypes] = useState(false);
+  const [selectedSensory, setSelectedSensory] = useState<string | null>(null);
+  const [selectedMotorComp, setSelectedMotorComp] = useState<string | null>(null);
+  const [selectedMemory, setSelectedMemory] = useState<string | null>(null);
+  const [selectedSleepStage, setSelectedSleepStage] = useState<string | null>(null);
+  const [selectedMotivation, setSelectedMotivation] = useState<string | null>(null);
+  const [selectedEmotion, setSelectedEmotion] = useState<string | null>(null);
 
   const activePart = NEURON_PARTS.find((p) => p.id === selectedPart);
   const activeNt = NEUROTRANSMITTERS.find((n) => n.id === selectedNt);
   const activeSection = NERVOUS_SYSTEM.find((s) => s.id === selectedSection);
+  const activeSensory = SENSORY_SYSTEMS.find((s) => s.id === selectedSensory);
+  const activeMotorComp = MOTOR_SYSTEM.find((m) => m.id === selectedMotorComp);
+  const activeMemory = MEMORY_TYPES.find((m) => m.id === selectedMemory);
+  const activeSleepStage = SLEEP_STAGES.find((s) => s.id === selectedSleepStage);
+  const activeMotivation = MOTIVATION_SYSTEMS.find((m) => m.id === selectedMotivation);
+  const activeEmotion = BASIC_EMOTIONS.find((e) => e.id === selectedEmotion);
 
   const tabs: { id: Tab; label: string; emoji: string }[] = [
     { id: "neuron", label: "Neurônio", emoji: "🧬" },
     { id: "synapse", label: "Sinapse", emoji: "⚡" },
     { id: "system", label: "Sistema Nervoso", emoji: "🕸️" },
+    { id: "sensory", label: "Processamento Sensorial", emoji: "🖐️" },
+    { id: "motor", label: "Processamento Motor", emoji: "💪" },
+    { id: "memory", label: "Memória e Plasticidade", emoji: "🧠" },
+    { id: "sleep", label: "Sono e Vigília", emoji: "😴" },
+    { id: "motivation", label: "Motivação", emoji: "🎯" },
+    { id: "emotion", label: "Emoção e Psicopatologia", emoji: "❤️" },
   ];
 
   return (
@@ -610,34 +1038,6 @@ export default function AnatomiaPage() {
           Do neurônio à sinapse: explore o sistema nervoso completo com interações em múltiplos
           níveis de detalhe.
         </p>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-900">
-          <h2 className="mb-3 text-base font-bold text-gray-900 dark:text-gray-100">Tópicos abordados I</h2>
-          <ul className="space-y-1.5 text-sm text-gray-600 dark:text-gray-300">
-            <li>▪ Organização do sistema nervoso e do cérebro</li>
-            <li>▪ Propriedades dos neurônios</li>
-            <li>▪ Circuitos neuronais</li>
-            <li>▪ Processamento sensorial I</li>
-            <li className="pl-4">➢ Percepção corporal</li>
-            <li>▪ Processamento motor</li>
-          </ul>
-        </div>
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-900">
-          <h2 className="mb-3 text-base font-bold text-gray-900 dark:text-gray-100">Tópicos abordados II</h2>
-          <ul className="space-y-1.5 text-sm text-gray-600 dark:text-gray-300">
-            <li>▪ Processamento sensorial II</li>
-            <li className="pl-4">➢ Visão, audição, quimiopercepção</li>
-            <li>▪ Memória, aprendizagem e plasticidade cerebral</li>
-            <li>▪ Sono e vigília</li>
-            <li>▪ Motivação</li>
-            <li className="pl-4">➢ Comportamento alimentar</li>
-            <li className="pl-4">➢ Comportamento sexual</li>
-            <li className="pl-4">➢ Dependência química</li>
-            <li>▪ Emoção e psicopatologia</li>
-          </ul>
-        </div>
       </div>
 
       {/* Tabs */}
@@ -1013,6 +1413,497 @@ export default function AnatomiaPage() {
                 </span>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── TAB: Processamento Sensorial ─── */}
+      {tab === "sensory" && (
+        <div className="grid gap-6 lg:grid-cols-2">
+          <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-900">
+            <h2 className="mb-1 text-lg font-bold text-gray-900 dark:text-gray-100">
+              Sistemas Sensoriais
+            </h2>
+            <p className="mb-4 text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+              <Info className="h-3 w-3" />
+              Selecione um sentido para ver receptor, via e área cortical
+            </p>
+            <div className="space-y-2">
+              {SENSORY_SYSTEMS.map((s) => (
+                <button
+                  key={s.id}
+                  onClick={() => setSelectedSensory(s.id === selectedSensory ? null : s.id)}
+                  className={`w-full flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all ${
+                    selectedSensory === s.id
+                      ? "bg-rose-50 border-rose-300 ring-2 ring-rose-400 dark:bg-rose-900/20 dark:border-rose-700"
+                      : "bg-gray-50 border-gray-200 hover:border-rose-200 dark:bg-gray-800 dark:border-gray-700 dark:hover:border-rose-800"
+                  }`}
+                >
+                  <span className="text-2xl">{s.emoji}</span>
+                  <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{s.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-900">
+            {activeSensory ? (
+              <>
+                <h3 className="text-xl font-bold text-rose-600 dark:text-rose-400 flex items-center gap-2">
+                  <span>{activeSensory.emoji}</span>
+                  {activeSensory.name}
+                </h3>
+                <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">{activeSensory.description}</p>
+                <div className="mt-4 space-y-3">
+                  <div className="rounded-xl bg-gray-50 dark:bg-gray-800 px-4 py-3">
+                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Receptor</p>
+                    <p className="text-sm text-gray-700 dark:text-gray-300">{activeSensory.receptor}</p>
+                  </div>
+                  <div className="rounded-xl bg-gray-50 dark:bg-gray-800 px-4 py-3">
+                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Via neural</p>
+                    <p className="text-sm text-gray-700 dark:text-gray-300">{activeSensory.pathway}</p>
+                  </div>
+                  <div className="rounded-xl bg-gray-50 dark:bg-gray-800 px-4 py-3">
+                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Área cortical</p>
+                    <p className="text-sm text-gray-700 dark:text-gray-300">{activeSensory.brainArea}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Exemplos</p>
+                    <ul className="space-y-1">
+                      {activeSensory.examples.map((ex) => (
+                        <li key={ex} className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-400">
+                          <span className="text-rose-500 mt-0.5">•</span>{ex}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="flex h-full flex-col items-center justify-center text-center py-12">
+                <span className="text-5xl mb-4">🖐️</span>
+                <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300">
+                  Selecione um sentido
+                </h3>
+                <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                  Escolha um sistema sensorial para explorar seu receptor, via neural e área cortical.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ─── TAB: Processamento Motor ─── */}
+      {tab === "motor" && (
+        <div className="grid gap-6 lg:grid-cols-2">
+          <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-900">
+            <h2 className="mb-1 text-lg font-bold text-gray-900 dark:text-gray-100">
+              Hierarquia Motora
+            </h2>
+            <p className="mb-4 text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+              <Info className="h-3 w-3" />
+              Selecione uma estrutura para ver funções, via e implicações clínicas
+            </p>
+            <div className="space-y-2">
+              {MOTOR_SYSTEM.map((m) => (
+                <button
+                  key={m.id}
+                  onClick={() => setSelectedMotorComp(m.id === selectedMotorComp ? null : m.id)}
+                  className={`w-full flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all ${
+                    selectedMotorComp === m.id
+                      ? "bg-rose-50 border-rose-300 ring-2 ring-rose-400 dark:bg-rose-900/20 dark:border-rose-700"
+                      : "bg-gray-50 border-gray-200 hover:border-rose-200 dark:bg-gray-800 dark:border-gray-700 dark:hover:border-rose-800"
+                  }`}
+                >
+                  <span className="text-2xl">{m.emoji}</span>
+                  <div>
+                    <div className="text-sm font-medium text-gray-800 dark:text-gray-200">{m.name}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">{m.role}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-900">
+            {activeMotorComp ? (
+              <>
+                <h3 className="text-xl font-bold text-rose-600 dark:text-rose-400 flex items-center gap-2">
+                  <span>{activeMotorComp.emoji}</span>
+                  {activeMotorComp.name}
+                </h3>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{activeMotorComp.role}</p>
+                <p className="mt-3 text-sm text-gray-600 dark:text-gray-300">{activeMotorComp.description}</p>
+                <div className="mt-4 space-y-3">
+                  <div className="rounded-xl bg-gray-50 dark:bg-gray-800 px-4 py-3">
+                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Via neural</p>
+                    <p className="text-sm text-gray-700 dark:text-gray-300 font-mono">{activeMotorComp.pathway}</p>
+                  </div>
+                  <div className="rounded-xl bg-amber-50 border border-amber-200 dark:bg-amber-900/20 dark:border-amber-800 px-4 py-3">
+                    <p className="text-xs font-semibold text-amber-700 dark:text-amber-300 mb-1">⚠ Implicação clínica</p>
+                    <p className="text-sm text-gray-700 dark:text-gray-300">{activeMotorComp.clinical}</p>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="flex h-full flex-col items-center justify-center text-center py-12">
+                <span className="text-5xl mb-4">💪</span>
+                <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300">
+                  Selecione uma estrutura
+                </h3>
+                <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                  Explore as estruturas da hierarquia motora e seus papéis no controle do movimento.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ─── TAB: Memória e Plasticidade ─── */}
+      {tab === "memory" && (
+        <div className="space-y-6">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <div className="mb-2">
+                <span className="rounded-full bg-violet-100 px-3 py-1 text-xs font-semibold text-violet-700 dark:bg-violet-900/30 dark:text-violet-300">
+                  Memória Explícita (Declarativa)
+                </span>
+              </div>
+              <div className="space-y-2">
+                {MEMORY_TYPES.filter((m) => m.category === "explicit").map((m) => (
+                  <button
+                    key={m.id}
+                    onClick={() => setSelectedMemory(m.id === selectedMemory ? null : m.id)}
+                    className={`w-full flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all ${
+                      selectedMemory === m.id
+                        ? m.color + " ring-2 ring-rose-400"
+                        : m.color + " hover:ring-1 hover:ring-rose-300"
+                    }`}
+                  >
+                    <span className="text-xl">{m.emoji}</span>
+                    <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{m.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div className="mb-2">
+                <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+                  Memória Implícita (Não-declarativa)
+                </span>
+              </div>
+              <div className="space-y-2">
+                {MEMORY_TYPES.filter((m) => m.category === "implicit").map((m) => (
+                  <button
+                    key={m.id}
+                    onClick={() => setSelectedMemory(m.id === selectedMemory ? null : m.id)}
+                    className={`w-full flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all ${
+                      selectedMemory === m.id
+                        ? m.color + " ring-2 ring-rose-400"
+                        : m.color + " hover:ring-1 hover:ring-rose-300"
+                    }`}
+                  >
+                    <span className="text-xl">{m.emoji}</span>
+                    <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{m.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {activeMemory && (
+            <div className={`rounded-2xl border p-6 ${activeMemory.color}`}>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                <span>{activeMemory.emoji}</span>
+                {activeMemory.name}
+                <span className="ml-1 rounded-full bg-white/70 dark:bg-gray-800/70 px-2.5 py-0.5 text-xs font-normal text-gray-500 dark:text-gray-400">
+                  {activeMemory.category === "explicit" ? "Declarativa" : "Não-declarativa"}
+                </span>
+              </h3>
+              <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">{activeMemory.description}</p>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <div className="rounded-xl bg-white/60 dark:bg-gray-900/40 px-4 py-3">
+                  <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Área neural</p>
+                  <p className="text-sm text-gray-700 dark:text-gray-300">{activeMemory.brainArea}</p>
+                </div>
+                <div className="rounded-xl bg-white/60 dark:bg-gray-900/40 px-4 py-3">
+                  <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Exemplos</p>
+                  <ul className="space-y-1">
+                    {activeMemory.examples.map((ex) => (
+                      <li key={ex} className="text-xs text-gray-600 dark:text-gray-400 flex items-start gap-1.5">
+                        <span className="text-rose-500 mt-0.5">•</span>{ex}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ─── TAB: Sono e Vigília ─── */}
+      {tab === "sleep" && (
+        <div className="space-y-6">
+          <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-900">
+            <h2 className="mb-1 text-lg font-bold text-gray-900 dark:text-gray-100">Ciclo do Sono</h2>
+            <p className="mb-4 text-xs text-gray-500 dark:text-gray-400">
+              Selecione um estágio para ver detalhes. Um ciclo completo dura ~90 min; 4–6 ciclos por noite.
+            </p>
+            <div className="flex gap-2 flex-wrap mb-4">
+              {SLEEP_STAGES.map((s) => (
+                <button
+                  key={s.id}
+                  onClick={() => setSelectedSleepStage(s.id === selectedSleepStage ? null : s.id)}
+                  className={`flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-all ${
+                    selectedSleepStage === s.id
+                      ? s.color + " ring-2 ring-rose-400"
+                      : s.color
+                  }`}
+                >
+                  <span className={`font-bold ${s.headerColor}`}>{s.abbr}</span>
+                </button>
+              ))}
+            </div>
+            <div className="flex items-end gap-1 h-20 mb-2">
+              {[
+                { label: "Vigília", h: 80, color: "bg-yellow-300 dark:bg-yellow-600" },
+                { label: "N1", h: 30, color: "bg-indigo-300 dark:bg-indigo-600" },
+                { label: "N2", h: 55, color: "bg-blue-400 dark:bg-blue-700" },
+                { label: "N3", h: 75, color: "bg-violet-500 dark:bg-violet-700" },
+                { label: "REM", h: 40, color: "bg-rose-400 dark:bg-rose-700" },
+                { label: "N2", h: 55, color: "bg-blue-400 dark:bg-blue-700" },
+                { label: "N3", h: 70, color: "bg-violet-500 dark:bg-violet-700" },
+                { label: "REM", h: 50, color: "bg-rose-400 dark:bg-rose-700" },
+                { label: "N2", h: 50, color: "bg-blue-400 dark:bg-blue-700" },
+                { label: "REM", h: 65, color: "bg-rose-400 dark:bg-rose-700" },
+              ].map((b, i) => (
+                <div key={i} className="flex flex-1 flex-col items-center gap-1">
+                  <div
+                    className={`w-full rounded-t ${b.color} transition-all`}
+                    style={{ height: `${b.h}%` }}
+                    title={b.label}
+                  />
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400 flex-wrap">
+              {[
+                { label: "Vigília", color: "bg-yellow-300 dark:bg-yellow-600" },
+                { label: "N1", color: "bg-indigo-300 dark:bg-indigo-600" },
+                { label: "N2", color: "bg-blue-400 dark:bg-blue-700" },
+                { label: "N3", color: "bg-violet-500 dark:bg-violet-700" },
+                { label: "REM", color: "bg-rose-400 dark:bg-rose-700" },
+              ].map((l) => (
+                <span key={l.label} className="flex items-center gap-1">
+                  <span className={`inline-block w-3 h-3 rounded ${l.color}`} />
+                  {l.label}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {activeSleepStage ? (
+            <div className={`rounded-2xl border p-6 ${activeSleepStage.color}`}>
+              <h3 className={`text-lg font-bold mb-1 ${activeSleepStage.headerColor}`}>{activeSleepStage.name}</h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Duração típica: {activeSleepStage.duration}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">{activeSleepStage.description}</p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-xl bg-white/60 dark:bg-gray-900/40 px-4 py-3">
+                  <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">EEG característico</p>
+                  <p className="text-sm text-gray-700 dark:text-gray-300">{activeSleepStage.eeg}</p>
+                </div>
+                <div className="rounded-xl bg-white/60 dark:bg-gray-900/40 px-4 py-3">
+                  <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Funções principais</p>
+                  <ul className="space-y-1">
+                    {activeSleepStage.functions.map((f) => (
+                      <li key={f} className="text-xs text-gray-600 dark:text-gray-400 flex items-start gap-1.5">
+                        <span className="text-rose-500 mt-0.5">✓</span>{f}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {SLEEP_STAGES.map((s) => (
+                <button
+                  key={s.id}
+                  onClick={() => setSelectedSleepStage(s.id)}
+                  className={`rounded-2xl border p-4 text-left transition-all hover:ring-2 hover:ring-rose-400 ${s.color}`}
+                >
+                  <div className={`text-base font-bold mb-1 ${s.headerColor}`}>{s.abbr}</div>
+                  <div className="text-xs text-gray-600 dark:text-gray-400 mb-2">{s.duration}</div>
+                  <p className="text-xs text-gray-600 dark:text-gray-300 line-clamp-3">{s.description}</p>
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-900">
+            <h3 className="text-base font-bold text-gray-900 dark:text-gray-100 mb-3">⏰ Ritmo Circadiano</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">
+              Ciclo endógeno de ~24 horas controlado pelo <strong>núcleo supraquiasmático (NSQ)</strong> do hipotálamo. Sincronizado pela luz (principal zeitgeber) via retina → NSQ → glândula pineal (melatonina).
+            </p>
+            <div className="grid gap-2 sm:grid-cols-3 text-xs">
+              {[
+                { label: "Melatonina (noite)", desc: "Liberada pela pineal no escuro; sinal de 'hora de dormir'. Suprimida pela luz azul dos eletrônicos." },
+                { label: "Cortisol (manhã)", desc: "Pico ~30 min após acordar (cortisol awakening response). Promove alerta e mobilização energética." },
+                { label: "Temperatura corporal", desc: "Mínima por volta das 4–5h; máxima no início da tarde. Queda da temperatura facilita início do sono." },
+              ].map((item) => (
+                <div key={item.label} className="rounded-xl bg-gray-50 dark:bg-gray-800 px-3 py-2">
+                  <p className="font-semibold text-gray-700 dark:text-gray-300 mb-0.5">{item.label}</p>
+                  <p className="text-gray-500 dark:text-gray-400">{item.desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── TAB: Motivação ─── */}
+      {tab === "motivation" && (
+        <div className="grid gap-6 lg:grid-cols-2">
+          <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-900">
+            <h2 className="mb-1 text-lg font-bold text-gray-900 dark:text-gray-100">
+              Sistemas Motivacionais
+            </h2>
+            <p className="mb-4 text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+              <Info className="h-3 w-3" />
+              Selecione um sistema para explorar neurotransmissores e comportamentos
+            </p>
+            <div className="space-y-2">
+              {MOTIVATION_SYSTEMS.map((m) => (
+                <button
+                  key={m.id}
+                  onClick={() => setSelectedMotivation(m.id === selectedMotivation ? null : m.id)}
+                  className={`w-full flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all ${
+                    selectedMotivation === m.id
+                      ? "bg-rose-50 border-rose-300 ring-2 ring-rose-400 dark:bg-rose-900/20 dark:border-rose-700"
+                      : "bg-gray-50 border-gray-200 hover:border-rose-200 dark:bg-gray-800 dark:border-gray-700 dark:hover:border-rose-800"
+                  }`}
+                >
+                  <span className="text-2xl">{m.emoji}</span>
+                  <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{m.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-900">
+            {activeMotivation ? (
+              <>
+                <h3 className="text-xl font-bold text-rose-600 dark:text-rose-400 flex items-center gap-2">
+                  <span>{activeMotivation.emoji}</span>
+                  {activeMotivation.name}
+                </h3>
+                <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">{activeMotivation.description}</p>
+                <div className="mt-4 space-y-3">
+                  <div className="rounded-xl bg-gray-50 dark:bg-gray-800 px-4 py-3">
+                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Neurotransmissores / Hormônios</p>
+                    <p className="text-sm text-gray-700 dark:text-gray-300">{activeMotivation.neurotransmitter}</p>
+                  </div>
+                  <div className="rounded-xl bg-gray-50 dark:bg-gray-800 px-4 py-3">
+                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Estruturas cerebrais</p>
+                    <p className="text-sm text-gray-700 dark:text-gray-300">{activeMotivation.brainArea}</p>
+                  </div>
+                  <div className="rounded-xl bg-gray-50 dark:bg-gray-800 px-4 py-3">
+                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Comportamentos associados</p>
+                    <ul className="space-y-1">
+                      {activeMotivation.behaviors.map((b) => (
+                        <li key={b} className="text-xs text-gray-600 dark:text-gray-400 flex items-start gap-1.5">
+                          <span className="text-rose-500 mt-0.5">•</span>{b}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div className="rounded-xl bg-amber-50 border border-amber-200 dark:bg-amber-900/20 dark:border-amber-800 px-4 py-3">
+                    <p className="text-xs font-semibold text-amber-700 dark:text-amber-300 mb-1">⚠ Implicações clínicas</p>
+                    <p className="text-sm text-gray-700 dark:text-gray-300">{activeMotivation.clinical}</p>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="flex h-full flex-col items-center justify-center text-center py-12">
+                <span className="text-5xl mb-4">🎯</span>
+                <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300">
+                  Selecione um sistema
+                </h3>
+                <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                  Explore os sistemas motivacionais: recompensa, alimentação, comportamento sexual e dependência.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ─── TAB: Emoção e Psicopatologia ─── */}
+      {tab === "emotion" && (
+        <div className="grid gap-6 lg:grid-cols-2">
+          <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-900">
+            <h2 className="mb-1 text-lg font-bold text-gray-900 dark:text-gray-100">
+              Emoções e Bases Neurais
+            </h2>
+            <p className="mb-4 text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+              <Info className="h-3 w-3" />
+              Selecione uma emoção para ver bases neurais e psicopatologias
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              {BASIC_EMOTIONS.map((e) => (
+                <button
+                  key={e.id}
+                  onClick={() => setSelectedEmotion(e.id === selectedEmotion ? null : e.id)}
+                  className={`flex items-center gap-2 rounded-xl border px-3 py-3 text-left transition-all ${
+                    selectedEmotion === e.id
+                      ? "bg-rose-50 border-rose-300 ring-2 ring-rose-400 dark:bg-rose-900/20 dark:border-rose-700"
+                      : "bg-gray-50 border-gray-200 hover:border-rose-200 dark:bg-gray-800 dark:border-gray-700 dark:hover:border-rose-800"
+                  }`}
+                >
+                  <span className="text-xl">{e.emoji}</span>
+                  <span className="text-xs font-medium text-gray-800 dark:text-gray-200 leading-tight">{e.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-900">
+            {activeEmotion ? (
+              <>
+                <h3 className="text-xl font-bold text-rose-600 dark:text-rose-400 flex items-center gap-2">
+                  <span>{activeEmotion.emoji}</span>
+                  {activeEmotion.name}
+                </h3>
+                <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">{activeEmotion.description}</p>
+                <div className="mt-4 space-y-3">
+                  <div className="rounded-xl bg-gray-50 dark:bg-gray-800 px-4 py-3">
+                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Áreas cerebrais</p>
+                    <p className="text-sm text-gray-700 dark:text-gray-300">{activeEmotion.brainArea}</p>
+                  </div>
+                  <div className="rounded-xl bg-gray-50 dark:bg-gray-800 px-4 py-3">
+                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Neurotransmissores</p>
+                    <p className="text-sm text-gray-700 dark:text-gray-300">{activeEmotion.neurotransmitter}</p>
+                  </div>
+                  <div className="rounded-xl bg-rose-50 border border-rose-200 dark:bg-rose-900/20 dark:border-rose-800 px-4 py-3">
+                    <p className="text-xs font-semibold text-rose-700 dark:text-rose-300 mb-1">🏥 Psicopatologias relacionadas</p>
+                    <p className="text-sm text-gray-700 dark:text-gray-300">{activeEmotion.psychopathology}</p>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="flex h-full flex-col items-center justify-center text-center py-12">
+                <span className="text-5xl mb-4">❤️</span>
+                <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300">
+                  Selecione uma emoção
+                </h3>
+                <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                  Explore as bases neurais das emoções e suas relações com psicopatologias.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       )}
