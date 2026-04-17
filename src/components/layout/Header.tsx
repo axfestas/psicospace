@@ -1,7 +1,36 @@
 "use client";
 
-import { Menu } from "lucide-react";
+import { Menu, Coins } from "lucide-react";
 import { NotificationPanel } from "@/components/notifications/NotificationPanel";
+import { useState, useEffect } from "react";
+
+function PsiqueBadge() {
+  const [balance, setBalance] = useState<number | null>(null);
+
+  useEffect(() => {
+    fetch("/api/psicogame/wallet")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d?.wallet?.balance !== undefined) setBalance(d.wallet.balance);
+      })
+      .catch(() => {});
+  }, []);
+
+  if (balance === null) return null;
+
+  return (
+    <a
+      href="/psicogame"
+      className="flex items-center gap-1.5 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-full px-3 py-1 hover:bg-yellow-100 dark:hover:bg-yellow-900/30 transition-colors"
+      title="Minha carteira – Psiquê"
+    >
+      <Coins className="h-4 w-4 text-yellow-500" />
+      <span className="text-sm font-bold text-yellow-700 dark:text-yellow-300">
+        {balance} Psiquê
+      </span>
+    </a>
+  );
+}
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -20,6 +49,7 @@ export function Header({ onMenuClick }: HeaderProps) {
       <div className="hidden lg:block" />
 
       <div className="flex items-center gap-3">
+        <PsiqueBadge />
         <NotificationPanel />
       </div>
     </header>

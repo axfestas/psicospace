@@ -1,5 +1,12 @@
 import { prisma } from "@/lib/db";
-import { REWARD_EXERCISE_CORRECT, XP_EXERCISE_CORRECT, XP_PER_LEVEL } from "@/lib/psico-constants";
+import {
+  REWARD_EXERCISE_CORRECT,
+  REWARD_SESSION_COMPLETED,
+  REWARD_DAILY_STREAK_BONUS,
+  XP_EXERCISE_CORRECT,
+  XP_SESSION_COMPLETED,
+  XP_PER_LEVEL,
+} from "@/lib/psico-constants";
 
 interface ParsedCharacter {
   id: string;
@@ -88,16 +95,37 @@ export function parseCharacter(character: {
   };
 }
 
+async function awardStreakBonus(walletId: string, userId: string, newStreak: number, now: Date) {
+  await prisma.psicoWallet.update({
+    where: { userId },
+    data: {
+      balance: { increment: REWARD_DAILY_STREAK_BONUS },
+      updatedAt: now.toISOString(),
+    },
+  });
+  await prisma.psicoTransaction.create({
+    data: {
+      walletId,
+      amount: REWARD_DAILY_STREAK_BONUS,
+      type: "EARN",
+      reason: "daily_streak_bonus",
+      referenceId: `streak_${newStreak}_${now.toISOString().slice(0, 10)}`,
+    },
+  });
+}
+
 async function updateCharacterProgress(userId: string, xpGain: number) {
-  const { character } = await ensureEconomyState(userId);
+  const { wallet, character } = await ensureEconomyState(userId);
   const now = new Date();
 
   let newStreak = character.currentStreak;
+  let streakIncremented = false;
   if (character.lastSessionAt) {
     const lastDate = new Date(character.lastSessionAt);
     const diffDays = diffUtcDays(lastDate, now);
     if (diffDays === 1) {
       newStreak = character.currentStreak + 1;
+      streakIncremented = true;
     } else if (diffDays > 1) {
       newStreak = 1;
     }
@@ -108,7 +136,7 @@ async function updateCharacterProgress(userId: string, xpGain: number) {
   const newXp = character.xp + xpGain;
   const newLevel = Math.floor(newXp / XP_PER_LEVEL) + 1;
 
-  return prisma.characterProgress.update({
+  await prisma.characterProgress.update({
     where: { userId },
     data: {
       xp: newXp,
@@ -120,6 +148,10 @@ async function updateCharacterProgress(userId: string, xpGain: number) {
       updatedAt: now.toISOString(),
     },
   });
+
+  if (streakIncremented) {
+    await awardStreakBonus(wallet.id, userId, newStreak, now);
+  }
 }
 
 function diffUtcDays(a: Date, b: Date) {
@@ -173,6 +205,45 @@ export async function grantExerciseReward(userId: string, exerciseId: string) {
     duplicate: false,
     amount: REWARD_EXERCISE_CORRECT,
   };
+}
+
+export async function grantSessionReward(userId: string, sessionId: string) {
+  const { wallet } = await ensureEconomyState(userId);
+
+  const duplicated = await prisma.psicoTransaction.findFirst({
+    where: {
+      walletId: wallet.id,
+      reason: "session_completed",
+      referenceId: sessionId,
+    },
+    select: { id: true },
+  });
+
+  if (duplicated) {
+    return { awarded: false, duplicate: true, amount: 0 };
+  }
+
+  await prisma.psicoWallet.update({
+    where: { userId },
+    data: {
+      balance: { increment: REWARD_SESSION_COMPLETED },
+      updatedAt: new Date().toISOString(),
+    },
+  });
+
+  await prisma.psicoTransaction.create({
+    data: {
+      walletId: wallet.id,
+      amount: REWARD_SESSION_COMPLETED,
+      type: "EARN",
+      reason: "session_completed",
+      referenceId: sessionId,
+    },
+  });
+
+  await updateCharacterProgress(userId, XP_SESSION_COMPLETED);
+
+  return { awarded: true, duplicate: false, amount: REWARD_SESSION_COMPLETED };
 }
 
 export async function purchaseShopItem(userId: string, itemId: string) {

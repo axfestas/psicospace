@@ -276,12 +276,16 @@ model CharacterProgress {
 }
 
 // type: AVATAR_FRAME | BACKGROUND | BADGE | TITLE
+// category: AVATAR | TEMA | CONQUISTA | ESPECIAL
+// rarity: COMUM | INCOMUM | RARO | ÉPICO | LENDÁRIO
 model ShopItem {
   id          String   @id @default(cuid())
   name        String
   description String?
   type        String
   slot        String
+  category    String   @default("GERAL")
+  rarity      String   @default("COMUM")
   price       Int
   imageUrl    String?
   active      Boolean  @default(true)
