@@ -10,7 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
   Trash2, Edit2, Check, X, Users, BookOpen, ShieldCheck,
   CheckCircle2, Clock, AlertCircle, Database, RefreshCw, Play,
-  Plus, GraduationCap,
+  Plus, GraduationCap, Send, BellRing,
 } from "lucide-react";
 
 interface AdminUser {
@@ -72,6 +72,15 @@ export default function AdminPage() {
   const [applyingMigrations, setApplyingMigrations] = useState(false);
   const [applyResults, setApplyResults] = useState<ApplyResult[] | null>(null);
   const [applyMessage, setApplyMessage] = useState<string | null>(null);
+  const [testEmail, setTestEmail] = useState("");
+  const [testingDelivery, setTestingDelivery] = useState(false);
+  const [deliveryResult, setDeliveryResult] = useState<{
+    message: string;
+    emailSent: boolean;
+    notificationCreated: boolean;
+    emailError?: string | null;
+    targetEmail?: string;
+  } | null>(null);
 
   const isSuperAdmin = currentUser?.role === "SUPERADMIN";
 
@@ -229,6 +238,37 @@ export default function AdminPage() {
       await loadMigrations();
     } finally {
       setApplyingMigrations(false);
+    }
+  };
+
+  const handleTestDelivery = async () => {
+    setTestingDelivery(true);
+    setDeliveryResult(null);
+    try {
+      const res = await fetch("/api/admin/migrations/test-delivery", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: testEmail.trim() || undefined }),
+      });
+      const json = await res.json();
+      if (res.ok) {
+        setDeliveryResult({
+          message: json.message ?? "Teste concluído.",
+          emailSent: Boolean(json.emailSent),
+          notificationCreated: Boolean(json.notificationCreated),
+          emailError: json.emailError ?? null,
+          targetEmail: json.targetEmail,
+        });
+      } else {
+        setDeliveryResult({
+          message: json.error ?? "Falha ao executar o teste.",
+          emailSent: false,
+          notificationCreated: false,
+          emailError: null,
+        });
+      }
+    } finally {
+      setTestingDelivery(false);
     }
   };
 
@@ -667,6 +707,49 @@ export default function AdminPage() {
           </div>
 
           <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Teste de E-mail e Notificação</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-sm text-gray-500">
+                Dispara uma notificação in-app para sua conta e tenta enviar um e-mail de teste.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Input
+                  value={testEmail}
+                  onChange={(e) => setTestEmail(e.target.value)}
+                  placeholder="E-mail para teste (opcional)"
+                  className="max-w-md"
+                />
+                <Button
+                  onClick={handleTestDelivery}
+                  disabled={testingDelivery}
+                  className="gap-2"
+                  size="sm"
+                >
+                  <Send className="h-4 w-4" />
+                  {testingDelivery ? "Testando..." : "Testar envio"}
+                </Button>
+              </div>
+              {deliveryResult && (
+                <div className={`rounded-lg border p-3 text-sm ${deliveryResult.emailSent ? "border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-900/20 dark:text-green-400" : "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-400"}`}>
+                  <p className="font-medium">{deliveryResult.message}</p>
+                  {deliveryResult.targetEmail && (
+                    <p className="mt-1">E-mail alvo: <span className="font-medium">{deliveryResult.targetEmail}</span></p>
+                  )}
+                  <div className="mt-2 flex flex-wrap gap-3">
+                    <span className="inline-flex items-center gap-1"><BellRing className="h-3.5 w-3.5" /> Notificação: {deliveryResult.notificationCreated ? "ok" : "falhou"}</span>
+                    <span className="inline-flex items-center gap-1"><Send className="h-3.5 w-3.5" /> E-mail: {deliveryResult.emailSent ? "ok" : "falhou"}</span>
+                  </div>
+                  {deliveryResult.emailError && (
+                    <p className="mt-2 text-xs">{deliveryResult.emailError}</p>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
             <CardHeader><CardTitle>Histórico de Migrações</CardTitle></CardHeader>
             <CardContent>
               {loadingMigrations ? (
@@ -707,7 +790,7 @@ export default function AdminPage() {
                   <ol className="list-decimal list-inside space-y-1 text-sm text-amber-700 dark:text-amber-400">
                     <li>Atualize o schema em <code className="font-mono bg-amber-100 dark:bg-amber-900/40 px-1 rounded">prisma/schema.prisma</code></li>
                     <li>Gere a migração com <code className="font-mono bg-amber-100 dark:bg-amber-900/40 px-1 rounded">npx prisma migrate diff</code> ou crie o SQL manualmente</li>
-                    <li>Adicione o SQL no array <code className="font-mono bg-amber-100 dark:bg-amber-900/40 px-1 rounded">MIGRATIONS</code> em <code className="font-mono bg-amber-100 dark:bg-amber-900/40 px-1 rounded">src/app/api/admin/migrations/route.ts</code></li>
+                    <li>Adicione o SQL no array <code className="font-mono bg-amber-100 dark:bg-amber-900/40 px-1 rounded">MIGRATIONS</code> em <code className="font-mono bg-amber-100 dark:bg-amber-900/40 px-1 rounded">src/lib/migrate.ts</code></li>
                     <li>Faça o deploy e aplique a migração aqui nesta aba</li>
                   </ol>
                 </div>

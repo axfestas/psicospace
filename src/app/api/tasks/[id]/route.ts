@@ -4,6 +4,14 @@ import { getAuthUser } from "@/lib/auth";
 
 export const runtime = "edge";
 
+function normalizeDueDateUpdate(
+  dueDate: string | null | undefined
+): Date | null | undefined {
+  if (dueDate === null) return null;
+  if (dueDate === undefined) return undefined;
+  return new Date(dueDate);
+}
+
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -14,6 +22,12 @@ export async function PUT(
 
     const { id } = await params;
     const { title, completed, dueDate } = await request.json();
+    if (dueDate === "") {
+      return NextResponse.json(
+        { error: "dueDate deve ser null para remover o prazo." },
+        { status: 400 }
+      );
+    }
 
     const task = await prisma.task.findUnique({ where: { id } });
     if (!task || task.userId !== auth.userId) {
@@ -25,7 +39,7 @@ export async function PUT(
       data: {
         title,
         completed,
-        dueDate: dueDate ? new Date(dueDate) : undefined,
+        dueDate: normalizeDueDateUpdate(dueDate),
       },
     });
 

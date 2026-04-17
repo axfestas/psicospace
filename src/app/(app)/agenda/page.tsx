@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Task, Note } from "@/types";
 import { formatDate } from "@/lib/utils";
-import { Plus, Trash2, Check, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Trash2, Check, X, ChevronLeft, ChevronRight, Edit2 } from "lucide-react";
 
 interface CalendarEvent {
   id: string;
@@ -24,8 +24,12 @@ export default function AgendaPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [showEventForm, setShowEventForm] = useState(false);
   const [newTask, setNewTask] = useState("");
+  const [newTaskDueDate, setNewTaskDueDate] = useState("");
   const [noteContent, setNoteContent] = useState("");
   const [currentNoteId, setCurrentNoteId] = useState<string | null>(null);
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [editTaskTitle, setEditTaskTitle] = useState("");
+  const [editTaskDueDate, setEditTaskDueDate] = useState("");
   const [eventForm, setEventForm] = useState({
     title: "",
     description: "",
@@ -95,10 +99,11 @@ export default function AgendaPage() {
     const res = await fetch("/api/tasks", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: newTask }),
+      body: JSON.stringify({ title: newTask, dueDate: newTaskDueDate || null }),
     });
     if (res.ok) {
       setNewTask("");
+      setNewTaskDueDate("");
       loadData();
     }
   };
@@ -114,6 +119,40 @@ export default function AgendaPage() {
 
   const handleDeleteTask = async (id: string) => {
     await fetch(`/api/tasks/${id}`, { method: "DELETE" });
+    if (editingTaskId === id) {
+      setEditingTaskId(null);
+      setEditTaskTitle("");
+      setEditTaskDueDate("");
+    }
+    loadData();
+  };
+
+  const formatDateForInput = (value?: string) => {
+    if (!value) return "";
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return "";
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  const handleStartEditTask = (task: Task) => {
+    setEditingTaskId(task.id);
+    setEditTaskTitle(task.title);
+    setEditTaskDueDate(formatDateForInput(task.dueDate));
+  };
+
+  const handleSaveEditTask = async () => {
+    if (!editingTaskId || !editTaskTitle.trim()) return;
+    await fetch(`/api/tasks/${editingTaskId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: editTaskTitle, dueDate: editTaskDueDate || null }),
+    });
+    setEditingTaskId(null);
+    setEditTaskTitle("");
+    setEditTaskDueDate("");
     loadData();
   };
 
@@ -354,6 +393,12 @@ export default function AgendaPage() {
                 value={newTask}
                 onChange={(e) => setNewTask(e.target.value)}
               />
+              <Input
+                type="date"
+                value={newTaskDueDate}
+                onChange={(e) => setNewTaskDueDate(e.target.value)}
+                className="w-44"
+              />
               <Button type="submit" size="sm">
                 <Plus className="h-4 w-4" />
               </Button>
@@ -365,32 +410,73 @@ export default function AgendaPage() {
               <ul className="space-y-2">
                 {tasks.map((task) => (
                   <li key={task.id} className="flex items-center gap-3 rounded-lg border border-gray-100 p-3 dark:border-gray-700">
-                    <button
-                      onClick={() => handleToggleTask(task)}
-                      className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded border-2 transition-colors ${
-                        task.completed
-                          ? "border-green-500 bg-green-500 text-white"
-                          : "border-gray-300 dark:border-gray-600"
-                      }`}
-                    >
-                      {task.completed && <Check className="h-3 w-3" />}
-                    </button>
-                    <span
-                      className={`flex-1 text-sm ${
-                        task.completed ? "line-through text-gray-400" : "text-gray-900 dark:text-gray-100"
-                      }`}
-                    >
-                      {task.title}
-                    </span>
-                    {task.dueDate && (
-                      <span className="text-xs text-gray-400">{formatDate(task.dueDate)}</span>
+                    {editingTaskId === task.id ? (
+                      <>
+                        <Input
+                          value={editTaskTitle}
+                          onChange={(e) => setEditTaskTitle(e.target.value)}
+                          className="flex-1"
+                        />
+                        <Input
+                          type="date"
+                          value={editTaskDueDate}
+                          onChange={(e) => setEditTaskDueDate(e.target.value)}
+                          className="w-44"
+                        />
+                        <button onClick={handleSaveEditTask} type="button" className="text-green-600 hover:text-green-700">
+                          <Check className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => {
+                            setEditingTaskId(null);
+                            setEditTaskTitle("");
+                            setEditTaskDueDate("");
+                          }}
+                          type="button"
+                          className="text-gray-400 hover:text-gray-600"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => handleToggleTask(task)}
+                          type="button"
+                          className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded border-2 transition-colors ${
+                            task.completed
+                              ? "border-green-500 bg-green-500 text-white"
+                              : "border-gray-300 dark:border-gray-600"
+                          }`}
+                        >
+                          {task.completed && <Check className="h-3 w-3" />}
+                        </button>
+                        <span
+                          className={`flex-1 text-sm ${
+                            task.completed ? "line-through text-gray-400" : "text-gray-900 dark:text-gray-100"
+                          }`}
+                        >
+                          {task.title}
+                        </span>
+                        {task.dueDate && (
+                          <span className="text-xs text-gray-400">{formatDate(task.dueDate)}</span>
+                        )}
+                        <button
+                          onClick={() => handleStartEditTask(task)}
+                          type="button"
+                          className="text-gray-400 hover:text-blue-600"
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteTask(task.id)}
+                          type="button"
+                          className="text-gray-400 hover:text-red-500"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </>
                     )}
-                    <button
-                      onClick={() => handleDeleteTask(task.id)}
-                      className="text-gray-400 hover:text-red-500"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
                   </li>
                 ))}
               </ul>

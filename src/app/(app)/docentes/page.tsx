@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Presentation, ExternalLink, Plus, Upload, BookOpen, Trash2, ChevronDown, ChevronRight } from "lucide-react";
+import { FileText, Presentation, ExternalLink, Plus, Upload, BookOpen, Trash2, ChevronDown, ChevronRight, Edit2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import { DocumentViewerModal } from "@/components/ui/document-viewer-modal";
@@ -74,6 +74,14 @@ export default function DocentesPage() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [addSaving, setAddSaving] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
+  const [editingMaterialId, setEditingMaterialId] = useState<string | null>(null);
+  const [editMaterialForm, setEditMaterialForm] = useState<{ title: string; type: "PDF" | "SLIDE" | "LINK"; url: string }>({
+    title: "",
+    type: "SLIDE",
+    url: "",
+  });
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
   const [libraryItems, setLibraryItems] = useState<LibraryItem[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [viewer, setViewer] = useState<{ url: string; title: string; type: "PDF" | "SLIDE" | "LINK" } | null>(null);
@@ -204,6 +212,36 @@ export default function DocentesPage() {
       body: JSON.stringify({ status }),
     });
     loadData();
+  };
+
+  const handleStartEditMaterial = (material: Material) => {
+    setEditingMaterialId(material.id);
+    setEditMaterialForm({
+      title: material.title,
+      type: material.type,
+      url: material.url,
+    });
+    setEditError(null);
+  };
+
+  const handleSaveEditMaterial = async () => {
+    if (!editingMaterialId || !editMaterialForm.title || !editMaterialForm.url) return;
+    setEditSaving(true);
+    setEditError(null);
+    const res = await fetch(`/api/materials/${editingMaterialId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(editMaterialForm),
+    });
+    if (res.ok) {
+      setEditingMaterialId(null);
+      setEditMaterialForm({ title: "", type: "SLIDE", url: "" });
+      loadData();
+    } else {
+      const data = await res.json().catch(() => ({}));
+      setEditError((data as { error?: string }).error ?? "Erro ao editar material.");
+    }
+    setEditSaving(false);
   };
 
   const getTypeIcon = (type: string) => {
@@ -419,34 +457,95 @@ export default function DocentesPage() {
                               key={material.id}
                               className="flex items-center justify-between gap-3 rounded-lg border border-gray-100 p-3 dark:border-gray-700"
                             >
-                              <div className="flex items-center gap-2 min-w-0">
-                                {getTypeIcon(material.type)}
-                                <button
-                                  onClick={() => setViewer({ url: material.url, title: material.title, type: material.type })}
-                                  className="text-sm font-medium text-gray-900 dark:text-gray-100 hover:underline truncate text-left"
-                                >
-                                  {material.title}
-                                </button>
-                                {getTypeBadge(material.type)}
-                                {material.libraryItemId && (
-                                  <Badge variant="success">Biblioteca</Badge>
-                                )}
-                              </div>
-                              <select
-                                value={material.progress?.[0]?.status || "NOT_VIEWED"}
-                                onChange={(e) => handleProgressChange(material.id, e.target.value)}
-                                className={`text-xs rounded px-2 py-1 border-0 cursor-pointer flex-shrink-0 ${
-                                  (material.progress?.[0]?.status || "NOT_VIEWED") === "COMPLETED"
-                                    ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                                    : (material.progress?.[0]?.status || "NOT_VIEWED") === "IN_PROGRESS"
-                                    ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
-                                    : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300"
-                                }`}
-                              >
-                                <option value="NOT_VIEWED">{progressLabels.NOT_VIEWED}</option>
-                                <option value="IN_PROGRESS">{progressLabels.IN_PROGRESS}</option>
-                                <option value="COMPLETED">{progressLabels.COMPLETED}</option>
-                              </select>
+                              {editingMaterialId === material.id ? (
+                                <div className="w-full space-y-2">
+                                  <Input
+                                    value={editMaterialForm.title}
+                                    onChange={(e) => setEditMaterialForm({ ...editMaterialForm, title: e.target.value })}
+                                    placeholder="Título do material"
+                                  />
+                                  <div className="flex gap-2 flex-wrap">
+                                    <select
+                                      value={editMaterialForm.type}
+                                      onChange={(e) =>
+                                        setEditMaterialForm({
+                                          ...editMaterialForm,
+                                          type: e.target.value as "PDF" | "SLIDE" | "LINK",
+                                        })
+                                      }
+                                      className="flex h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                                    >
+                                      <option value="SLIDE">SLIDE</option>
+                                      <option value="PDF">PDF</option>
+                                      <option value="LINK">LINK</option>
+                                    </select>
+                                    <Input
+                                      value={editMaterialForm.url}
+                                      onChange={(e) => setEditMaterialForm({ ...editMaterialForm, url: e.target.value })}
+                                      placeholder="URL do material"
+                                      className="flex-1"
+                                    />
+                                  </div>
+                                  {editError && <p className="text-xs text-red-600 dark:text-red-400">{editError}</p>}
+                                  <div className="flex gap-2">
+                                    <Button size="sm" onClick={handleSaveEditMaterial} loading={editSaving}>
+                                      {editSaving ? "Salvando..." : "Salvar"}
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => {
+                                        setEditingMaterialId(null);
+                                        setEditMaterialForm({ title: "", type: "SLIDE", url: "" });
+                                        setEditError(null);
+                                      }}
+                                    >
+                                      Cancelar
+                                    </Button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <>
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    {getTypeIcon(material.type)}
+                                    <button
+                                      onClick={() => setViewer({ url: material.url, title: material.title, type: material.type })}
+                                      className="text-sm font-medium text-gray-900 dark:text-gray-100 hover:underline truncate text-left"
+                                    >
+                                      {material.title}
+                                    </button>
+                                    {getTypeBadge(material.type)}
+                                    {material.libraryItemId && (
+                                      <Badge variant="success">Biblioteca</Badge>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <select
+                                      value={material.progress?.[0]?.status || "NOT_VIEWED"}
+                                      onChange={(e) => handleProgressChange(material.id, e.target.value)}
+                                      className={`text-xs rounded px-2 py-1 border-0 cursor-pointer flex-shrink-0 ${
+                                        (material.progress?.[0]?.status || "NOT_VIEWED") === "COMPLETED"
+                                          ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                                          : (material.progress?.[0]?.status || "NOT_VIEWED") === "IN_PROGRESS"
+                                          ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
+                                          : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300"
+                                      }`}
+                                    >
+                                      <option value="NOT_VIEWED">{progressLabels.NOT_VIEWED}</option>
+                                      <option value="IN_PROGRESS">{progressLabels.IN_PROGRESS}</option>
+                                      <option value="COMPLETED">{progressLabels.COMPLETED}</option>
+                                    </select>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleStartEditMaterial(material)}
+                                      className="text-gray-400 hover:text-blue-600"
+                                      title="Editar material"
+                                    >
+                                      <Edit2 className="h-4 w-4" />
+                                    </button>
+                                  </div>
+                                </>
+                              )}
                             </div>
                           ))}
                         </div>
