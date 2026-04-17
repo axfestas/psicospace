@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,10 +42,7 @@ interface ScheduleSlot {
 }
 
 const DAYS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
-const TIMES: string[] = [];
-for (let h = 7; h <= 22; h++) {
-  TIMES.push(`${String(h).padStart(2, "0")}:00`);
-}
+const TIMES = Array.from({ length: 16 }, (_, i) => `${String(i + 7).padStart(2, "0")}:00`);
 
 const SLOT_COLORS = [
   "#3B82F6", "#10B981", "#8B5CF6", "#F59E0B",
@@ -295,10 +292,11 @@ export default function AgendaPage() {
   };
 
   // ── Task grouping helpers ─────────────────────────────────────────────────
-  const allGroups = Array.from(
-    new Set(tasks.map((t) => t.group).filter(Boolean) as string[])
-  ).sort();
-  const ungroupedTasks = tasks.filter((t) => !t.group);
+  const allGroups = useMemo(
+    () => Array.from(new Set(tasks.map((t) => t.group).filter(Boolean) as string[])).sort(),
+    [tasks]
+  );
+  const ungroupedTasks = useMemo(() => tasks.filter((t) => !t.group), [tasks]);
 
   const { firstDay, daysInMonth } = getDaysInMonth(currentDate);
   const monthName = currentDate.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
@@ -690,19 +688,21 @@ export default function AgendaPage() {
           {/* Legend */}
           {scheduleSlots.length > 0 && (
             <div className="flex flex-wrap gap-2">
-              {Array.from(new Set(scheduleSlots.map((s) => JSON.stringify({ subject: s.subject, color: s.color }))))
-                .map((raw) => JSON.parse(raw) as { subject: string; color: string })
-                .filter((v, i, arr) => arr.findIndex((x) => x.subject === v.subject) === i)
-                .map((item) => (
-                  <span
-                    key={item.subject}
-                    className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium"
-                    style={{ backgroundColor: item.color + "22", color: item.color, border: `1px solid ${item.color}55` }}
-                  >
-                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: item.color }} />
-                    {item.subject}
-                  </span>
-                ))}
+              {Array.from(
+                scheduleSlots.reduce((map, s) => {
+                  if (!map.has(s.subject)) map.set(s.subject, s.color);
+                  return map;
+                }, new Map<string, string>()).entries()
+              ).map(([subject, color]) => (
+                <span
+                  key={subject}
+                  className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium"
+                  style={{ backgroundColor: color + "22", color, border: `1px solid ${color}55` }}
+                >
+                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+                  {subject}
+                </span>
+              ))}
             </div>
           )}
         </div>
