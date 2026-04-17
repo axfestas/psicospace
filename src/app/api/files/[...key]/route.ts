@@ -3,6 +3,7 @@ import { getRequestContext } from "@cloudflare/next-on-pages";
 import { getAuthUser } from "@/lib/auth";
 import { getFileExtensionFromUrl } from "@/lib/file-urls";
 import { ifRangeMatches, parseSingleByteRange } from "@/lib/http-range";
+import { selectResponseEtag, toLastModifiedHeader } from "@/lib/http-validators";
 
 export const runtime = "edge";
 
@@ -113,12 +114,17 @@ async function handleFileRequest(
     // This is an authenticated endpoint and can serve private material.
     // Revalidation avoids clients retaining long-lived private cached copies.
     headers.set("cache-control", "private, max-age=0, must-revalidate");
-    if (metadataSource.httpEtag) {
-      headers.set("etag", metadataSource.httpEtag);
-    }
-    if (metadataSource.uploaded) {
-      headers.set("last-modified", metadataSource.uploaded.toUTCString());
-    }
+    headers.delete("etag");
+    const safeEtag = selectResponseEtag({
+      httpEtag: metadataSource.httpEtag,
+      etag: metadataSource.etag,
+      size: metadataSource.size,
+    });
+    if (safeEtag) headers.set("etag", safeEtag);
+
+    headers.delete("last-modified");
+    const safeLastModified = toLastModifiedHeader(metadataSource.uploaded);
+    if (safeLastModified) headers.set("last-modified", safeLastModified);
 
     if (responseContentLength === null && status !== 206) {
       responseContentLength = metadataSource.size;
