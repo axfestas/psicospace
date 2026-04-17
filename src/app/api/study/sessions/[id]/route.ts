@@ -212,9 +212,14 @@ async function updateCharacter(userId: string) {
       const diffDays = Math.floor(
         (now.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24)
       );
-      if (diffDays <= 1) {
-        newStreak += 1;
+      if (diffDays === 0) {
+        // Same calendar day — keep streak unchanged
+        newStreak = char.currentStreak;
+      } else if (diffDays === 1) {
+        // Consecutive day — extend streak
+        newStreak = char.currentStreak + 1;
       } else {
+        // Gap of 2+ days — reset streak
         newStreak = 1;
       }
     } else {
