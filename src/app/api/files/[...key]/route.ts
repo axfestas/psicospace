@@ -66,9 +66,9 @@ async function handleFileRequest(
         return notFoundResponse();
       }
 
-      const rangeConditionMet = rangeHeader && ifRangeMatches(ifRangeHeader, headObject.httpEtag ?? null, headObject.uploaded ?? null);
+      const shouldServeRange = rangeHeader && ifRangeMatches(ifRangeHeader, headObject.httpEtag ?? null, headObject.uploaded ?? null);
 
-      if (rangeConditionMet && rangeHeader) {
+      if (shouldServeRange && rangeHeader) {
         const parsedRange = parseSingleByteRange(rangeHeader, headObject.size);
         if (!parsedRange) {
           return new NextResponse(null, {
@@ -125,7 +125,7 @@ async function handleFileRequest(
     }
     if (status === 206) {
       if (contentRange === null || responseContentLength === null) {
-        throw new Error("Internal error: contentRange or responseContentLength unexpectedly null in 206 response");
+        throw new Error("Internal error: 206 Partial Content response missing required contentRange or responseContentLength values");
       }
       headers.set("content-range", contentRange);
       headers.set("content-length", String(responseContentLength));
