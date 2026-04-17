@@ -1,0 +1,965 @@
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useRouter } from "next/navigation";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import {
+  Plus,
+  CheckCircle,
+  XCircle,
+  Clock,
+  Edit2,
+  Trash2,
+  Zap,
+  BookOpen,
+  Library,
+  AlertCircle,
+  Loader2,
+  ChevronDown,
+  ChevronRight,
+} from "lucide-react";
+
+// ── Types ────────────────────────────────────────────────────────────────────
+
+interface LibraryItem {
+  id: string;
+  title: string;
+  type: string;
+}
+
+interface Material {
+  id: string;
+  title: string;
+  type: string;
+}
+
+interface Discipline {
+  id: string;
+  name: string;
+  materials: Material[];
+}
+
+interface Period {
+  id: string;
+  name: string;
+  disciplines: Discipline[];
+}
+
+interface ExerciseOption {
+  id?: string;
+  text: string;
+  isCorrect: boolean;
+  order?: number;
+}
+
+interface Exercise {
+  id: string;
+  title: string;
+  type: string;
+  question: string;
+  answer?: string;
+  explanation?: string;
+  status: string;
+  sourceType: string;
+  materialId?: string | null;
+  libraryItemId?: string | null;
+  createdAt: string;
+  options: ExerciseOption[];
+  createdBy: { id: string; name: string };
+  approvedBy?: { id: string; name: string } | null;
+  material?: { id: string; title: string } | null;
+  libraryItem?: { id: string; title: string } | null;
+}
+
+const TYPE_LABELS: Record<string, string> = {
+  MULTIPLE_CHOICE: "Múltipla escolha",
+  OPEN: "Pergunta aberta",
+  COMPREHENSION: "Compreensão",
+  APPLICATION: "Aplicação",
+};
+
+const STATUS_COLORS: Record<string, string> = {
+  PENDING: "text-yellow-600 bg-yellow-50 border-yellow-200 dark:bg-yellow-900/20 dark:border-yellow-700 dark:text-yellow-400",
+  APPROVED: "text-green-600 bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-700 dark:text-green-400",
+  REJECTED: "text-red-600 bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-700 dark:text-red-400",
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  PENDING: "Pendente",
+  APPROVED: "Aprovado",
+  REJECTED: "Rejeitado",
+};
+
+const BLANK_OPTION: ExerciseOption = { text: "", isCorrect: false };
+
+// ── Component ─────────────────────────────────────────────────────────────────
+
+export default function ExerciciosPage() {
+  const { user } = useAuth();
+  const router = useRouter();
+
+  const [exercises, setExercises] = useState<Exercise[]>([]);
+  const [periods, setPeriods] = useState<Period[]>([]);
+  const [libraryItems, setLibraryItems] = useState<LibraryItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Filters
+  const [filterStatus, setFilterStatus] = useState<string>("");
+  const [filterSource, setFilterSource] = useState<string>("");
+
+  // Source selection for generate
+  const [showGenerate, setShowGenerate] = useState(false);
+  const [genSourceType, setGenSourceType] = useState<"library" | "material">("library");
+  const [genLibraryItemId, setGenLibraryItemId] = useState("");
+  const [genMaterialId, setGenMaterialId] = useState("");
+  const [genCount, setGenCount] = useState(3);
+  const [genTypes, setGenTypes] = useState<string[]>(["OPEN", "COMPREHENSION", "MULTIPLE_CHOICE"]);
+  const [genError, setGenError] = useState<string | null>(null);
+  const [generating, setGenerating] = useState(false);
+
+  // Create manual form
+  const [showCreate, setShowCreate] = useState(false);
+  const [form, setForm] = useState({
+    title: "",
+    type: "OPEN",
+    question: "",
+    answer: "",
+    explanation: "",
+    materialId: "",
+    libraryItemId: "",
+  });
+  const [formOptions, setFormOptions] = useState<ExerciseOption[]>([
+    { ...BLANK_OPTION },
+    { ...BLANK_OPTION },
+    { ...BLANK_OPTION },
+    { ...BLANK_OPTION },
+  ]);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  // Edit form
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<typeof form>({
+    title: "",
+    type: "OPEN",
+    question: "",
+    answer: "",
+    explanation: "",
+    materialId: "",
+    libraryItemId: "",
+  });
+  const [editOptions, setEditOptions] = useState<ExerciseOption[]>([]);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  const isDocente = user && ["DOCENTE", "ADMIN", "SUPERADMIN"].includes(user.role);
+
+  useEffect(() => {
+    if (user && !isDocente) router.replace("/dashboard");
+  }, [user, isDocente, router]);
+
+  const loadData = useCallback(async () => {
+    const [exRes, periodsRes, libRes] = await Promise.all([
+      fetch("/api/exercises"),
+      fetch("/api/periods"),
+      fetch("/api/biblioteca"),
+    ]);
+    if (exRes.ok) setExercises((await exRes.json()).exercises || []);
+    if (periodsRes.ok) setPeriods((await periodsRes.json()).periods || []);
+    if (libRes.ok) setLibraryItems((await libRes.json()).items || []);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  // ── Generate ────────────────────────────────────────────────────────────────
+
+  const handleGenerate = async () => {
+    const sourceId = genSourceType === "library" ? genLibraryItemId : genMaterialId;
+    if (!sourceId) {
+      setGenError("Selecione um arquivo como base");
+      return;
+    }
+    setGenError(null);
+    setGenerating(true);
+    try {
+      const res = await fetch("/api/exercises/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          libraryItemId: genSourceType === "library" ? genLibraryItemId : undefined,
+          materialId: genSourceType === "material" ? genMaterialId : undefined,
+          count: genCount,
+          types: genTypes,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setShowGenerate(false);
+        setGenLibraryItemId("");
+        setGenMaterialId("");
+        await loadData();
+      } else {
+        setGenError(data.error || "Erro ao gerar exercícios");
+      }
+    } catch {
+      setGenError("Erro ao gerar exercícios");
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  // ── Create manual ───────────────────────────────────────────────────────────
+
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.title.trim() || !form.question.trim()) {
+      setFormError("Título e enunciado são obrigatórios");
+      return;
+    }
+    if (form.type === "MULTIPLE_CHOICE") {
+      const validOptions = formOptions.filter((o) => o.text.trim());
+      if (validOptions.length < 2) {
+        setFormError("Adicione pelo menos 2 opções");
+        return;
+      }
+      if (!validOptions.some((o) => o.isCorrect)) {
+        setFormError("Marque pelo menos uma opção como correta");
+        return;
+      }
+    }
+    setFormError(null);
+    setSaving(true);
+    try {
+      const res = await fetch("/api/exercises", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...form,
+          materialId: form.materialId || undefined,
+          libraryItemId: form.libraryItemId || undefined,
+          options: form.type === "MULTIPLE_CHOICE" ? formOptions.filter((o) => o.text.trim()) : undefined,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setShowCreate(false);
+        setForm({ title: "", type: "OPEN", question: "", answer: "", explanation: "", materialId: "", libraryItemId: "" });
+        setFormOptions([{ ...BLANK_OPTION }, { ...BLANK_OPTION }, { ...BLANK_OPTION }, { ...BLANK_OPTION }]);
+        await loadData();
+      } else {
+        setFormError(data.error || "Erro ao criar exercício");
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // ── Edit ────────────────────────────────────────────────────────────────────
+
+  const startEdit = (ex: Exercise) => {
+    setEditingId(ex.id);
+    setEditForm({
+      title: ex.title,
+      type: ex.type,
+      question: ex.question,
+      answer: ex.answer || "",
+      explanation: ex.explanation || "",
+      materialId: ex.materialId || "",
+      libraryItemId: ex.libraryItemId || "",
+    });
+    setEditOptions(
+      ex.options.length > 0
+        ? ex.options.map((o) => ({ text: o.text, isCorrect: o.isCorrect }))
+        : [{ ...BLANK_OPTION }, { ...BLANK_OPTION }]
+    );
+    setEditError(null);
+  };
+
+  const handleSaveEdit = async (id: string) => {
+    if (!editForm.title.trim() || !editForm.question.trim()) {
+      setEditError("Título e enunciado são obrigatórios");
+      return;
+    }
+    setEditError(null);
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/exercises/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: editForm.title,
+          question: editForm.question,
+          answer: editForm.answer || undefined,
+          explanation: editForm.explanation || undefined,
+          options: editForm.type === "MULTIPLE_CHOICE" ? editOptions.filter((o) => o.text.trim()) : undefined,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setEditingId(null);
+        await loadData();
+      } else {
+        setEditError(data.error || "Erro ao editar");
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // ── Approve / Reject ────────────────────────────────────────────────────────
+
+  const handleStatusChange = async (id: string, status: "APPROVED" | "REJECTED") => {
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/exercises/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        await loadData();
+      } else {
+        setError(data.error || "Erro ao atualizar status");
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // ── Delete ──────────────────────────────────────────────────────────────────
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Excluir este exercício?")) return;
+    const res = await fetch(`/api/exercises/${id}`, { method: "DELETE" });
+    if (res.ok) await loadData();
+  };
+
+  // ── Filters ─────────────────────────────────────────────────────────────────
+
+  const filtered = exercises.filter((ex) => {
+    if (filterStatus && ex.status !== filterStatus) return false;
+    if (filterSource && ex.sourceType !== filterSource) return false;
+    return true;
+  });
+
+  // Count by status
+  const counts = exercises.reduce(
+    (acc, ex) => { acc[ex.status] = (acc[ex.status] || 0) + 1; return acc; },
+    {} as Record<string, number>
+  );
+
+  // All materials for dropdown
+  const allMaterials = periods.flatMap((p) =>
+    p.disciplines.flatMap((d) => d.materials.map((m) => ({ ...m, disciplineName: d.name })))
+  );
+
+  if (!isDocente) return null;
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Exercícios</h1>
+          <p className="text-sm text-gray-500">
+            Crie, gere e publique exercícios vinculados a materiais
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => { setShowGenerate((v) => !v); setShowCreate(false); }}
+          >
+            <Zap className="h-4 w-4 mr-1 text-yellow-500" />
+            Gerar com IA
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => { setShowCreate((v) => !v); setShowGenerate(false); }}
+          >
+            <Plus className="h-4 w-4 mr-1" />
+            Criar manual
+          </Button>
+        </div>
+      </div>
+
+      {error && (
+        <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
+          <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+          {error}
+        </div>
+      )}
+
+      {/* Stats */}
+      <div className="grid grid-cols-3 gap-3">
+        {(["PENDING", "APPROVED", "REJECTED"] as const).map((s) => (
+          <div
+            key={s}
+            className={`rounded-lg border p-3 cursor-pointer transition-all ${STATUS_COLORS[s]} ${filterStatus === s ? "ring-2 ring-blue-500" : ""}`}
+            onClick={() => setFilterStatus(filterStatus === s ? "" : s)}
+          >
+            <p className="text-lg font-bold">{counts[s] || 0}</p>
+            <p className="text-xs">{STATUS_LABELS[s]}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Generate panel */}
+      {showGenerate && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Zap className="h-4 w-4 text-yellow-500" />
+              Gerar exercícios com IA
+            </CardTitle>
+            <p className="text-xs text-gray-500">
+              A IA usa exclusivamente o conteúdo do arquivo selecionado.
+              {!process.env.NEXT_PUBLIC_HAS_AI && " (Modo placeholder — configure OPENAI_API_KEY para geração real)"}
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex gap-2">
+              <button
+                onClick={() => setGenSourceType("library")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${genSourceType === "library" ? "bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-900/30 dark:border-blue-700 dark:text-blue-300" : "border-gray-200 dark:border-gray-700"}`}
+              >
+                <Library className="h-3.5 w-3.5" />
+                Biblioteca
+              </button>
+              <button
+                onClick={() => setGenSourceType("material")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${genSourceType === "material" ? "bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-900/30 dark:border-blue-700 dark:text-blue-300" : "border-gray-200 dark:border-gray-700"}`}
+              >
+                <BookOpen className="h-3.5 w-3.5" />
+                Material de Disciplina
+              </button>
+            </div>
+
+            {genSourceType === "library" ? (
+              <select
+                value={genLibraryItemId}
+                onChange={(e) => setGenLibraryItemId(e.target.value)}
+                className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+              >
+                <option value="">Selecione um item da biblioteca...</option>
+                {libraryItems.map((item) => (
+                  <option key={item.id} value={item.id}>{item.title} ({item.type})</option>
+                ))}
+              </select>
+            ) : (
+              <select
+                value={genMaterialId}
+                onChange={(e) => setGenMaterialId(e.target.value)}
+                className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+              >
+                <option value="">Selecione um material...</option>
+                {allMaterials.map((m) => (
+                  <option key={m.id} value={m.id}>{m.title} — {m.disciplineName} ({m.type})</option>
+                ))}
+              </select>
+            )}
+
+            <div className="flex gap-3 flex-wrap">
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Quantidade</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={10}
+                  value={genCount}
+                  onChange={(e) => setGenCount(Number(e.target.value))}
+                  className="h-9 w-20 rounded-md border border-gray-300 bg-white px-3 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                />
+              </div>
+              <div className="space-y-1 flex-1">
+                <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Tipos</label>
+                <div className="flex gap-2 flex-wrap">
+                  {["OPEN", "COMPREHENSION", "APPLICATION", "MULTIPLE_CHOICE"].map((t) => (
+                    <label key={t} className="flex items-center gap-1 text-xs cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={genTypes.includes(t)}
+                        onChange={(e) =>
+                          setGenTypes((prev) =>
+                            e.target.checked ? [...prev, t] : prev.filter((x) => x !== t)
+                          )
+                        }
+                        className="rounded"
+                      />
+                      {TYPE_LABELS[t]}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {genError && <p className="text-xs text-red-600">{genError}</p>}
+
+            <div className="flex gap-2">
+              <Button onClick={handleGenerate} loading={generating} size="sm">
+                <Zap className="h-4 w-4 mr-1" />
+                Gerar {genCount} exercício(s)
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setShowGenerate(false)}>
+                Cancelar
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Create manual form */}
+      {showCreate && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              Criar exercício manualmente
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleCreate} className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-700 dark:text-gray-300">Título *</label>
+                  <Input
+                    placeholder="Título do exercício"
+                    value={form.title}
+                    onChange={(e) => setForm({ ...form, title: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-700 dark:text-gray-300">Tipo *</label>
+                  <select
+                    value={form.type}
+                    onChange={(e) => setForm({ ...form, type: e.target.value })}
+                    className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                  >
+                    {Object.entries(TYPE_LABELS).map(([k, v]) => (
+                      <option key={k} value={k}>{v}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-700 dark:text-gray-300">Vinculado a (Biblioteca)</label>
+                  <select
+                    value={form.libraryItemId}
+                    onChange={(e) => setForm({ ...form, libraryItemId: e.target.value, materialId: "" })}
+                    className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                  >
+                    <option value="">Nenhum</option>
+                    {libraryItems.map((it) => (
+                      <option key={it.id} value={it.id}>{it.title}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-700 dark:text-gray-300">Vinculado a (Material)</label>
+                  <select
+                    value={form.materialId}
+                    onChange={(e) => setForm({ ...form, materialId: e.target.value, libraryItemId: "" })}
+                    className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                  >
+                    <option value="">Nenhum</option>
+                    {allMaterials.map((m) => (
+                      <option key={m.id} value={m.id}>{m.title}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-700 dark:text-gray-300">Enunciado *</label>
+                <textarea
+                  className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-3 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  rows={4}
+                  placeholder="Digite o enunciado da questão..."
+                  value={form.question}
+                  onChange={(e) => setForm({ ...form, question: e.target.value })}
+                />
+              </div>
+
+              {form.type === "MULTIPLE_CHOICE" && (
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                    Opções * (marque a(s) correta(s))
+                  </label>
+                  {formOptions.map((opt, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={opt.isCorrect}
+                        onChange={(e) =>
+                          setFormOptions((prev) =>
+                            prev.map((o, idx) => idx === i ? { ...o, isCorrect: e.target.checked } : o)
+                          )
+                        }
+                        className="rounded"
+                        title="Correta"
+                      />
+                      <Input
+                        placeholder={`Opção ${i + 1}`}
+                        value={opt.text}
+                        onChange={(e) =>
+                          setFormOptions((prev) =>
+                            prev.map((o, idx) => idx === i ? { ...o, text: e.target.value } : o)
+                          )
+                        }
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {form.type !== "MULTIPLE_CHOICE" && (
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                    Gabarito / Resposta modelo (opcional)
+                  </label>
+                  <textarea
+                    className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-3 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                    rows={2}
+                    placeholder="Resposta esperada..."
+                    value={form.answer}
+                    onChange={(e) => setForm({ ...form, answer: e.target.value })}
+                  />
+                </div>
+              )}
+
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-700 dark:text-gray-300">Explicação (opcional)</label>
+                <textarea
+                  className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-3 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  rows={2}
+                  placeholder="Explicação da resposta..."
+                  value={form.explanation}
+                  onChange={(e) => setForm({ ...form, explanation: e.target.value })}
+                />
+              </div>
+
+              {formError && <p className="text-xs text-red-600">{formError}</p>}
+
+              <div className="flex gap-2 pt-1">
+                <Button type="submit" size="sm" loading={saving}>
+                  Criar exercício
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => setShowCreate(false)}>
+                  Cancelar
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Filters */}
+      <div className="flex gap-2 flex-wrap">
+        <select
+          value={filterStatus}
+          onChange={(e) => setFilterStatus(e.target.value)}
+          className="h-8 rounded-md border border-gray-200 bg-white px-2 text-xs dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+        >
+          <option value="">Todos os status</option>
+          <option value="PENDING">Pendente</option>
+          <option value="APPROVED">Aprovado</option>
+          <option value="REJECTED">Rejeitado</option>
+        </select>
+        <select
+          value={filterSource}
+          onChange={(e) => setFilterSource(e.target.value)}
+          className="h-8 rounded-md border border-gray-200 bg-white px-2 text-xs dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+        >
+          <option value="">Todas as origens</option>
+          <option value="MANUAL">Manual</option>
+          <option value="AI">IA</option>
+        </select>
+      </div>
+
+      {/* Exercise list */}
+      <div className="space-y-3">
+        {filtered.length === 0 ? (
+          <Card>
+            <CardContent className="py-12 text-center text-gray-500">
+              <p className="text-sm">Nenhum exercício encontrado.</p>
+              <p className="text-xs mt-1">Crie um manualmente ou gere com IA.</p>
+            </CardContent>
+          </Card>
+        ) : (
+          filtered.map((ex) => (
+            <ExerciseCard
+              key={ex.id}
+              exercise={ex}
+              isEditing={editingId === ex.id}
+              editForm={editForm}
+              editOptions={editOptions}
+              editError={editError}
+              saving={saving}
+              onStartEdit={() => startEdit(ex)}
+              onCancelEdit={() => setEditingId(null)}
+              onSaveEdit={() => handleSaveEdit(ex.id)}
+              onEditFormChange={(updates) => setEditForm((prev) => ({ ...prev, ...updates }))}
+              onEditOptionsChange={setEditOptions}
+              onApprove={() => handleStatusChange(ex.id, "APPROVED")}
+              onReject={() => handleStatusChange(ex.id, "REJECTED")}
+              onDelete={() => handleDelete(ex.id)}
+            />
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── ExerciseCard ─────────────────────────────────────────────────────────────
+
+interface ExerciseCardProps {
+  exercise: Exercise;
+  isEditing: boolean;
+  editForm: Record<string, string>;
+  editOptions: ExerciseOption[];
+  editError: string | null;
+  saving: boolean;
+  onStartEdit: () => void;
+  onCancelEdit: () => void;
+  onSaveEdit: () => void;
+  onEditFormChange: (updates: Record<string, string>) => void;
+  onEditOptionsChange: (opts: ExerciseOption[]) => void;
+  onApprove: () => void;
+  onReject: () => void;
+  onDelete: () => void;
+}
+
+function ExerciseCard({
+  exercise: ex,
+  isEditing,
+  editForm,
+  editOptions,
+  editError,
+  saving,
+  onStartEdit,
+  onCancelEdit,
+  onSaveEdit,
+  onEditFormChange,
+  onEditOptionsChange,
+  onApprove,
+  onReject,
+  onDelete,
+}: ExerciseCardProps) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <Card className={`overflow-hidden ${ex.status === "APPROVED" ? "border-green-200 dark:border-green-800" : ex.status === "REJECTED" ? "border-red-200 dark:border-red-800" : ""}`}>
+      {/* Card header */}
+      <div
+        className="flex items-start justify-between p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+        onClick={() => setExpanded((v) => !v)}
+      >
+        <div className="flex-1 min-w-0 space-y-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border font-medium ${STATUS_COLORS[ex.status]}`}>
+              {ex.status === "APPROVED" && <CheckCircle className="h-3 w-3" />}
+              {ex.status === "REJECTED" && <XCircle className="h-3 w-3" />}
+              {ex.status === "PENDING" && <Clock className="h-3 w-3" />}
+              {STATUS_LABELS[ex.status]}
+            </span>
+            <Badge variant="default" className="text-xs">
+              {TYPE_LABELS[ex.type] || ex.type}
+            </Badge>
+            {ex.sourceType === "AI" && (
+              <Badge variant="warning" className="text-xs">IA</Badge>
+            )}
+          </div>
+          <p className="text-sm font-medium text-gray-900 dark:text-gray-100 leading-snug">{ex.title}</p>
+          {(ex.material || ex.libraryItem) && (
+            <p className="text-xs text-gray-400">
+              📎 {ex.material?.title || ex.libraryItem?.title}
+            </p>
+          )}
+        </div>
+        <div className="flex items-center gap-1 ml-2 flex-shrink-0">
+          {expanded ? (
+            <ChevronDown className="h-4 w-4 text-gray-400" />
+          ) : (
+            <ChevronRight className="h-4 w-4 text-gray-400" />
+          )}
+        </div>
+      </div>
+
+      {/* Expanded content */}
+      {expanded && (
+        <div className="border-t border-gray-100 dark:border-gray-700 px-4 pb-4 pt-3 space-y-3">
+          {isEditing ? (
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Título</label>
+                <Input
+                  value={editForm.title}
+                  onChange={(e) => onEditFormChange({ title: e.target.value })}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Enunciado</label>
+                <textarea
+                  className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-3 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  rows={4}
+                  value={editForm.question}
+                  onChange={(e) => onEditFormChange({ question: e.target.value })}
+                />
+              </div>
+              {ex.type === "MULTIPLE_CHOICE" && (
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Opções</label>
+                  {editOptions.map((opt, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={opt.isCorrect}
+                        onChange={(e) =>
+                          onEditOptionsChange(editOptions.map((o, idx) =>
+                            idx === i ? { ...o, isCorrect: e.target.checked } : o
+                          ))
+                        }
+                        className="rounded"
+                      />
+                      <Input
+                        value={opt.text}
+                        onChange={(e) =>
+                          onEditOptionsChange(editOptions.map((o, idx) =>
+                            idx === i ? { ...o, text: e.target.value } : o
+                          ))
+                        }
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+              {ex.type !== "MULTIPLE_CHOICE" && (
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Gabarito</label>
+                  <textarea
+                    className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-3 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                    rows={2}
+                    value={editForm.answer}
+                    onChange={(e) => onEditFormChange({ answer: e.target.value })}
+                  />
+                </div>
+              )}
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Explicação</label>
+                <textarea
+                  className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-3 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  rows={2}
+                  value={editForm.explanation}
+                  onChange={(e) => onEditFormChange({ explanation: e.target.value })}
+                />
+              </div>
+              {editError && <p className="text-xs text-red-600">{editError}</p>}
+              <div className="flex gap-2">
+                <Button size="sm" onClick={onSaveEdit} loading={saving}>Salvar</Button>
+                <Button size="sm" variant="outline" onClick={onCancelEdit}>Cancelar</Button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div>
+                <p className="text-xs font-medium text-gray-500 mb-1">Enunciado</p>
+                <p className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap">{ex.question}</p>
+              </div>
+              {ex.type === "MULTIPLE_CHOICE" && ex.options.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-gray-500 mb-1">Opções</p>
+                  <ul className="space-y-1">
+                    {ex.options.map((opt, i) => (
+                      <li
+                        key={i}
+                        className={`flex items-start gap-2 text-sm rounded px-2 py-1 ${opt.isCorrect ? "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 font-medium" : "text-gray-700 dark:text-gray-300"}`}
+                      >
+                        {opt.isCorrect ? "✅" : "○"} {opt.text}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {ex.answer && (
+                <div>
+                  <p className="text-xs font-medium text-gray-500 mb-1">Gabarito</p>
+                  <p className="text-sm text-gray-700 dark:text-gray-300">{ex.answer}</p>
+                </div>
+              )}
+              {ex.explanation && (
+                <div>
+                  <p className="text-xs font-medium text-gray-500 mb-1">Explicação</p>
+                  <p className="text-sm text-gray-700 dark:text-gray-300">{ex.explanation}</p>
+                </div>
+              )}
+              <p className="text-xs text-gray-400">
+                Criado por {ex.createdBy.name}
+                {ex.approvedBy && ` · Aprovado por ${ex.approvedBy.name}`}
+              </p>
+            </>
+          )}
+
+          {/* Action buttons */}
+          {!isEditing && (
+            <div className="flex flex-wrap gap-2 pt-1 border-t border-gray-100 dark:border-gray-700">
+              {ex.status !== "APPROVED" && (
+                <Button
+                  size="sm"
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                  onClick={onApprove}
+                  loading={saving}
+                >
+                  <CheckCircle className="h-3.5 w-3.5 mr-1" />
+                  Aprovar
+                </Button>
+              )}
+              {ex.status !== "REJECTED" && (
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={onReject}
+                  loading={saving}
+                >
+                  <XCircle className="h-3.5 w-3.5 mr-1" />
+                  Rejeitar
+                </Button>
+              )}
+              <Button size="sm" variant="outline" onClick={onStartEdit}>
+                <Edit2 className="h-3.5 w-3.5 mr-1" />
+                Editar
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-red-500 hover:text-red-600"
+                onClick={onDelete}
+              >
+                <Trash2 className="h-3.5 w-3.5 mr-1" />
+                Excluir
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+    </Card>
+  );
+}
