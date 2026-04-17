@@ -97,11 +97,11 @@ export async function DELETE(
       return NextResponse.json({ error: "Sem permissão para remover este item" }, { status: 403 });
     }
 
-    const [deleteMaterials] = await prisma.$transaction([
+    const [{ count: deletedMaterials }] = await prisma.$transaction([
       prisma.material.deleteMany({ where: { libraryItemId: id } }),
       prisma.libraryItem.delete({ where: { id } }),
     ]);
-    return NextResponse.json({ success: true, deletedMaterials: deleteMaterials.count });
+    return NextResponse.json({ success: true, deletedMaterials });
   } catch (error) {
     console.error("[biblioteca/[id] DELETE]", error);
     return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 });

@@ -388,9 +388,7 @@ export default function DocentesPage() {
     const urlToSubmit =
       editMaterialForm.type === "LINK"
         ? normalizedUrl
-        : normalizedUrl.length > 0
-          ? normalizedUrl
-          : undefined;
+        : normalizedUrl || undefined;
     if (editMaterialForm.type === "LINK" && !urlToSubmit) return;
     setEditSaving(true);
     setEditError(null);
