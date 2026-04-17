@@ -48,11 +48,16 @@ interface CfR2GetOptions {
 
 interface CfR2Object {
   key: string;
+  version?: string;
+  size: number;
+  etag: string;
+  /** ETag formatted for HTTP headers (includes quotes), e.g. `"abc123"` */
+  httpEtag: string;
+  /** Timestamp when the object was uploaded */
+  uploaded: Date;
   writeHttpMetadata(headers: Headers): void;
   httpMetadata?: CfR2HttpMetadata;
   customMetadata?: Record<string, string>;
-  size: number;
-  etag: string;
 }
 
 interface CfR2ObjectBody extends CfR2Object {
