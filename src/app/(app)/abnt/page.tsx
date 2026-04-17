@@ -126,6 +126,7 @@ export default function ABNTPage() {
       <div className="rounded-xl bg-blue-50 border border-blue-200 p-4 dark:bg-blue-900/20 dark:border-blue-800">
         <p className="text-sm text-blue-700 dark:text-blue-300">
           <strong>Ψ Dica:</strong> As normas ABNT são atualizadas periodicamente. Sempre verifique a versão mais recente junto à sua instituição.
+          As principais normas são: NBR 14724 (trabalhos acadêmicos), NBR 6023 (referências), NBR 10520 (citações) e NBR 6028 (resumos).
         </p>
       </div>
 
