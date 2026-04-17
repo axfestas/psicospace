@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAuthUser } from "@/lib/auth";
+import { normalizeStoredMaterialUrl } from "@/lib/file-urls";
 
 export const runtime = "edge";
 
@@ -28,7 +29,15 @@ export async function GET(
       },
     });
 
-    return NextResponse.json({ disciplines });
+    return NextResponse.json({
+      disciplines: disciplines.map((discipline) => ({
+        ...discipline,
+        materials: discipline.materials.map((material) => ({
+          ...material,
+          url: normalizeStoredMaterialUrl(material.url, material.type),
+        })),
+      })),
+    });
   } catch (error) {
     console.error("[periods/[id]/disciplines]", error);
     return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 });

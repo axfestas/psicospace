@@ -4,6 +4,25 @@ import { getAuthUser } from "@/lib/auth";
 
 export const runtime = "edge";
 
+const CONTENT_TYPE_BY_EXTENSION: Record<string, string> = {
+  pdf: "application/pdf",
+  ppt: "application/vnd.ms-powerpoint",
+  pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  gif: "image/gif",
+  webp: "image/webp",
+  bmp: "image/bmp",
+  svg: "image/svg+xml",
+};
+
+function getExtension(fileName: string): string | null {
+  const dotIndex = fileName.lastIndexOf(".");
+  if (dotIndex <= 0 || dotIndex === fileName.length - 1) return null;
+  return fileName.slice(dotIndex + 1).toLowerCase();
+}
+
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ key: string[] }> }
@@ -30,16 +49,23 @@ export async function GET(
 
     // Derive the original filename from the key (format: userId/timestamp-filename)
     const filename = segments[segments.length - 1].replace(/^\d+-/, "");
-    const contentType = headers.get("content-type") ?? "";
+    const safeFileName = filename.replace(/["\r\n]/g, "_");
+    const inferredContentType = (() => {
+      const extension = getExtension(filename);
+      return extension ? CONTENT_TYPE_BY_EXTENSION[extension] : null;
+    })();
+    const contentType = headers.get("content-type") ?? inferredContentType ?? "application/octet-stream";
+    headers.set("content-type", contentType);
+    headers.set("x-content-type-options", "nosniff");
 
     // Ensure the browser renders the file inline rather than downloading it.
     // For browsers that don't support inline PDF rendering (e.g. mobile), a
     // fallback download/open-in-new-tab button is shown in the viewer modal.
     if (contentType.startsWith("application/pdf") || contentType.startsWith("image/")) {
-      headers.set("content-disposition", `inline; filename="${filename}"`);
+      headers.set("content-disposition", `inline; filename="${safeFileName}"`);
     } else {
       // Slides and other non-viewable types should trigger a download
-      headers.set("content-disposition", `attachment; filename="${filename}"`);
+      headers.set("content-disposition", `attachment; filename="${safeFileName}"`);
     }
 
     return new NextResponse(object.body, { headers });

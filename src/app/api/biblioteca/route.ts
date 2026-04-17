@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAuthUser } from "@/lib/auth";
+import { isInternalFileUrl, normalizeStoredMaterialUrl } from "@/lib/file-urls";
 
 export const runtime = "edge";
+
+const ALLOWED_TYPES = new Set(["PDF", "SLIDE", "LINK"]);
 
 export async function GET() {
   try {
@@ -14,7 +17,12 @@ export async function GET() {
       include: { uploadedBy: { select: { name: true } } },
     });
 
-    return NextResponse.json({ items });
+    return NextResponse.json({
+      items: items.map((item) => ({
+        ...item,
+        url: normalizeStoredMaterialUrl(item.url, item.type),
+      })),
+    });
   } catch (error) {
     console.error("[biblioteca GET]", error);
     return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 });
@@ -35,16 +43,27 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+    if (!ALLOWED_TYPES.has(type)) {
+      return NextResponse.json({ error: "Tipo de material inválido." }, { status: 400 });
+    }
+
+    const normalizedUrl = normalizeStoredMaterialUrl(url, type);
+    if (type !== "LINK" && !isInternalFileUrl(normalizedUrl)) {
+      return NextResponse.json(
+        { error: "Para PDFs e slides, envie o arquivo por upload." },
+        { status: 400 }
+      );
+    }
 
     const item = await prisma.libraryItem.create({
       data: {
         title,
         description,
         type,
-        url,
+        url: normalizedUrl,
         thumbnailUrl:
           typeof thumbnailUrl === "string" && thumbnailUrl.trim().length > 0
-            ? thumbnailUrl
+            ? normalizeStoredMaterialUrl(thumbnailUrl)
             : null,
         uploadedById: auth.userId,
       },
