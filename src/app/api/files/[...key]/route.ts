@@ -3,7 +3,7 @@ import { getRequestContext } from "@cloudflare/next-on-pages";
 import { getAuthUser } from "@/lib/auth";
 import { getFileExtensionFromUrl } from "@/lib/file-urls";
 import { parseSingleByteRange } from "@/lib/http-range";
-import { selectResponseEtag, toLastModifiedHeader } from "@/lib/http-validators";
+import { checkNotModified, selectResponseEtag, toLastModifiedHeader } from "@/lib/http-validators";
 
 export const runtime = "edge";
 
@@ -59,6 +59,36 @@ async function handleFileRequest(
       return notFoundResponse();
     }
 
+    // Compute validators early so they can be used for both conditional-GET
+    // (304) and the final response headers.
+    const safeEtag = selectResponseEtag({
+      httpEtag: headObject.httpEtag,
+      etag: headObject.etag,
+      size: headObject.size,
+    });
+    const safeLastModified = toLastModifiedHeader(headObject.uploaded);
+
+    // Honour conditional GET (RFC 7232): return 304 Not Modified when the
+    // client already has a fresh copy.  This is especially important for
+    // embedded PDF viewers (e.g. Edge's built-in viewer inside an <iframe>)
+    // which send a validation request before rendering; a spurious 200 with
+    // the full body confuses those viewers and causes "something went wrong".
+    if (
+      checkNotModified(
+        request.headers.get("if-none-match"),
+        request.headers.get("if-modified-since"),
+        safeEtag,
+        headObject.uploaded,
+      )
+    ) {
+      const notModifiedHeaders = new Headers();
+      notModifiedHeaders.set("cache-control", "private, max-age=0, must-revalidate");
+      notModifiedHeaders.set("accept-ranges", "bytes");
+      if (safeEtag) notModifiedHeaders.set("etag", safeEtag);
+      if (safeLastModified) notModifiedHeaders.set("last-modified", safeLastModified);
+      return new NextResponse(null, { status: 304, headers: notModifiedHeaders });
+    }
+
     let object: CfR2ObjectBody | null = null;
     let status = 200;
     let contentRange: string | null = null;
@@ -103,15 +133,9 @@ async function handleFileRequest(
     // Revalidation avoids clients retaining long-lived private cached copies.
     headers.set("cache-control", "private, max-age=0, must-revalidate");
     headers.delete("etag");
-    const safeEtag = selectResponseEtag({
-      httpEtag: headObject.httpEtag,
-      etag: headObject.etag,
-      size: headObject.size,
-    });
     if (safeEtag) headers.set("etag", safeEtag);
 
     headers.delete("last-modified");
-    const safeLastModified = toLastModifiedHeader(headObject.uploaded);
     if (safeLastModified) headers.set("last-modified", safeLastModified);
 
     if (responseContentLength === null && status !== 206) {

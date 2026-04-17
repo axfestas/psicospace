@@ -60,3 +60,38 @@ export function toLastModifiedHeader(uploaded: Date | null | undefined): string 
   if (Number.isNaN(uploaded.getTime())) return null;
   return uploaded.toUTCString();
 }
+
+/**
+ * Returns true when the client's conditional GET headers indicate the resource
+ * has NOT been modified, meaning the server should respond with 304.
+ *
+ * Evaluation order follows RFC 7232:
+ *  1. `If-None-Match` (takes precedence when present)
+ *  2. `If-Modified-Since` (only consulted when `If-None-Match` is absent)
+ */
+export function checkNotModified(
+  ifNoneMatch: string | null,
+  ifModifiedSince: string | null,
+  etag: string | null,
+  lastModified: Date | null | undefined,
+): boolean {
+  if (ifNoneMatch) {
+    if (!etag) return false;
+    const trimmed = ifNoneMatch.trim();
+    if (trimmed === "*") return true;
+    // Weak comparison per RFC 7232 §3.2: strip W/ prefix before comparing.
+    const normalize = (e: string) => e.trim().replace(/^W\//, "");
+    const serverNorm = normalize(etag);
+    return trimmed.split(",").some((v) => normalize(v) === serverNorm);
+  }
+
+  if (ifModifiedSince) {
+    if (!lastModified || Number.isNaN(lastModified.getTime())) return false;
+    const since = new Date(ifModifiedSince);
+    if (Number.isNaN(since.getTime())) return false;
+    // 304 when last-modified ≤ if-modified-since (not modified *after* that date)
+    return lastModified.getTime() <= since.getTime();
+  }
+
+  return false;
+}
