@@ -3,6 +3,11 @@
 import { useEffect, useState } from "react";
 import { X, Download, Presentation, Globe, ExternalLink, AlertTriangle } from "lucide-react";
 import { isInternalFileUrl, normalizeStoredMaterialUrl, resolveViewerKind } from "@/lib/file-urls";
+import {
+  usePomodoroTimer,
+  PomodoroHeaderButton,
+  PomodoroBreakOverlay,
+} from "@/components/ui/pomodoro-timer";
 
 interface DocumentViewerModalProps {
   url: string;
@@ -14,6 +19,7 @@ interface DocumentViewerModalProps {
 export function DocumentViewerModal({ url, title, type, onClose }: DocumentViewerModalProps) {
   const [iframeError, setIframeError] = useState(false);
   const normalizedUrl = normalizeStoredMaterialUrl(url, type);
+  const pomodoro = usePomodoroTimer();
 
   // Close on Escape
   useEffect(() => {
@@ -69,6 +75,17 @@ export function DocumentViewerModal({ url, title, type, onClose }: DocumentViewe
               Nova aba
             </a>
           )}
+          {/* Pomodoro timer button */}
+          <PomodoroHeaderButton
+            phase={pomodoro.phase}
+            formattedTime={pomodoro.formattedTime}
+            completedPomodoros={pomodoro.completedPomodoros}
+            isActive={pomodoro.isActive}
+            isBreak={pomodoro.isBreak}
+            onStart={pomodoro.start}
+            onStop={pomodoro.stop}
+            onSkip={pomodoro.skipPhase}
+          />
           <button
             onClick={onClose}
             className="text-gray-300 hover:text-white p-1"
@@ -80,7 +97,7 @@ export function DocumentViewerModal({ url, title, type, onClose }: DocumentViewe
       </div>
 
       {/* Content area */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-hidden relative">
         {viewerKind === "SLIDE" ? (
           /* Presentations (PPTX/PPT) cannot be displayed inline in a browser.
              Offer a download link instead. */
@@ -168,6 +185,17 @@ export function DocumentViewerModal({ url, title, type, onClose }: DocumentViewe
             title={title}
             allow="fullscreen"
             onError={() => setIframeError(true)}
+          />
+        )}
+        {/* Pomodoro break overlay — displayed on top of content during a break */}
+        {pomodoro.isBreak && (
+          <PomodoroBreakOverlay
+            phase={pomodoro.phase as "shortBreak" | "longBreak"}
+            secondsLeft={pomodoro.secondsLeft}
+            totalSeconds={pomodoro.totalSeconds}
+            completedPomodoros={pomodoro.completedPomodoros}
+            formattedTime={pomodoro.formattedTime}
+            onSkip={pomodoro.skipPhase}
           />
         )}
       </div>
