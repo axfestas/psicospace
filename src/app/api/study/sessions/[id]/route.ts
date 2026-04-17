@@ -122,7 +122,8 @@ export async function PUT(
 
     // On completion: grant reward and mark microtask done
     if (isCompleting) {
-      await grantSessionReward(auth.userId, id);
+      const sessionTotalSeconds = typeof totalSeconds === "number" ? totalSeconds : updated.totalSeconds ?? 0;
+      await grantSessionReward(auth.userId, id, sessionTotalSeconds);
       await prisma.microTask.update({
         where: { id: session.microTaskId },
         data: { completed: true },

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { REWARD_EXERCISE_CORRECT, REWARD_SESSION_COMPLETED, REWARD_DAILY_STREAK_BONUS } from "@/lib/psico-constants";
+import { REWARD_EXERCISE_CORRECT, REWARD_SESSION_COMPLETED, REWARD_DAILY_STREAK, REWARD_STREAK_MILESTONE, REWARD_SESSION_LONG_BONUS, STREAK_MILESTONE_INTERVAL, SESSION_LONG_THRESHOLD_SECONDS } from "@/lib/psico-constants";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   Coins,
@@ -320,24 +320,39 @@ export default function PsicoGamePage() {
                   value: `+${REWARD_EXERCISE_CORRECT} Psiquê`,
                 },
                 {
+                  icon: "🏆",
+                  text: "Bônus de desempenho (acerto ≥ 80%)",
+                  value: "+10 Psiquê",
+                },
+                {
                   icon: "📖",
                   text: "Concluir uma sessão de estudo",
                   value: `+${REWARD_SESSION_COMPLETED} Psiquê`,
                 },
                 {
+                  icon: "⏱️",
+                  text: `Sessão longa (≥ ${Math.round(SESSION_LONG_THRESHOLD_SECONDS / 60)} min)`,
+                  value: `+${REWARD_SESSION_LONG_BONUS} Psiquê`,
+                },
+                {
                   icon: "🔥",
-                  text: "Manter sequência diária (streak)",
-                  value: `+${REWARD_DAILY_STREAK_BONUS} Psiquê`,
+                  text: "Sequência diária (streak)",
+                  value: `+${REWARD_DAILY_STREAK} Psiquê/dia`,
+                },
+                {
+                  icon: "💎",
+                  text: `Bônus a cada ${STREAK_MILESTONE_INTERVAL} dias consecutivos`,
+                  value: `+${REWARD_STREAK_MILESTONE} Psiquê`,
                 },
                 {
                   icon: "📚",
-                  text: "Leitura e páginas concluídas",
-                  value: "Em breve",
+                  text: "Leitura (a cada 5 páginas / ao finalizar)",
+                  value: "+5 / +15 Psiquê",
                 },
                 {
                   icon: "🎯",
                   text: "Missões semanais",
-                  value: "Em breve",
+                  value: "+50 a +100 Psiquê",
                 },
               ].map((item, i) => (
                 <div key={i} className="flex items-center justify-between text-sm">

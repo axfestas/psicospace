@@ -5,14 +5,91 @@ import { getAuthUser } from "@/lib/auth";
 export const runtime = "edge";
 
 const DOCENTE_ROLES = new Set(["DOCENTE", "ADMIN", "SUPERADMIN"]);
+const INSUFFICIENT_CONTENT_MSG = "conteúdo insuficiente para gerar questões";
+const OPTION_LETTERS = ["A", "B", "C", "D"] as const;
+
+type ParsedQuestion = {
+  question: string;
+  options: Array<{ text: string; isCorrect: boolean }>;
+};
+
+function stripCodeFence(raw: string) {
+  return raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+}
+
+function parseGeneratedQuestions(raw: string): ParsedQuestion[] {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(stripCodeFence(raw));
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(parsed)) return [];
+
+  const result: ParsedQuestion[] = [];
+
+  for (const item of parsed) {
+    if (!item || typeof item !== "object") continue;
+
+    const question = typeof item.question === "string"
+      ? item.question.trim()
+      : typeof item.pergunta === "string"
+      ? item.pergunta.trim()
+      : "";
+
+    const rawOpts: unknown[] = Array.isArray(item.options)
+      ? item.options
+      : Array.isArray(item.alternativas)
+      ? item.alternativas
+      : [];
+
+    if (!question || rawOpts.length !== 4) continue;
+
+    let options: Array<{ text: string; isCorrect: boolean }> = [];
+
+    if (rawOpts.every((o) => o && typeof o === "object" && typeof (o as Record<string, unknown>).text === "string")) {
+      options = rawOpts.map((o) => {
+        const obj = o as { text: string; isCorrect?: boolean };
+        return { text: obj.text.trim(), isCorrect: !!obj.isCorrect };
+      });
+    } else if (rawOpts.every((o) => typeof o === "string")) {
+      const letterRaw = String(
+        (item as Record<string, unknown>).correctOption ??
+        (item as Record<string, unknown>).respostaCorreta ??
+        (item as Record<string, unknown>).gabarito ?? ""
+      ).trim().toUpperCase();
+      const idx = OPTION_LETTERS.indexOf(letterRaw as (typeof OPTION_LETTERS)[number]);
+      if (idx === -1) continue;
+      options = (rawOpts as string[]).map((text, i) => ({
+        text: text.trim(),
+        isCorrect: i === idx,
+      }));
+    } else {
+      continue;
+    }
+
+    if (options.some((o) => !o.text)) continue;
+    if (options.filter((o) => o.isCorrect).length !== 1) continue;
+
+    result.push({ question, options });
+  }
+
+  return result;
+}
 
 /**
  * POST /api/exercises/generate
  *
- * Generates exercise questions from a material/library item.
- * The AI generation requires OPENAI_API_KEY to be configured.
- * Without the API key, returns template-based placeholder exercises
- * that the docente can edit and approve.
+ * Gera questões de múltipla escolha a partir de um material ou item de biblioteca.
+ * Requer OPENAI_API_KEY configurada. Usa EXCLUSIVAMENTE o conteúdo fornecido.
+ *
+ * Prompt baseado nas REGRAS OBRIGATÓRIAS:
+ *   1. Usar apenas o conteúdo do texto/PDF fornecido.
+ *   2. Não inventar conteúdo externo.
+ *   3. Apenas múltipla escolha, 4 alternativas (A–D), 1 correta.
+ *   4. Não gerar questões discursivas.
+ *   5. Não misturar formatos.
+ *   6. Retornar "conteúdo insuficiente para gerar questões" se o material for escasso.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -30,7 +107,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Fetch the source content title/description for context
+    // Fetch source content for context
     let sourceTitle = "";
     let sourceDescription = "";
 
@@ -51,35 +128,43 @@ export async function POST(request: NextRequest) {
       sourceDescription = libItem.description ?? "";
     }
 
-    const desiredTypes: string[] = Array.isArray(types) && types.length > 0
-      ? types
-      : ["OPEN", "COMPREHENSION", "MULTIPLE_CHOICE"];
+    // `types` is kept for API compatibility but generation is always MULTIPLE_CHOICE.
+    void types;
 
     const openaiKey = process.env.OPENAI_API_KEY;
     const now = new Date().toISOString();
+    const safeCount = Math.max(1, Math.min(Number(count) || 3, 10));
 
-    let generated: Array<{
-      title: string;
-      type: string;
-      question: string;
-      answer?: string;
-      explanation?: string;
-      options?: Array<{ text: string; isCorrect: boolean }>;
-    }> = [];
+    let generated: ParsedQuestion[] = [];
 
     if (openaiKey) {
-      // Use OpenAI to generate exercises strictly from source content
-      const systemPrompt = `Você é um gerador de exercícios educacionais. 
-Gere exercícios EXCLUSIVAMENTE baseados no conteúdo fornecido pelo usuário.
-NÃO utilize conhecimento externo. Se o conteúdo for insuficiente para um tipo de questão, gere questões de compreensão geral sobre o tema.
-Responda APENAS com um array JSON válido de exercícios, sem texto adicional.
-Cada exercício deve ter: title, type, question, answer (opcional), explanation (opcional).
-Para MULTIPLE_CHOICE adicione: options: [{text, isCorrect}] com 4 opções.`;
+      // System prompt follows the REGRAS OBRIGATÓRIAS from the product spec.
+      const systemPrompt = `Você é um gerador de questões educacionais.
+
+REGRAS OBRIGATÓRIAS:
+
+1. Use EXCLUSIVAMENTE o conteúdo fornecido no texto/PDF.
+2. NÃO invente conteúdo externo.
+3. Gere APENAS questões de múltipla escolha.
+4. Cada questão deve ter:
+   - 1 pergunta clara
+   - 4 alternativas (A, B, C, D)
+   - apenas 1 correta
+5. NÃO gerar questões discursivas.
+6. NÃO misturar formatos.
+7. Indicar o gabarito no final.
+
+Se o conteúdo for insuficiente, retorne exatamente: "${INSUFFICIENT_CONTENT_MSG}"
+
+Objetivo: gerar questões claras, diretas e baseadas no material.
+
+Responda APENAS com um JSON array válido, sem texto adicional, no formato:
+[{"question":"...","options":["A) ...","B) ...","C) ...","D) ..."],"correctOption":"A"}]`;
 
       const userPrompt = `Conteúdo: "${sourceTitle}${sourceDescription ? ": " + sourceDescription : ""}"
-Gere ${count} exercício(s) dos tipos: ${desiredTypes.join(", ")}.
-Tipos válidos: OPEN (pergunta aberta), COMPREHENSION (compreensão de texto), APPLICATION (aplicação prática), MULTIPLE_CHOICE (múltipla escolha).
-Retorne um JSON array.`;
+
+Gere ${safeCount} questão(ões) de múltipla escolha estritamente com base no conteúdo acima.
+Se não houver conteúdo suficiente, retorne exatamente: "${INSUFFICIENT_CONTENT_MSG}"`;
 
       try {
         const aiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -94,77 +179,70 @@ Retorne um JSON array.`;
               { role: "system", content: systemPrompt },
               { role: "user", content: userPrompt },
             ],
-            temperature: 0.7,
+            // Lower temperature for deterministic, rule-adherent formatting.
+            temperature: 0.2,
             max_tokens: 2000,
           }),
         });
 
         if (aiResponse.ok) {
           const aiData = await aiResponse.json();
-          const content = aiData.choices?.[0]?.message?.content ?? "[]";
-          const parsed = JSON.parse(content);
-          if (Array.isArray(parsed)) {
-            generated = parsed;
+          const content = String(aiData.choices?.[0]?.message?.content ?? "").trim();
+          if (content.toLowerCase().includes(INSUFFICIENT_CONTENT_MSG)) {
+            return NextResponse.json({ error: INSUFFICIENT_CONTENT_MSG }, { status: 422 });
           }
+          const parsed = parseGeneratedQuestions(content);
+          if (parsed.length === 0) {
+            // Parsing returned no valid questions — likely a format deviation; treat as generation failure.
+            console.warn("[exercises/generate] AI response produced 0 valid questions:", content.slice(0, 200));
+            return NextResponse.json({ error: "Falha ao interpretar questões geradas" }, { status: 502 });
+          }
+          generated = parsed.slice(0, safeCount);
+        } else {
+          const details = await aiResponse.text();
+          console.error("[exercises/generate] AI call failed", details);
+          return NextResponse.json({ error: "Falha ao gerar questões com IA" }, { status: 502 });
         }
       } catch (e) {
-        console.warn("[exercises/generate] AI call failed, falling back to templates", e);
+        console.error("[exercises/generate] AI parsing failed", e);
+        return NextResponse.json({ error: "Falha ao interpretar questões geradas" }, { status: 502 });
       }
     }
 
-    // Fallback: template-based placeholder exercises
     if (generated.length === 0) {
-      const templates = [
-        {
-          type: "OPEN",
-          title: `Questão aberta — ${sourceTitle}`,
-          question: `Com base em "${sourceTitle}", explique os principais conceitos abordados.`,
-          answer: "(A ser preenchido pelo docente)",
-        },
-        {
-          type: "COMPREHENSION",
-          title: `Compreensão — ${sourceTitle}`,
-          question: `O que você entende sobre "${sourceTitle}"? Descreva com suas próprias palavras.`,
-          answer: "(A ser preenchido pelo docente)",
-        },
-        {
-          type: "APPLICATION",
-          title: `Aplicação — ${sourceTitle}`,
-          question: `Como você aplicaria os conceitos de "${sourceTitle}" em uma situação prática?`,
-          answer: "(A ser preenchido pelo docente)",
-        },
-        {
-          type: "MULTIPLE_CHOICE",
-          title: `Múltipla escolha — ${sourceTitle}`,
-          question: `Qual das alternativas melhor descreve o tema de "${sourceTitle}"?`,
-          options: [
-            { text: "(Opção A — a ser preenchida)", isCorrect: true },
-            { text: "(Opção B — a ser preenchida)", isCorrect: false },
-            { text: "(Opção C — a ser preenchida)", isCorrect: false },
-            { text: "(Opção D — a ser preenchida)", isCorrect: false },
-          ],
-        },
-      ];
-
-      const safeCount = Math.min(count, 4);
-      for (let i = 0; i < safeCount; i++) {
-        const t = templates[i % templates.length];
-        if (!desiredTypes.includes(t.type) && desiredTypes.length > 0) continue;
-        generated.push(t);
+      if (!openaiKey) {
+        // No API key: return placeholder template so docente can fill manually.
+        return NextResponse.json(
+          {
+            error: "OPENAI_API_KEY não configurada. Configure a variável de ambiente para geração automática de questões.",
+            placeholder: {
+              type: "MULTIPLE_CHOICE",
+              title: `Múltipla escolha — ${sourceTitle}`,
+              question: `Qual das alternativas melhor descreve o tema de "${sourceTitle}"?`,
+              options: [
+                { text: "(Opção A — a ser preenchida)", isCorrect: true },
+                { text: "(Opção B — a ser preenchida)", isCorrect: false },
+                { text: "(Opção C — a ser preenchida)", isCorrect: false },
+                { text: "(Opção D — a ser preenchida)", isCorrect: false },
+              ],
+            },
+          },
+          { status: 503 }
+        );
       }
-      if (generated.length === 0) generated = templates.slice(0, safeCount);
+      return NextResponse.json({ error: INSUFFICIENT_CONTENT_MSG }, { status: 422 });
     }
 
     // Persist as PENDING exercises
     const created = [];
-    for (const ex of generated.slice(0, 10)) {
+    for (const [index, ex] of generated.entries()) {
       const exercise = await prisma.exercise.create({
         data: {
-          title: ex.title || `Exercício sobre ${sourceTitle}`,
-          type: ex.type || "OPEN",
+          title: `Múltipla escolha ${index + 1} — ${sourceTitle}`,
+          type: "MULTIPLE_CHOICE",
           question: ex.question,
-          answer: ex.answer || null,
-          explanation: ex.explanation || null,
+          answer: null,
+          explanation: null,
           materialId: materialId || null,
           libraryItemId: libraryItemId || null,
           createdById: auth.userId,
@@ -174,19 +252,17 @@ Retorne um JSON array.`;
         },
       });
 
-      if (ex.type === "MULTIPLE_CHOICE" && Array.isArray(ex.options)) {
-        for (let i = 0; i < ex.options.length; i++) {
-          const opt = ex.options[i];
-          if (opt?.text) {
-            await prisma.exerciseOption.create({
-              data: {
-                exerciseId: exercise.id,
-                text: opt.text,
-                isCorrect: !!opt.isCorrect,
-                order: i,
-              },
-            });
-          }
+      for (let i = 0; i < ex.options.length; i++) {
+        const opt = ex.options[i];
+        if (opt?.text) {
+          await prisma.exerciseOption.create({
+            data: {
+              exerciseId: exercise.id,
+              text: opt.text,
+              isCorrect: !!opt.isCorrect,
+              order: i,
+            },
+          });
         }
       }
 

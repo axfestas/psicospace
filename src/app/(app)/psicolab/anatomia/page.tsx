@@ -976,7 +976,7 @@ function SynapseSVG({ activeNt }: { activeNt: string | null }) {
 // Main Page
 // ──────────────────────────────────────────────
 
-type Tab = "neuron" | "synapse" | "system" | "sensory" | "motor" | "memory" | "sleep" | "motivation" | "emotion";
+type Tab = "neuron" | "synapse" | "system" | "sensory" | "motor" | "memory" | "sleep" | "motivation" | "emotion" | "potential" | "transport" | "ions";
 
 export default function AnatomiaPage() {
   const [tab, setTab] = useState<Tab>("neuron");
@@ -990,6 +990,9 @@ export default function AnatomiaPage() {
   const [selectedSleepStage, setSelectedSleepStage] = useState<string | null>(null);
   const [selectedMotivation, setSelectedMotivation] = useState<string | null>(null);
   const [selectedEmotion, setSelectedEmotion] = useState<string | null>(null);
+  const [selectedApPhase, setSelectedApPhase] = useState<string | null>("resting");
+  const [selectedTransport, setSelectedTransport] = useState<string | null>(null);
+  const [selectedIon, setSelectedIon] = useState<string | null>(null);
 
   const activePart = NEURON_PARTS.find((p) => p.id === selectedPart);
   const activeNt = NEUROTRANSMITTERS.find((n) => n.id === selectedNt);
@@ -1011,6 +1014,9 @@ export default function AnatomiaPage() {
     { id: "sleep", label: "Sono e Vigília", emoji: "😴" },
     { id: "motivation", label: "Motivação", emoji: "🎯" },
     { id: "emotion", label: "Emoção e Psicopatologia", emoji: "❤️" },
+    { id: "potential", label: "Potencial de Ação", emoji: "🔋" },
+    { id: "transport", label: "Transporte de Membrana", emoji: "🔄" },
+    { id: "ions", label: "Íons Importantes", emoji: "⚗️" },
   ];
 
   return (
@@ -2012,6 +2018,512 @@ export default function AnatomiaPage() {
           </div>
         )}
       </div>
+
+      {/* ─── TAB: Potencial de Ação ─── */}
+      {tab === "potential" && (
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* Left: Phase selector + SVG graph */}
+          <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-900">
+            <h2 className="mb-1 text-lg font-bold text-gray-900 dark:text-gray-100">
+              Potencial de Ação
+            </h2>
+            <p className="mb-4 text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+              <Info className="h-3 w-3" />
+              Selecione uma fase para ver os detalhes
+            </p>
+
+            {/* Interactive action potential curve */}
+            <svg viewBox="0 0 320 140" className="w-full h-36 mb-4" aria-label="Gráfico do potencial de ação">
+              {/* Axes */}
+              <line x1="30" y1="10" x2="30" y2="120" stroke="currentColor" strokeWidth="1" className="text-gray-400" />
+              <line x1="30" y1="90" x2="310" y2="90" stroke="currentColor" strokeWidth="1" className="text-gray-400" />
+              {/* Labels */}
+              <text x="5" y="14" fontSize="7" fill="currentColor" className="text-gray-500">+40</text>
+              <text x="5" y="93" fontSize="7" fill="currentColor" className="text-gray-500">-70</text>
+              <text x="5" y="120" fontSize="7" fill="currentColor" className="text-gray-500">-90</text>
+              <text x="155" y="135" fontSize="7" fill="currentColor" className="text-gray-500" textAnchor="middle">Tempo (ms)</text>
+              {/* Resting line annotation */}
+              <line x1="30" y1="90" x2="80" y2="90" stroke="#6366f1" strokeWidth="2" className={selectedApPhase === "resting" ? "" : "opacity-30"} />
+              {/* Rising phase (depolarization) */}
+              <path d="M 80 90 Q 105 90 120 25" stroke="#ef4444" strokeWidth="2" fill="none" className={selectedApPhase === "depolarization" ? "" : "opacity-30"} />
+              {/* Falling phase (repolarization) */}
+              <path d="M 120 25 Q 145 25 170 90" stroke="#f59e0b" strokeWidth="2" fill="none" className={selectedApPhase === "repolarization" ? "" : "opacity-30"} />
+              {/* Undershoot (hyperpolarization) */}
+              <path d="M 170 90 Q 195 90 220 115 Q 255 115 280 90" stroke="#10b981" strokeWidth="2" fill="none" className={selectedApPhase === "hyperpolarization" ? "" : "opacity-30"} />
+              {/* Return to resting */}
+              <line x1="280" y1="90" x2="310" y2="90" stroke="#6366f1" strokeWidth="2" className="opacity-30" />
+              {/* Phase markers */}
+              {[
+                { x: 55, label: "Repouso", phase: "resting" },
+                { x: 102, label: "Despol.", phase: "depolarization" },
+                { x: 148, label: "Repol.", phase: "repolarization" },
+                { x: 225, label: "Hiper.", phase: "hyperpolarization" },
+              ].map(({ x, label, phase }) => (
+                <text
+                  key={phase}
+                  x={x}
+                  y="130"
+                  fontSize="6"
+                  textAnchor="middle"
+                  fill="currentColor"
+                  className={selectedApPhase === phase ? "font-bold text-blue-600" : "text-gray-400 opacity-60"}
+                >
+                  {label}
+                </text>
+              ))}
+            </svg>
+
+            {/* Phase buttons */}
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { id: "resting", label: "🔵 Repouso", color: "indigo", mv: "−70 mV" },
+                { id: "depolarization", label: "🔴 Despolarização", color: "red", mv: "+40 mV" },
+                { id: "repolarization", label: "🟡 Repolarização", color: "amber", mv: "−70 mV" },
+                { id: "hyperpolarization", label: "🟢 Hiperpolarização", color: "emerald", mv: "−90 mV" },
+              ].map((phase) => (
+                <button
+                  key={phase.id}
+                  onClick={() => setSelectedApPhase(phase.id === selectedApPhase ? null : phase.id)}
+                  className={`rounded-xl border px-3 py-2 text-left text-xs font-medium transition-all ${
+                    selectedApPhase === phase.id
+                      ? "bg-blue-50 border-blue-300 ring-2 ring-blue-400 dark:bg-blue-900/20 dark:border-blue-700"
+                      : "bg-gray-50 border-gray-200 hover:border-blue-200 dark:bg-gray-800 dark:border-gray-700"
+                  }`}
+                >
+                  <span className="block">{phase.label}</span>
+                  <span className="text-gray-500 dark:text-gray-400">{phase.mv}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Right: Phase details */}
+          <div className="space-y-4">
+            {[
+              {
+                id: "resting",
+                title: "Potencial de Repouso",
+                emoji: "🔵",
+                cardClass: "border-indigo-200 bg-indigo-50 dark:border-indigo-800 dark:bg-indigo-900/20",
+                mv: "−70 mV",
+                description: "Estado de equilíbrio eletroquímico em que o interior da célula é negativo em relação ao exterior.",
+                channels: "Canais de K⁺ levemente abertos (leak); bomba Na⁺/K⁺ ativa.",
+                ions: [
+                  "Na⁺ — alta concentração fora; mantido fora pela bomba",
+                  "K⁺ — alta concentração dentro; leve vazamento para fora",
+                  "Cl⁻ — alta concentração fora",
+                ],
+              },
+              {
+                id: "depolarization",
+                title: "Despolarização",
+                emoji: "🔴",
+                cardClass: "border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20",
+                mv: "−70 mV → +40 mV",
+                description: "O potencial de membrana fica menos negativo e ultrapassa o limiar (≈ −55 mV). Ocorre resposta 'tudo-ou-nada'.",
+                channels: "Canais de Na⁺ voltagem-dependentes se abrem rapidamente.",
+                ions: [
+                  "Na⁺ entra em grande quantidade pela abertura dos canais",
+                  "K⁺ permanece dentro por enquanto",
+                  "Interior fica positivo (+40 mV)",
+                ],
+              },
+              {
+                id: "repolarization",
+                title: "Repolarização",
+                emoji: "🟡",
+                cardClass: "border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20",
+                mv: "+40 mV → −70 mV",
+                description: "O potencial retorna ao valor de repouso. Canais de Na⁺ se fecham (inativação) e canais de K⁺ se abrem.",
+                channels: "Canais de Na⁺ inativados; canais de K⁺ voltagem-dependentes abertos.",
+                ions: [
+                  "K⁺ sai da célula em grande quantidade",
+                  "Na⁺ canais bloqueados (período refratário absoluto)",
+                  "Potencial retorna a −70 mV",
+                ],
+              },
+              {
+                id: "hyperpolarization",
+                title: "Hiperpolarização (Undershoot)",
+                emoji: "🟢",
+                cardClass: "border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-900/20",
+                mv: "−70 mV → −90 mV → −70 mV",
+                description: "O potencial cai abaixo do repouso temporariamente. Período refratário relativo — nova despolarização possível mas difícil.",
+                channels: "Canais de K⁺ ainda abertos; bomba Na⁺/K⁺ restaura o gradiente.",
+                ions: [
+                  "Excesso de K⁺ saindo leva a hiperpolarização transitória",
+                  "Bomba Na⁺/K⁺ bomba 3 Na⁺ para fora e 2 K⁺ para dentro",
+                  "Equilíbrio restaurado em milissegundos",
+                ],
+              },
+            ]
+              .filter((p) => !selectedApPhase || p.id === selectedApPhase)
+              .map((phase) => (
+                <div
+                  key={phase.id}
+                  className={`rounded-2xl border-2 p-4 ${phase.cardClass}`}
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-xl">{phase.emoji}</span>
+                    <div>
+                      <h3 className="font-bold text-sm text-gray-900 dark:text-gray-100">{phase.title}</h3>
+                      <span className="text-xs font-mono text-gray-500 dark:text-gray-400">{phase.mv}</span>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-700 dark:text-gray-300 mb-2">{phase.description}</p>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
+                    <span className="font-semibold">Canais: </span>{phase.channels}
+                  </p>
+                  <ul className="space-y-1">
+                    {phase.ions.map((ion, i) => (
+                      <li key={i} className="flex items-start gap-1.5 text-xs text-gray-600 dark:text-gray-400">
+                        <span className="mt-0.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-current" />
+                        {ion}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
+
+      {/* ─── TAB: Transporte de Membrana ─── */}
+      {tab === "transport" && (
+        <div className="space-y-6">
+          <div className="grid gap-4 lg:grid-cols-2">
+            {/* Transporte Passivo */}
+            <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-900">
+              <div className="flex items-center gap-2 mb-4">
+                <span className="rounded-xl bg-sky-100 dark:bg-sky-900/30 p-2 text-sky-600 dark:text-sky-400 text-xl">⬇️</span>
+                <div>
+                  <h2 className="text-base font-bold text-gray-900 dark:text-gray-100">Transporte Passivo</h2>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Sem gasto de energia · A favor do gradiente</p>
+                </div>
+              </div>
+              <div className="space-y-3">
+                {[
+                  {
+                    id: "simple-diffusion",
+                    name: "Difusão Simples",
+                    emoji: "〰️",
+                    desc: "Moléculas pequenas e apolares (O₂, CO₂, lipídios) atravessam a bicamada lipídica diretamente.",
+                    examples: ["O₂ (oxigênio)", "CO₂ (dióxido de carbono)", "Álcool etílico"],
+                    direction: "Alta → Baixa concentração",
+                  },
+                  {
+                    id: "facilitated-diffusion",
+                    name: "Difusão Facilitada",
+                    emoji: "🚪",
+                    desc: "Moléculas polares ou íons atravessam via proteínas de canal ou carreadoras, sem gasto de ATP.",
+                    examples: ["Glicose (GLUT)", "Íons K⁺ e Na⁺ (canais)", "Aminoácidos"],
+                    direction: "Alta → Baixa concentração",
+                  },
+                  {
+                    id: "osmosis",
+                    name: "Osmose",
+                    emoji: "💧",
+                    desc: "Movimento da água através de membrana semipermeável (aquaporinas) do meio hipotônico ao hipertônico.",
+                    examples: ["Água via aquaporinas", "Equilíbrio osmótico entre compartimentos"],
+                    direction: "Baixa → Alta osmolaridade",
+                  },
+                ].map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => setSelectedTransport(t.id === selectedTransport ? null : t.id)}
+                    className={`w-full rounded-xl border px-4 py-3 text-left transition-all ${
+                      selectedTransport === t.id
+                        ? "bg-sky-50 border-sky-300 ring-2 ring-sky-400 dark:bg-sky-900/20 dark:border-sky-700"
+                        : "bg-gray-50 border-gray-200 hover:border-sky-200 dark:bg-gray-800 dark:border-gray-700"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">{t.emoji}</span>
+                      <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t.name}</span>
+                    </div>
+                    {selectedTransport === t.id && (
+                      <div className="mt-2 space-y-1.5">
+                        <p className="text-xs text-gray-600 dark:text-gray-400">{t.desc}</p>
+                        <p className="text-xs text-sky-700 dark:text-sky-300 font-medium">↕ {t.direction}</p>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {t.examples.map((ex) => (
+                            <span key={ex} className="rounded-full bg-sky-100 dark:bg-sky-900/40 px-2 py-0.5 text-[10px] text-sky-800 dark:text-sky-300">
+                              {ex}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Transporte Ativo */}
+            <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-900">
+              <div className="flex items-center gap-2 mb-4">
+                <span className="rounded-xl bg-orange-100 dark:bg-orange-900/30 p-2 text-orange-600 dark:text-orange-400 text-xl">⬆️</span>
+                <div>
+                  <h2 className="text-base font-bold text-gray-900 dark:text-gray-100">Transporte Ativo</h2>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Gasta ATP · Contra o gradiente</p>
+                </div>
+              </div>
+              <div className="space-y-3">
+                {[
+                  {
+                    id: "nak-pump",
+                    name: "Bomba Na⁺/K⁺",
+                    emoji: "🔋",
+                    desc: "Proteína transmembranar que usa 1 ATP para bombear 3 Na⁺ para fora e 2 K⁺ para dentro. Fundamental para manter o potencial de repouso.",
+                    steps: [
+                      "3 Na⁺ se ligam ao interior da bomba",
+                      "ATP é hidrolisado → conformação muda",
+                      "3 Na⁺ são liberados fora da célula",
+                      "2 K⁺ se ligam ao exterior",
+                      "Bomba volta à forma original, libera K⁺ dentro",
+                    ],
+                  },
+                  {
+                    id: "gradient-transport",
+                    name: "Transporte contra gradiente",
+                    emoji: "🏋️",
+                    desc: "Movimento de moléculas de baixa para alta concentração, sempre dependente de ATP diretamente ou via gradiente secundário.",
+                    steps: [
+                      "Proteína transportadora se liga ao soluto",
+                      "Energia (ATP) fornece força motriz",
+                      "Soluto move contra seu gradiente",
+                      "Transportador retorna ao estado original",
+                    ],
+                  },
+                ].map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => setSelectedTransport(t.id === selectedTransport ? null : t.id)}
+                    className={`w-full rounded-xl border px-4 py-3 text-left transition-all ${
+                      selectedTransport === t.id
+                        ? "bg-orange-50 border-orange-300 ring-2 ring-orange-400 dark:bg-orange-900/20 dark:border-orange-700"
+                        : "bg-gray-50 border-gray-200 hover:border-orange-200 dark:bg-gray-800 dark:border-gray-700"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">{t.emoji}</span>
+                      <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t.name}</span>
+                    </div>
+                    {selectedTransport === t.id && (
+                      <div className="mt-2 space-y-1.5">
+                        <p className="text-xs text-gray-600 dark:text-gray-400">{t.desc}</p>
+                        <ol className="space-y-1 mt-2">
+                          {t.steps.map((step, i) => (
+                            <li key={i} className="flex items-start gap-1.5 text-xs text-orange-700 dark:text-orange-300">
+                              <span className="flex-shrink-0 rounded-full bg-orange-200 dark:bg-orange-800 w-4 h-4 flex items-center justify-center text-[9px] font-bold">
+                                {i + 1}
+                              </span>
+                              {step}
+                            </li>
+                          ))}
+                        </ol>
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Comparison table */}
+          <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-900">
+            <h3 className="mb-3 text-sm font-bold text-gray-900 dark:text-gray-100">Resumo Comparativo</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-gray-200 dark:border-gray-700">
+                    <th className="py-2 pr-4 text-left text-gray-500 dark:text-gray-400 font-medium">Tipo</th>
+                    <th className="py-2 pr-4 text-left text-gray-500 dark:text-gray-400 font-medium">Energia (ATP)</th>
+                    <th className="py-2 pr-4 text-left text-gray-500 dark:text-gray-400 font-medium">Direção</th>
+                    <th className="py-2 text-left text-gray-500 dark:text-gray-400 font-medium">Proteínas</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                  {[
+                    { type: "Difusão Simples", energy: "❌ Não", dir: "A favor", protein: "Nenhuma" },
+                    { type: "Difusão Facilitada", energy: "❌ Não", dir: "A favor", protein: "Canal/Carreadora" },
+                    { type: "Osmose", energy: "❌ Não", dir: "A favor (água)", protein: "Aquaporina" },
+                    { type: "Transporte Ativo", energy: "✅ Sim", dir: "Contra gradiente", protein: "Bomba/ATPase" },
+                  ].map((row) => (
+                    <tr key={row.type}>
+                      <td className="py-2 pr-4 font-medium text-gray-800 dark:text-gray-200">{row.type}</td>
+                      <td className="py-2 pr-4 text-gray-600 dark:text-gray-400">{row.energy}</td>
+                      <td className="py-2 pr-4 text-gray-600 dark:text-gray-400">{row.dir}</td>
+                      <td className="py-2 text-gray-600 dark:text-gray-400">{row.protein}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── TAB: Íons Importantes ─── */}
+      {tab === "ions" && (
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* Left: Ion selector */}
+          <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-900">
+            <h2 className="mb-1 text-lg font-bold text-gray-900 dark:text-gray-100">Íons e Gradiente Eletroquímico</h2>
+            <p className="mb-4 text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+              <Info className="h-3 w-3" />
+              Selecione um íon para ver seu papel elétrico
+            </p>
+
+            {/* Visual: membrane diagram */}
+            <div className="relative rounded-xl border border-gray-200 dark:border-gray-700 bg-gradient-to-b from-sky-50 to-white dark:from-sky-900/10 dark:to-gray-900 p-4 mb-4 overflow-hidden">
+              <div className="text-center text-xs text-gray-500 dark:text-gray-400 mb-1 font-medium">Exterior (LEC)</div>
+              <div className="h-2 rounded-full bg-gradient-to-r from-sky-200 via-indigo-200 to-sky-200 dark:from-sky-800 dark:via-indigo-800 dark:to-sky-800 my-1" />
+              <div className="flex justify-around text-[10px] font-mono text-gray-500 dark:text-gray-400 my-1">
+                <span className={`px-1.5 py-0.5 rounded ${selectedIon === "na" ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 font-bold" : ""}`}>Na⁺ ↑↑↑</span>
+                <span className={`px-1.5 py-0.5 rounded ${selectedIon === "cl" ? "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300 font-bold" : ""}`}>Cl⁻ ↑↑</span>
+                <span className={`px-1.5 py-0.5 rounded ${selectedIon === "ca" ? "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300 font-bold" : ""}`}>Ca²⁺ ↑↑</span>
+              </div>
+              <div className="h-3 rounded-full bg-gradient-to-r from-gray-300 via-gray-400 to-gray-300 dark:from-gray-600 dark:via-gray-500 dark:to-gray-600 my-1 flex items-center justify-center text-[9px] font-bold text-white tracking-widest">
+                MEMBRANA
+              </div>
+              <div className="flex justify-around text-[10px] font-mono text-gray-500 dark:text-gray-400 my-1">
+                <span className={`px-1.5 py-0.5 rounded ${selectedIon === "k" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 font-bold" : ""}`}>K⁺ ↑↑↑</span>
+                <span className="px-1.5 py-0.5 rounded">A⁻ ↑↑</span>
+              </div>
+              <div className="h-2 rounded-full bg-gradient-to-r from-sky-200 via-indigo-200 to-sky-200 dark:from-sky-800 dark:via-indigo-800 dark:to-sky-800 my-1" />
+              <div className="text-center text-xs text-gray-500 dark:text-gray-400 mt-1 font-medium">Interior (LIC)</div>
+            </div>
+
+            {/* Ion buttons */}
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { id: "na", symbol: "Na⁺", name: "Sódio", emoji: "🔴", color: "red" },
+                { id: "k", symbol: "K⁺", name: "Potássio", emoji: "🟢", color: "emerald" },
+                { id: "cl", symbol: "Cl⁻", name: "Cloro", emoji: "🟣", color: "violet" },
+                { id: "ca", symbol: "Ca²⁺", name: "Cálcio", emoji: "🟠", color: "orange" },
+              ].map((ion) => (
+                <button
+                  key={ion.id}
+                  onClick={() => setSelectedIon(ion.id === selectedIon ? null : ion.id)}
+                  className={`flex items-center gap-2 rounded-xl border px-3 py-3 text-left transition-all ${
+                    selectedIon === ion.id
+                      ? "bg-blue-50 border-blue-300 ring-2 ring-blue-400 dark:bg-blue-900/20 dark:border-blue-700"
+                      : "bg-gray-50 border-gray-200 hover:border-blue-200 dark:bg-gray-800 dark:border-gray-700"
+                  }`}
+                >
+                  <span className="text-xl">{ion.emoji}</span>
+                  <div>
+                    <span className="block text-sm font-bold text-gray-900 dark:text-gray-100">{ion.symbol}</span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">{ion.name}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Right: Ion details */}
+          <div className="space-y-4">
+            {!selectedIon && (
+              <div className="rounded-2xl border border-dashed border-gray-300 dark:border-gray-600 p-6 text-center text-sm text-gray-500 dark:text-gray-400">
+                Selecione um íon ao lado para ver seus detalhes
+              </div>
+            )}
+            {[
+              {
+                id: "na",
+                symbol: "Na⁺",
+                name: "Sódio",
+                emoji: "🔴",
+                cardClass: "border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20",
+                concInside: "12 mM",
+                concOutside: "145 mM",
+                restingPot: "entrada durante despolarização",
+                role: "Principal responsável pela fase de despolarização do potencial de ação. Entra na célula quando canais voltagem-dependentes abrem.",
+                pump: "A bomba Na⁺/K⁺ expulsa 3 Na⁺ para cada ciclo de ATP, mantendo a alta concentração extracelular.",
+                clinical: "Hipernatremia (excesso) causa confusão e convulsões; hiponatremia (deficiência) causa fraqueza e edema cerebral.",
+              },
+              {
+                id: "k",
+                symbol: "K⁺",
+                name: "Potássio",
+                emoji: "🟢",
+                cardClass: "border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-900/20",
+                concInside: "155 mM",
+                concOutside: "4 mM",
+                restingPot: "saída durante repolarização",
+                role: "Fundamental para manter o potencial de repouso (−70 mV) via canais de leak e para a fase de repolarização do potencial de ação.",
+                pump: "A bomba Na⁺/K⁺ importa 2 K⁺ para cada ciclo, mantendo alta concentração intracelular.",
+                clinical: "Hipocalemia causa arritmias cardíacas graves; hipercalemia pode levar à parada cardíaca.",
+              },
+              {
+                id: "cl",
+                symbol: "Cl⁻",
+                name: "Cloro",
+                emoji: "🟣",
+                cardClass: "border-violet-200 bg-violet-50 dark:border-violet-800 dark:bg-violet-900/20",
+                concInside: "4 mM",
+                concOutside: "120 mM",
+                restingPot: "contribui para IPSPs inibitórios",
+                role: "Entra na célula quando receptores GABA-A se abrem, gerando hiperpolarização e inibição do neurônio.",
+                pump: "Transportador KCC2 exporta Cl⁻ para manter concentração baixa intracelular nos adultos.",
+                clinical: "Disfunção de transportadores Cl⁻ está associada à epilepsia e a alguns transtornos do neurodesenvolvimento.",
+              },
+              {
+                id: "ca",
+                symbol: "Ca²⁺",
+                name: "Cálcio",
+                emoji: "🟠",
+                cardClass: "border-orange-200 bg-orange-50 dark:border-orange-800 dark:bg-orange-900/20",
+                concInside: "0.0001 mM",
+                concOutside: "1.5 mM",
+                restingPot: "entra em terminais axônicos durante PA",
+                role: "Mensageiro secundário essencial. No terminal pré-sináptico, a entrada de Ca²⁺ dispara a exocitose de vesículas sinápticas.",
+                pump: "Bomba SERCA sequestra Ca²⁺ no retículo endoplasmático; trocador Na⁺/Ca²⁺ exporta Ca²⁺ da célula.",
+                clinical: "Hipocalcemia causa tetania muscular; hipercalcemia provoca fraqueza, confusão e nefrolitíase.",
+              },
+            ]
+              .filter((ion) => ion.id === selectedIon)
+              .map((ion) => (
+                <div key={ion.id} className={`rounded-2xl border-2 p-5 ${ion.cardClass}`}>
+                  <div className="flex items-center gap-3 mb-4">
+                    <span className="text-3xl">{ion.emoji}</span>
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">{ion.symbol} — {ion.name}</h3>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">{ion.restingPot}</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    <div className="rounded-xl bg-white/60 dark:bg-black/20 p-3 text-center">
+                      <span className="block text-[10px] text-gray-500 dark:text-gray-400 mb-0.5">Intracelular</span>
+                      <span className="text-base font-bold text-gray-900 dark:text-gray-100">{ion.concInside}</span>
+                    </div>
+                    <div className="rounded-xl bg-white/60 dark:bg-black/20 p-3 text-center">
+                      <span className="block text-[10px] text-gray-500 dark:text-gray-400 mb-0.5">Extracelular</span>
+                      <span className="text-base font-bold text-gray-900 dark:text-gray-100">{ion.concOutside}</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 text-xs">
+                    <div>
+                      <span className="font-semibold text-gray-800 dark:text-gray-200">Papel elétrico: </span>
+                      <span className="text-gray-600 dark:text-gray-400">{ion.role}</span>
+                    </div>
+                    <div>
+                      <span className="font-semibold text-gray-800 dark:text-gray-200">Bomba/Transportador: </span>
+                      <span className="text-gray-600 dark:text-gray-400">{ion.pump}</span>
+                    </div>
+                    <div className="rounded-lg bg-white/50 dark:bg-black/20 p-2">
+                      <span className="font-semibold text-gray-800 dark:text-gray-200">Relevância clínica: </span>
+                      <span className="text-gray-600 dark:text-gray-400">{ion.clinical}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
 
       {/* Footer */}
       <p className="text-center text-xs text-gray-400 dark:text-gray-600">

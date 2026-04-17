@@ -2,7 +2,11 @@ import { prisma } from "@/lib/db";
 import {
   REWARD_EXERCISE_CORRECT,
   REWARD_SESSION_COMPLETED,
-  REWARD_DAILY_STREAK_BONUS,
+  REWARD_SESSION_LONG_BONUS,
+  REWARD_DAILY_STREAK,
+  REWARD_STREAK_MILESTONE,
+  STREAK_MILESTONE_INTERVAL,
+  SESSION_LONG_THRESHOLD_SECONDS,
   XP_EXERCISE_CORRECT,
   XP_SESSION_COMPLETED,
   XP_PER_LEVEL,
@@ -95,23 +99,54 @@ export function parseCharacter(character: {
   };
 }
 
-async function awardStreakBonus(walletId: string, userId: string, newStreak: number, now: Date) {
+async function addEarnTransaction(
+  walletId: string,
+  userId: string,
+  amount: number,
+  reason: string,
+  referenceId: string,
+  now: Date = new Date(),
+) {
   await prisma.psicoWallet.update({
     where: { userId },
     data: {
-      balance: { increment: REWARD_DAILY_STREAK_BONUS },
+      balance: { increment: amount },
       updatedAt: now.toISOString(),
     },
   });
   await prisma.psicoTransaction.create({
     data: {
       walletId,
-      amount: REWARD_DAILY_STREAK_BONUS,
+      amount,
       type: "EARN",
-      reason: "daily_streak_bonus",
-      referenceId: `streak_${newStreak}_${now.toISOString().slice(0, 10)}`,
+      reason,
+      referenceId,
     },
   });
+}
+
+async function awardStreakBonus(walletId: string, userId: string, newStreak: number, now: Date) {
+  // Base daily streak reward (+5 per day)
+  await addEarnTransaction(
+    walletId,
+    userId,
+    REWARD_DAILY_STREAK,
+    "daily_streak_bonus",
+    `streak_${newStreak}_${now.toISOString().slice(0, 10)}`,
+    now,
+  );
+
+  // Milestone bonus: +20 every STREAK_MILESTONE_INTERVAL consecutive days
+  if (newStreak > 0 && newStreak % STREAK_MILESTONE_INTERVAL === 0) {
+    await addEarnTransaction(
+      walletId,
+      userId,
+      REWARD_STREAK_MILESTONE,
+      "streak_milestone_bonus",
+      `streak_milestone_${newStreak}_${now.toISOString().slice(0, 10)}`,
+      now,
+    );
+  }
 }
 
 async function updateCharacterProgress(userId: string, xpGain: number) {
@@ -180,23 +215,7 @@ export async function grantExerciseReward(userId: string, exerciseId: string) {
     };
   }
 
-  await prisma.psicoWallet.update({
-    where: { userId },
-    data: {
-      balance: { increment: REWARD_EXERCISE_CORRECT },
-      updatedAt: new Date().toISOString(),
-    },
-  });
-
-  await prisma.psicoTransaction.create({
-    data: {
-      walletId: wallet.id,
-      amount: REWARD_EXERCISE_CORRECT,
-      type: "EARN",
-      reason: "exercise_completed",
-      referenceId: exerciseId,
-    },
-  });
+  await addEarnTransaction(wallet.id, userId, REWARD_EXERCISE_CORRECT, "exercise_completed", exerciseId);
 
   await updateCharacterProgress(userId, XP_EXERCISE_CORRECT);
 
@@ -207,7 +226,7 @@ export async function grantExerciseReward(userId: string, exerciseId: string) {
   };
 }
 
-export async function grantSessionReward(userId: string, sessionId: string) {
+export async function grantSessionReward(userId: string, sessionId: string, totalSeconds?: number) {
   const { wallet } = await ensureEconomyState(userId);
 
   const duplicated = await prisma.psicoTransaction.findFirst({
@@ -223,23 +242,13 @@ export async function grantSessionReward(userId: string, sessionId: string) {
     return { awarded: false, duplicate: true, amount: 0 };
   }
 
-  await prisma.psicoWallet.update({
-    where: { userId },
-    data: {
-      balance: { increment: REWARD_SESSION_COMPLETED },
-      updatedAt: new Date().toISOString(),
-    },
-  });
+  const now = new Date();
+  await addEarnTransaction(wallet.id, userId, REWARD_SESSION_COMPLETED, "session_completed", sessionId, now);
 
-  await prisma.psicoTransaction.create({
-    data: {
-      walletId: wallet.id,
-      amount: REWARD_SESSION_COMPLETED,
-      type: "EARN",
-      reason: "session_completed",
-      referenceId: sessionId,
-    },
-  });
+  // Bônus de sessão longa (≥ 25 min = SESSION_LONG_THRESHOLD_SECONDS)
+  if (typeof totalSeconds === "number" && totalSeconds >= SESSION_LONG_THRESHOLD_SECONDS) {
+    await addEarnTransaction(wallet.id, userId, REWARD_SESSION_LONG_BONUS, "session_long_bonus", sessionId, now);
+  }
 
   await updateCharacterProgress(userId, XP_SESSION_COMPLETED);
 
