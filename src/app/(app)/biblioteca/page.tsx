@@ -81,14 +81,23 @@ export default function BibliotecaPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filtered.map((item) => (
-            <Card key={item.id} className="p-4">
+            <Card
+              key={item.id}
+              className="p-4 cursor-pointer focus-within:ring-2 focus-within:ring-blue-500 hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors"
+              role="button"
+              tabIndex={0}
+              onClick={() => setViewer({ url: item.url, title: item.title, type: item.type })}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setViewer({ url: item.url, title: item.title, type: item.type });
+                }
+              }}
+            >
               <div className="flex items-start justify-between gap-2">
-                <button
-                  onClick={() => setViewer({ url: item.url, title: item.title, type: item.type })}
-                  className="text-base font-medium text-gray-900 dark:text-gray-100 hover:underline text-left leading-snug line-clamp-2"
-                >
+                <h2 className="text-base font-medium text-gray-900 dark:text-gray-100 text-left leading-snug line-clamp-2">
                   {item.title}
-                </button>
+                </h2>
                 {getTypeBadge(item.type)}
               </div>
               {item.description && (
