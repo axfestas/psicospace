@@ -16,6 +16,7 @@ interface LibraryItem {
   description?: string;
   type: "PDF" | "SLIDE" | "LINK";
   url: string;
+  thumbnailUrl?: string | null;
   uploadedBy?: { name: string };
 }
 
@@ -88,7 +89,7 @@ export default function DocentesPage() {
 
   // Biblioteca section state
   const [showLibrary, setShowLibrary] = useState(false);
-  const [libForm, setLibForm] = useState<{ title: string; description: string; type: "PDF" | "SLIDE" | "LINK"; url: string }>({ title: "", description: "", type: "PDF", url: "" });
+  const [libForm, setLibForm] = useState<{ title: string; description: string; type: "PDF" | "SLIDE" | "LINK"; url: string; thumbnailUrl?: string }>({ title: "", description: "", type: "PDF", url: "" });
   const [libUploading, setLibUploading] = useState(false);
   const [libUploadError, setLibUploadError] = useState<string | null>(null);
   const [libSaving, setLibSaving] = useState(false);
@@ -120,10 +121,47 @@ export default function DocentesPage() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  const uploadThumbnailDataUrl = useCallback(async (dataUrl: string): Promise<string | null> => {
+    const thumbResponse = await fetch(dataUrl);
+    const thumbBlob = await thumbResponse.blob();
+    const thumbFile = new File([thumbBlob], "thumbnail.jpg", { type: "image/jpeg" });
+    const thumbForm = new FormData();
+    thumbForm.append("file", thumbFile);
+    const uploadRes = await fetch("/api/upload", { method: "POST", body: thumbForm });
+    if (!uploadRes.ok) return null;
+    const uploadData = await uploadRes.json();
+    return uploadData.url ?? null;
+  }, []);
+
+  const generatePdfThumbnailDataUrl = useCallback(async (file: File): Promise<string | null> => {
+    try {
+      const pdfjsLib = await import("pdfjs-dist");
+      if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
+      }
+
+      const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+      const page = await pdf.getPage(1);
+      const viewport = page.getViewport({ scale: 1 });
+      const scale = 320 / viewport.width;
+      const scaledViewport = page.getViewport({ scale });
+      const canvas = document.createElement("canvas");
+      canvas.width = scaledViewport.width;
+      canvas.height = scaledViewport.height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return null;
+      await page.render({ canvas, canvasContext: ctx, viewport: scaledViewport }).promise;
+      return canvas.toDataURL("image/jpeg", 0.82);
+    } catch {
+      return null;
+    }
+  }, []);
+
   // ── Biblioteca: file upload handler ─────────────────────────────────────
   const handleLibFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    const selectedType = libForm.type;
     setLibUploading(true);
     setLibUploadError(null);
     const formData = new FormData();
@@ -131,7 +169,19 @@ export default function DocentesPage() {
     const res = await fetch("/api/upload", { method: "POST", body: formData });
     if (res.ok) {
       const data = await res.json();
-      setLibForm((prev) => ({ ...prev, url: data.url }));
+      let thumbnailUrl: string | undefined;
+      if (selectedType === "PDF") {
+        const thumbDataUrl = await generatePdfThumbnailDataUrl(file);
+        if (thumbDataUrl) {
+          const uploadedThumbUrl = await uploadThumbnailDataUrl(thumbDataUrl);
+          if (uploadedThumbUrl) thumbnailUrl = uploadedThumbUrl;
+        }
+      }
+      setLibForm((prev) => ({
+        ...prev,
+        url: data.url,
+        thumbnailUrl: selectedType === "PDF" ? thumbnailUrl : undefined,
+      }));
     } else {
       const data = await res.json().catch(() => ({}));
       setLibUploadError(data.error ?? "Falha ao enviar arquivo.");
@@ -149,7 +199,7 @@ export default function DocentesPage() {
       body: JSON.stringify(libForm),
     });
     if (res.ok) {
-      setLibForm({ title: "", description: "", type: "PDF", url: "" });
+      setLibForm({ title: "", description: "", type: "PDF", url: "", thumbnailUrl: undefined });
       if (libFileInputRef.current) libFileInputRef.current.value = "";
       loadData();
     }
@@ -312,7 +362,7 @@ export default function DocentesPage() {
               <div className="flex gap-2 flex-wrap items-center">
                 <select
                   value={libForm.type}
-                  onChange={(e) => setLibForm({ ...libForm, type: e.target.value as "PDF" | "SLIDE" | "LINK", url: "" })}
+                  onChange={(e) => setLibForm({ ...libForm, type: e.target.value as "PDF" | "SLIDE" | "LINK", url: "", thumbnailUrl: undefined })}
                   className="flex h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
                 >
                   <option value="PDF">PDF</option>

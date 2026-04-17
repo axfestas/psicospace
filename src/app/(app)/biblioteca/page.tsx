@@ -14,6 +14,7 @@ interface LibraryItem {
   description?: string;
   type: "PDF" | "SLIDE" | "LINK";
   url: string;
+  thumbnailUrl?: string | null;
   createdAt: string;
   uploadedBy: { name: string };
 }
@@ -84,9 +85,9 @@ export default function BibliotecaPage() {
             <Card key={item.id} className="flex flex-col overflow-hidden p-0">
               {/* Preview thumbnail — clickable */}
               <PdfPreview
-                url={item.url}
                 type={item.type}
                 title={item.title}
+                thumbnailUrl={item.thumbnailUrl}
                 onClick={() => setViewer({ url: item.url, title: item.title, type: item.type })}
               />
 
