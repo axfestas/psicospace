@@ -13,6 +13,38 @@ function getPathname(value: string): string {
   }
 }
 
+function extractInternalFileKey(value: string): string | null {
+  if (!value) return null;
+
+  const cleaned = value.split("?")[0].split("#")[0];
+  let candidatePath = cleaned;
+
+  if (/^https?:\/\//i.test(cleaned)) {
+    try {
+      candidatePath = new URL(cleaned).pathname;
+    } catch {
+      return null;
+    }
+  }
+
+  const normalizedPath = candidatePath.replace(/^\/+/, "");
+  if (!normalizedPath) return null;
+  if (normalizedPath.startsWith("api/files/")) {
+    return normalizedPath.slice("api/files/".length);
+  }
+
+  const segments = normalizedPath.split("/").filter(Boolean);
+  if (segments.length < 2) return null;
+
+  const firstSegment = segments[0];
+  const fileName = segments[segments.length - 1];
+
+  if (!/^[A-Za-z0-9_-]+$/.test(firstSegment)) return null;
+  if (!/^\d+-.+/.test(fileName)) return null;
+
+  return segments.join("/");
+}
+
 export function getFileExtensionFromUrl(value: string): string | null {
   const pathname = getPathname(value).split("?")[0].split("#")[0];
   const lastSegment = pathname.split("/").pop() ?? "";
@@ -25,6 +57,9 @@ export function normalizeStoredMaterialUrl(url: string, type?: StoredMaterialTyp
   const trimmed = url.trim();
   if (!trimmed) return trimmed;
   if (type === "LINK") return trimmed;
+
+  const internalKey = extractInternalFileKey(trimmed);
+  if (internalKey) return `${FILE_API_PREFIX}${internalKey}`;
 
   if (trimmed.startsWith(FILE_API_PREFIX)) return trimmed;
 

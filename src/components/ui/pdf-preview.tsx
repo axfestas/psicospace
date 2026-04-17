@@ -1,19 +1,91 @@
 "use client";
 
-import { FileText, Presentation, Globe } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { FileText, Image as ImageIcon, Presentation, Globe } from "lucide-react";
+import { normalizeStoredMaterialUrl, resolveViewerKind } from "@/lib/file-urls";
 
 interface PdfPreviewProps {
   type: "PDF" | "SLIDE" | "LINK";
+  url: string;
   title: string;
   thumbnailUrl?: string | null;
   onClick?: () => void;
 }
 
 /** Renders a small preview thumbnail for library items. */
-export function PdfPreview({ type, title, thumbnailUrl, onClick }: PdfPreviewProps) {
+const THUMBNAIL_WIDTH = 280;
+const PDF_THUMBNAIL_QUALITY = 0.82;
+const generatedPreviewCache = new Map<string, string | null>();
+
+export function PdfPreview({ type, url, title, thumbnailUrl, onClick }: PdfPreviewProps) {
+  const [generatedPreview, setGeneratedPreview] = useState<string | null>(null);
+  const [imagePreviewFailed, setImagePreviewFailed] = useState(false);
+  const normalizedUrl = useMemo(() => normalizeStoredMaterialUrl(url, type), [url, type]);
+  const normalizedThumbnailUrl = useMemo(
+    () => (thumbnailUrl ? normalizeStoredMaterialUrl(thumbnailUrl) : null),
+    [thumbnailUrl]
+  );
+  const viewerKind = useMemo(() => resolveViewerKind(type, normalizedUrl), [type, normalizedUrl]);
 
   const wrapperClass =
     "w-full h-44 flex items-center justify-center rounded-t-lg cursor-pointer overflow-hidden";
+
+  useEffect(() => {
+    setImagePreviewFailed(false);
+  }, [normalizedUrl, normalizedThumbnailUrl, viewerKind]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const generate = async () => {
+      if (type !== "PDF" || viewerKind !== "PDF" || normalizedThumbnailUrl) {
+        setGeneratedPreview(null);
+        return;
+      }
+
+      const cached = generatedPreviewCache.get(normalizedUrl);
+      if (cached !== undefined) {
+        setGeneratedPreview(cached);
+        return;
+      }
+
+      try {
+        const pdfjsLib = await import("pdfjs-dist");
+        if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
+          pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
+        }
+
+        const pdf = await pdfjsLib.getDocument({ url: normalizedUrl, withCredentials: true }).promise;
+        const page = await pdf.getPage(1);
+        const viewport = page.getViewport({ scale: 1 });
+        const scale = THUMBNAIL_WIDTH / viewport.width;
+        const scaledViewport = page.getViewport({ scale });
+        const canvas = document.createElement("canvas");
+        canvas.width = scaledViewport.width;
+        canvas.height = scaledViewport.height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          generatedPreviewCache.set(normalizedUrl, null);
+          if (!cancelled) setGeneratedPreview(null);
+          return;
+        }
+
+        await page.render({ canvas, canvasContext: ctx, viewport: scaledViewport }).promise;
+        const previewDataUrl = canvas.toDataURL("image/jpeg", PDF_THUMBNAIL_QUALITY);
+        generatedPreviewCache.set(normalizedUrl, previewDataUrl);
+        if (!cancelled) setGeneratedPreview(previewDataUrl);
+      } catch (error) {
+        console.warn("[biblioteca] Falha ao gerar preview de PDF", error);
+        generatedPreviewCache.set(normalizedUrl, null);
+        if (!cancelled) setGeneratedPreview(null);
+      }
+    };
+
+    generate();
+    return () => {
+      cancelled = true;
+    };
+  }, [type, viewerKind, normalizedUrl, normalizedThumbnailUrl]);
 
   if (type === "SLIDE") {
     return (
@@ -39,6 +111,28 @@ export function PdfPreview({ type, title, thumbnailUrl, onClick }: PdfPreviewPro
     );
   }
 
+  if (viewerKind === "IMAGE") {
+    return (
+      <div
+        className={`${wrapperClass} bg-gray-50 dark:bg-gray-800 relative`}
+        onClick={onClick}
+        title={title}
+      >
+        {!imagePreviewFailed ? (
+          <img
+            src={normalizedThumbnailUrl ?? normalizedUrl}
+            alt={`Prévia de ${title}`}
+            className="w-full h-full object-cover"
+            loading="lazy"
+            onError={() => setImagePreviewFailed(true)}
+          />
+        ) : (
+          <ImageIcon className="h-12 w-12 text-sky-300 dark:text-sky-600" />
+        )}
+      </div>
+    );
+  }
+
   // PDF
   return (
     <div
@@ -46,9 +140,9 @@ export function PdfPreview({ type, title, thumbnailUrl, onClick }: PdfPreviewPro
       onClick={onClick}
       title={title}
     >
-      {thumbnailUrl ? (
+      {normalizedThumbnailUrl || generatedPreview ? (
         <img
-          src={thumbnailUrl}
+          src={normalizedThumbnailUrl ?? generatedPreview ?? undefined}
           alt={`Prévia de ${title}`}
           className="w-full h-full object-cover"
           loading="lazy"
