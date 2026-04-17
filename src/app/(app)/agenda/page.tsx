@@ -73,6 +73,8 @@ export default function AgendaPage() {
   });
 
   // ── Drag & drop state ────────────────────────────────────────────────────
+  // Note: HTML5 drag-and-drop is mouse-only. A keyboard alternative (e.g. Ctrl+Arrow
+  // or a "Move to group" menu) could be added in a future accessibility pass.
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const [dragOverGroup, setDragOverGroup] = useState<string | null>(null);
 

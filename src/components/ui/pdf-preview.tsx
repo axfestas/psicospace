@@ -14,10 +14,12 @@ interface PdfPreviewProps {
 
 /** Renders a small preview thumbnail for library items. */
 const THUMBNAIL_WIDTH = 280;
-// 0.82 preserves readable text while keeping thumbnail upload/render lightweight.
+// 0.82 gives good visual quality for the card thumbnail while keeping the
+// in-memory data URL reasonably small for client-side rendering.
 const PDF_THUMBNAIL_QUALITY = 0.82;
 const generatedPreviewCache = new Map<string, string | null>();
-// Keep cache bounded for long-lived sessions with many cards open.
+// Bounded LRU-style cache to avoid unbounded memory growth in long-lived sessions.
+// Entries are added by URL key and evicted (oldest first) once the cap is reached.
 const MAX_PREVIEW_CACHE_ITEMS = 120;
 let pdfJsModulePromise: Promise<typeof import("pdfjs-dist")> | null = null;
 

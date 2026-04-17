@@ -74,7 +74,7 @@ export function DocumentViewerModal({ url, title, type, onClose }: DocumentViewe
         if (response.status === 405) {
           response = await fetch(normalizedUrl, {
             method: "GET",
-            headers: { Range: "bytes=0-0" },
+            headers: { Range: "bytes=0-1" },
             cache: "no-store",
             credentials: "include",
             signal: controller.signal,
