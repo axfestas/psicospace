@@ -13,7 +13,7 @@ function getPathname(value: string): string {
   }
 }
 
-function getExtension(value: string): string | null {
+export function getFileExtensionFromUrl(value: string): string | null {
   const pathname = getPathname(value).split("?")[0].split("#")[0];
   const lastSegment = pathname.split("/").pop() ?? "";
   const dotIndex = lastSegment.lastIndexOf(".");
@@ -38,6 +38,10 @@ export function normalizeStoredMaterialUrl(url: string, type?: StoredMaterialTyp
     }
   }
 
+  if (/^[a-z0-9.-]+\.[a-z]{2,}(\/|$)/i.test(trimmed) || trimmed.startsWith("//")) {
+    return trimmed;
+  }
+
   if (trimmed.startsWith("api/files/")) return `/${trimmed}`;
   if (trimmed.includes("/") && !trimmed.startsWith("/")) return `${FILE_API_PREFIX}${trimmed}`;
   return trimmed;
@@ -50,7 +54,7 @@ export function isInternalFileUrl(url: string): boolean {
 export type ViewerKind = "PDF" | "IMAGE" | "SLIDE" | "LINK" | "UNKNOWN";
 
 export function detectViewerKindFromUrl(url: string): ViewerKind {
-  const extension = getExtension(url);
+  const extension = getFileExtensionFromUrl(url);
   if (!extension) return "UNKNOWN";
   if (PDF_EXTENSIONS.has(extension)) return "PDF";
   if (IMAGE_EXTENSIONS.has(extension)) return "IMAGE";

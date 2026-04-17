@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRequestContext } from "@cloudflare/next-on-pages";
 import { getAuthUser } from "@/lib/auth";
+import { getFileExtensionFromUrl } from "@/lib/file-urls";
 
 export const runtime = "edge";
 
@@ -18,13 +19,9 @@ const CONTENT_TYPE_BY_EXTENSION: Record<string, string> = {
   svg: "image/svg+xml",
 };
 
-function getExtension(fileName: string): string | null {
-  const dotIndex = fileName.lastIndexOf(".");
-  if (dotIndex <= 0 || dotIndex === fileName.length - 1) return null;
-  return fileName.slice(dotIndex + 1).toLowerCase();
-}
-
 function buildContentDispositionFilename(fileName: string): string {
+  // Keep both an ASCII fallback and UTF-8 encoded name for broad browser
+  // compatibility with Content-Disposition parsing.
   const asciiName = fileName
     .normalize("NFKD")
     .replace(/[^\x20-\x7E]/g, "_")
@@ -62,10 +59,13 @@ export async function GET(
     const filename = segments[segments.length - 1].replace(/^\d+-/, "");
     const contentDispositionFileName = buildContentDispositionFilename(filename);
     const inferredContentType = (() => {
-      const extension = getExtension(filename);
+      const extension = getFileExtensionFromUrl(filename);
       return extension ? CONTENT_TYPE_BY_EXTENSION[extension] : null;
     })();
     const contentType = headers.get("content-type") ?? inferredContentType ?? "application/octet-stream";
+    if (contentType === "application/octet-stream") {
+      console.warn(`[/api/files] Content-Type fallback used for key: ${key}`);
+    }
     headers.set("content-type", contentType);
     headers.set("x-content-type-options", "nosniff");
 

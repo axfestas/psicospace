@@ -46,11 +46,15 @@ export async function PUT(
         ? normalizeStoredMaterialUrl(url, type)
         : undefined;
 
-    if (type === "LINK" && !incomingUrl) {
-      return NextResponse.json({ error: "URL é obrigatório para materiais do tipo LINK" }, { status: 400 });
+    let finalUrl = currentUrl;
+    if (type === "LINK") {
+      if (!incomingUrl) {
+        return NextResponse.json({ error: "URL é obrigatório para materiais do tipo LINK" }, { status: 400 });
+      }
+      finalUrl = incomingUrl;
+    } else if (incomingUrl) {
+      finalUrl = incomingUrl;
     }
-
-    const finalUrl = type === "LINK" ? incomingUrl! : incomingUrl ?? currentUrl;
     if (type !== "LINK" && !isInternalFileUrl(finalUrl)) {
       return NextResponse.json(
         { error: "Para PDFs e slides, envie o arquivo por upload." },

@@ -293,7 +293,8 @@ export default function DocentesPage() {
 
   const handleSaveEditMaterial = async () => {
     if (!editingMaterialId || !editMaterialForm.title) return;
-    if (editMaterialForm.type === "LINK" && !editMaterialForm.url.trim()) return;
+    const editUrl = editMaterialForm.type === "LINK" ? editMaterialForm.url : null;
+    if (editMaterialForm.type === "LINK" && !editUrl.trim()) return;
     setEditSaving(true);
     setEditError(null);
     const res = await fetch(`/api/materials/${editingMaterialId}`, {
@@ -302,7 +303,7 @@ export default function DocentesPage() {
       body: JSON.stringify({
         title: editMaterialForm.title,
         type: editMaterialForm.type,
-        url: editMaterialForm.type === "LINK" ? editMaterialForm.url : null,
+        url: editUrl,
       }),
     });
     if (res.ok) {
