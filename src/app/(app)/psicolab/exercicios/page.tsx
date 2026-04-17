@@ -34,18 +34,20 @@ export default function PsicoLabExercisesPage() {
   const [textAnswer, setTextAnswer] = useState("");
   const [selectedOptionId, setSelectedOptionId] = useState<string>("");
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
 
   const loadExercises = useCallback(async () => {
-    const res = await fetch("/api/exercises?status=APPROVED");
+    const res = await fetch("/api/exercises?status=APPROVED&eligibleForReward=true");
     if (res.ok) {
       const data = await res.json();
-      const approved = (data.exercises || []).filter(
-        (ex: Exercise) => !!ex.material || !!ex.libraryItem
-      );
+      const approved = data.exercises || [];
       setExercises(approved);
       setSelectedExerciseId((prev) => prev ?? approved[0]?.id ?? null);
+      setLoadError(null);
+    } else {
+      setLoadError("Não foi possível carregar os exercícios agora.");
     }
     setLoading(false);
   }, []);
@@ -128,6 +130,7 @@ export default function PsicoLabExercisesPage() {
           {exercises.length === 0 && (
             <p className="text-sm text-gray-500">Nenhum exercício aprovado disponível.</p>
           )}
+          {loadError && <p className="text-sm text-red-500">{loadError}</p>}
           {exercises.map((exercise) => (
             <button
               key={exercise.id}

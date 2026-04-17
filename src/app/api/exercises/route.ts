@@ -15,6 +15,7 @@ export async function GET(request: NextRequest) {
     const materialId = searchParams.get("materialId");
     const libraryItemId = searchParams.get("libraryItemId");
     const status = searchParams.get("status");
+    const eligibleForReward = searchParams.get("eligibleForReward") === "true";
     // Non-docentes can only see approved exercises
     const isDocente = DOCENTE_ROLES.has(auth.role);
 
@@ -23,6 +24,7 @@ export async function GET(request: NextRequest) {
         ...(materialId ? { materialId } : {}),
         ...(libraryItemId ? { libraryItemId } : {}),
         ...(status ? { status } : isDocente ? {} : { status: "APPROVED" }),
+        ...(eligibleForReward ? { OR: [{ materialId: { not: null } }, { libraryItemId: { not: null } }] } : {}),
       },
       orderBy: { createdAt: "desc" },
       include: {

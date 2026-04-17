@@ -14,6 +14,10 @@ function normalizeAnswer(value?: string | null) {
     .replace(/\s+/g, " ");
 }
 
+function isExerciseEligibleForReward(exercise: { materialId: string | null; libraryItemId: string | null }) {
+  return Boolean(exercise.materialId || exercise.libraryItemId);
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -65,12 +69,21 @@ export async function POST(
     let awarded = false;
     let rewardAmount = 0;
 
-    const canReward = !previous?.rewardedAt && isCorrect && (exercise.materialId || exercise.libraryItemId);
+    const canReward =
+      !previous?.rewardedAt && isCorrect && isExerciseEligibleForReward(exercise);
     if (canReward) {
       const reward = await grantExerciseReward(auth.userId, id);
       awarded = reward.awarded;
       rewardAmount = reward.amount;
     }
+
+    let resolvedRewardedAt: string | null = null;
+    if (previous?.rewardedAt) {
+      resolvedRewardedAt = new Date(previous.rewardedAt).toISOString();
+    } else if (awarded) {
+      resolvedRewardedAt = new Date().toISOString();
+    }
+    const resolvedRewardAmount = previous?.rewardedAt ? previous.rewardAmount : rewardAmount;
 
     const attempt = await prisma.exerciseAttempt.upsert({
       where: {
@@ -83,8 +96,8 @@ export async function POST(
         answer: normalizedAnswer || null,
         selectedOptionId: optionId || null,
         isCorrect,
-        rewardedAt: previous?.rewardedAt ?? (awarded ? new Date().toISOString() : null),
-        rewardAmount: previous?.rewardAmount ?? rewardAmount,
+        rewardedAt: resolvedRewardedAt,
+        rewardAmount: resolvedRewardAmount,
       },
       create: {
         userId: auth.userId,

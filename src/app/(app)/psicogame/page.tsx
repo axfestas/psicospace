@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { REWARD_EXERCISE_CORRECT } from "@/lib/psico-constants";
 import {
   Coins,
   Star,
@@ -296,7 +297,11 @@ export default function PsicoGamePage() {
             </CardHeader>
             <CardContent className="space-y-2">
               {[
-                { icon: "✅", text: "Responder exercício aprovado corretamente", value: "+15 Psiquê" },
+                {
+                  icon: "✅",
+                  text: "Responder exercício aprovado corretamente",
+                  value: `+${REWARD_EXERCISE_CORRECT} Psiquê`,
+                },
               ].map((item, i) => (
                 <div key={i} className="flex items-center justify-between text-sm">
                   <span className="flex items-center gap-2 text-gray-700 dark:text-gray-300">

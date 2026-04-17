@@ -1,8 +1,5 @@
 import { prisma } from "@/lib/db";
-
-export const XP_PER_LEVEL = 100;
-export const REWARD_EXERCISE_CORRECT = 15;
-export const XP_EXERCISE_CORRECT = 20;
+import { REWARD_EXERCISE_CORRECT, XP_EXERCISE_CORRECT, XP_PER_LEVEL } from "@/lib/psico-constants";
 
 interface ParsedCharacter {
   id: string;
@@ -98,12 +95,10 @@ async function updateCharacterProgress(userId: string, xpGain: number) {
   let newStreak = character.currentStreak;
   if (character.lastSessionAt) {
     const lastDate = new Date(character.lastSessionAt);
-    const diffDays = Math.floor((now.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
-    if (diffDays === 0) {
-      newStreak = character.currentStreak;
-    } else if (diffDays === 1) {
+    const diffDays = diffUtcDays(lastDate, now);
+    if (diffDays === 1) {
       newStreak = character.currentStreak + 1;
-    } else {
+    } else if (diffDays > 1) {
       newStreak = 1;
     }
   } else {
@@ -125,6 +120,12 @@ async function updateCharacterProgress(userId: string, xpGain: number) {
       updatedAt: now.toISOString(),
     },
   });
+}
+
+function diffUtcDays(a: Date, b: Date) {
+  const aUTC = Date.UTC(a.getUTCFullYear(), a.getUTCMonth(), a.getUTCDate());
+  const bUTC = Date.UTC(b.getUTCFullYear(), b.getUTCMonth(), b.getUTCDate());
+  return Math.floor((bUTC - aUTC) / (1000 * 60 * 60 * 24));
 }
 
 export async function grantExerciseReward(userId: string, exerciseId: string) {
