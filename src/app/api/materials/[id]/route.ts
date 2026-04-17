@@ -40,7 +40,7 @@ export async function PUT(
       return NextResponse.json({ error: "Sem permissão para editar este material" }, { status: 403 });
     }
 
-    const currentUrl = normalizeStoredMaterialUrl(material.url, type);
+    const currentUrl = normalizeStoredMaterialUrl(material.url, material.type);
     const incomingUrl =
       typeof url === "string" && url.trim().length > 0
         ? normalizeStoredMaterialUrl(url, type)
@@ -70,6 +70,34 @@ export async function PUT(
     return NextResponse.json({ material: updated });
   } catch (error) {
     console.error("[materials/[id] PUT]", error);
+    return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 });
+  }
+}
+
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const auth = await getAuthUser();
+    if (!auth || !["ADMIN", "SUPERADMIN", "DOCENTE"].includes(auth.role)) {
+      return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+    }
+
+    const { id } = await params;
+    const material = await prisma.material.findUnique({ where: { id } });
+    if (!material) {
+      return NextResponse.json({ error: "Material não encontrado" }, { status: 404 });
+    }
+
+    if (auth.role === "DOCENTE" && material.uploadedById !== auth.userId) {
+      return NextResponse.json({ error: "Sem permissão para remover este material" }, { status: 403 });
+    }
+
+    await prisma.material.delete({ where: { id } });
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("[materials/[id] DELETE]", error);
     return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 });
   }
 }
