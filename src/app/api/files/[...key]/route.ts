@@ -23,6 +23,16 @@ function getExtension(fileName: string): string | null {
   return fileName.slice(dotIndex + 1).toLowerCase();
 }
 
+function buildContentDispositionFilename(fileName: string): string {
+  const asciiName = fileName
+    .normalize("NFKD")
+    .replace(/[^\x20-\x7E]/g, "_")
+    .replace(/["\\;%\r\n]/g, "_");
+  const utf8Name = encodeURIComponent(fileName)
+    .replace(/['()*]/g, (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`);
+  return `filename="${asciiName}"; filename*=UTF-8''${utf8Name}`;
+}
+
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ key: string[] }> }
@@ -49,7 +59,7 @@ export async function GET(
 
     // Derive the original filename from the key (format: userId/timestamp-filename)
     const filename = segments[segments.length - 1].replace(/^\d+-/, "");
-    const safeFileName = filename.replace(/["\r\n]/g, "_");
+    const contentDispositionFileName = buildContentDispositionFilename(filename);
     const inferredContentType = (() => {
       const extension = getExtension(filename);
       return extension ? CONTENT_TYPE_BY_EXTENSION[extension] : null;
@@ -62,10 +72,10 @@ export async function GET(
     // For browsers that don't support inline PDF rendering (e.g. mobile), a
     // fallback download/open-in-new-tab button is shown in the viewer modal.
     if (contentType.startsWith("application/pdf") || contentType.startsWith("image/")) {
-      headers.set("content-disposition", `inline; filename="${safeFileName}"`);
+      headers.set("content-disposition", `inline; ${contentDispositionFileName}`);
     } else {
       // Slides and other non-viewable types should trigger a download
-      headers.set("content-disposition", `attachment; filename="${safeFileName}"`);
+      headers.set("content-disposition", `attachment; ${contentDispositionFileName}`);
     }
 
     return new NextResponse(object.body, { headers });

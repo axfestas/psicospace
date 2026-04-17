@@ -302,7 +302,7 @@ export default function DocentesPage() {
       body: JSON.stringify({
         title: editMaterialForm.title,
         type: editMaterialForm.type,
-        ...(editMaterialForm.type === "LINK" ? { url: editMaterialForm.url } : {}),
+        url: editMaterialForm.type === "LINK" ? editMaterialForm.url : null,
       }),
     });
     if (res.ok) {
@@ -549,7 +549,6 @@ export default function DocentesPage() {
                                         setEditMaterialForm({
                                           ...editMaterialForm,
                                           type: e.target.value as "PDF" | "SLIDE" | "LINK",
-                                          ...(e.target.value === "LINK" ? {} : { url: "" }),
                                         })
                                       }
                                       className="flex h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
