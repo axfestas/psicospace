@@ -120,8 +120,8 @@ async function handleFileRequest(
       headers.set("last-modified", metadataSource.uploaded.toUTCString());
     }
 
-    if (responseContentLength === null) {
-      responseContentLength = status === 206 ? null : metadataSource.size;
+    if (responseContentLength === null && status !== 206) {
+      responseContentLength = metadataSource.size;
     }
     if (status === 206) {
       if (contentRange === null || responseContentLength === null) {
@@ -129,7 +129,7 @@ async function handleFileRequest(
       }
       headers.set("content-range", contentRange);
       headers.set("content-length", String(responseContentLength));
-    } else if (!headers.get("content-length")) {
+    } else if (!headers.get("content-length") && responseContentLength !== null) {
       headers.set("content-length", String(responseContentLength));
     }
 
