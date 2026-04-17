@@ -59,12 +59,13 @@ export async function GET(
     // Derive the original filename from the key (format: userId/timestamp-filename)
     const filename = segments[segments.length - 1].replace(/^\d+-/, "");
     const contentDispositionFileName = buildContentDispositionFilename(filename);
+    const hasStoredContentType = !!headers.get("content-type");
     const inferredContentType = (() => {
       const extension = getFileExtensionFromUrl(filename);
       return extension ? CONTENT_TYPE_BY_EXTENSION[extension] : null;
     })();
     const contentType = headers.get("content-type") ?? inferredContentType ?? "application/octet-stream";
-    if (contentType === "application/octet-stream") {
+    if (!hasStoredContentType && !inferredContentType) {
       console.warn(`[/api/files] Content-Type fallback used for key: ${key}`);
     }
     headers.set("content-type", contentType);

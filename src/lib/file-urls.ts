@@ -38,6 +38,8 @@ export function normalizeStoredMaterialUrl(url: string, type?: StoredMaterialTyp
     }
   }
 
+  // Preserve domain-like URLs without protocol (ex.: example.com/file.pdf),
+  // which may come from legacy LINK entries.
   if (/^[a-z0-9-]+(\.[a-z0-9-]+)+\/.+/.test(trimmed) || trimmed.startsWith("//")) {
     return trimmed;
   }
@@ -47,8 +49,8 @@ export function normalizeStoredMaterialUrl(url: string, type?: StoredMaterialTyp
   return trimmed;
 }
 
-export function isInternalFileUrl(url: string): boolean {
-  return normalizeStoredMaterialUrl(url).startsWith(FILE_API_PREFIX);
+export function isInternalFileUrl(url: string, type?: StoredMaterialType): boolean {
+  return normalizeStoredMaterialUrl(url, type).startsWith(FILE_API_PREFIX);
 }
 
 export type ViewerKind = "PDF" | "IMAGE" | "SLIDE" | "LINK" | "UNKNOWN";
