@@ -1,4 +1,9 @@
+"use client";
+
+import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { ChevronDown, ChevronRight } from "lucide-react";
 
 const sections = [
   {
@@ -84,79 +89,81 @@ const sections = [
 ];
 
 export default function ABNTPage() {
+  const [search, setSearch] = useState("");
+  const [openSection, setOpenSection] = useState<string | null>(sections[0].title);
+
+  const filteredSections = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    if (!term) return sections;
+    return sections
+      .map((section) => ({
+        ...section,
+        content: section.content.filter((item) =>
+          `${item.label} ${item.value}`.toLowerCase().includes(term)
+        ),
+      }))
+      .filter(
+        (section) =>
+          section.title.toLowerCase().includes(term) || section.content.length > 0
+      );
+  }, [search]);
+
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-          Guia de Normas ABNT
-        </h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Guia de Normas ABNT</h1>
         <p className="mt-1 text-gray-500 dark:text-gray-400">
           Referência completa para formatação de trabalhos acadêmicos em Psicologia
         </p>
       </div>
 
+      <Input
+        placeholder="Buscar norma, termo ou exemplo..."
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+      />
+
       <div className="rounded-xl bg-blue-50 border border-blue-200 p-4 dark:bg-blue-900/20 dark:border-blue-800">
         <p className="text-sm text-blue-700 dark:text-blue-300">
           <strong>Ψ Dica:</strong> As normas ABNT são atualizadas periodicamente. Sempre verifique a versão mais recente junto à sua instituição.
-          As principais normas são: NBR 14724 (trabalhos acadêmicos), NBR 6023 (referências), NBR 10520 (citações) e NBR 6028 (resumos).
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        {sections.map((section) => (
-          <Card key={section.title}>
-            <CardHeader>
-              <CardTitle className="text-base">{section.title}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <dl className="space-y-3">
-                {section.content.map((item) => (
-                  <div key={item.label}>
-                    <dt className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                      {item.label}
-                    </dt>
-                    <dd className="mt-0.5 text-sm text-gray-700 dark:text-gray-300">
-                      {item.value}
-                    </dd>
-                  </div>
-                ))}
-              </dl>
-            </CardContent>
+      <div className="space-y-3">
+        {filteredSections.length === 0 ? (
+          <Card>
+            <CardContent className="pt-6 text-sm text-gray-500">Nenhum resultado para a busca.</CardContent>
           </Card>
-        ))}
+        ) : (
+          filteredSections.map((section) => {
+            const isOpen = openSection === section.title;
+            return (
+              <Card key={section.title} className="overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setOpenSection(isOpen ? null : section.title)}
+                  className="flex w-full items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                >
+                  <CardTitle className="text-base">{section.title}</CardTitle>
+                  {isOpen ? <ChevronDown className="h-4 w-4 text-gray-400" /> : <ChevronRight className="h-4 w-4 text-gray-400" />}
+                </button>
+                {isOpen && (
+                  <CardContent className="pt-0 pb-4">
+                    <dl className="space-y-3">
+                      {section.content.map((item) => (
+                        <div key={item.label}>
+                          <dt className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{item.label}</dt>
+                          <dd className="mt-0.5 text-sm text-gray-700 dark:text-gray-300">{item.value}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </CardContent>
+                )}
+              </Card>
+            );
+          })
+        )}
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Exemplos de Referências por Tipo</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Livro</h3>
-            <div className="rounded bg-gray-50 dark:bg-gray-800 p-3 text-sm font-mono text-gray-700 dark:text-gray-300">
-              FREUD, Sigmund. A interpretação dos sonhos. Tradução de Walderedo Ismael de Oliveira. Rio de Janeiro: Imago, 1999.
-            </div>
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Artigo Científico</h3>
-            <div className="rounded bg-gray-50 dark:bg-gray-800 p-3 text-sm font-mono text-gray-700 dark:text-gray-300">
-              SANTOS, Maria Clara. Psicoterapia cognitivo-comportamental no tratamento da ansiedade. Revista Brasileira de Psicologia, São Paulo, v. 10, n. 2, p. 45-62, jul./dez. 2023.
-            </div>
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Site</h3>
-            <div className="rounded bg-gray-50 dark:bg-gray-800 p-3 text-sm font-mono text-gray-700 dark:text-gray-300">
-              CONSELHO FEDERAL DE PSICOLOGIA. Código de Ética Profissional do Psicólogo. Disponível em: https://site.cfp.org.br/codigo-de-etica/. Acesso em: 15 jan. 2024.
-            </div>
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Dissertação</h3>
-            <div className="rounded bg-gray-50 dark:bg-gray-800 p-3 text-sm font-mono text-gray-700 dark:text-gray-300">
-              OLIVEIRA, Paulo Roberto. Depressão e subjetividade: uma análise psicanalítica. 2022. 120 f. Dissertação (Mestrado em Psicologia Clínica) — Universidade de São Paulo, São Paulo, 2022.
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

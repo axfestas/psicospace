@@ -25,7 +25,12 @@ export async function PUT(
       data: {
         title,
         completed,
-        dueDate: dueDate ? new Date(dueDate) : undefined,
+        dueDate:
+          dueDate === null || dueDate === ""
+            ? null
+            : dueDate !== undefined
+            ? new Date(dueDate)
+            : undefined,
       },
     });
 
