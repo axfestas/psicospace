@@ -86,6 +86,7 @@ export default function BibliotecaPage() {
               {/* Preview thumbnail — clickable */}
               <PdfPreview
                 type={item.type}
+                url={item.url}
                 title={item.title}
                 thumbnailUrl={item.thumbnailUrl}
                 onClick={() => setViewer({ url: item.url, title: item.title, type: item.type })}

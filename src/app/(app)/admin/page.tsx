@@ -72,15 +72,14 @@ export default function AdminPage() {
   const [applyingMigrations, setApplyingMigrations] = useState(false);
   const [applyResults, setApplyResults] = useState<ApplyResult[] | null>(null);
   const [applyMessage, setApplyMessage] = useState<string | null>(null);
+
+  // ── Test-delivery state (separated by type) ──
+  type TestType = "email_welcome" | "email_verification" | "email_reset" | "email_pending" | "notification";
   const [testEmail, setTestEmail] = useState("");
-  const [testingDelivery, setTestingDelivery] = useState(false);
-  const [deliveryResult, setDeliveryResult] = useState<{
-    message: string;
-    emailSent: boolean;
-    notificationCreated: boolean;
-    emailError?: string | null;
-    targetEmail?: string;
-  } | null>(null);
+  const [testingType, setTestingType] = useState<TestType | null>(null);
+  type TestResult = { message: string; success: boolean; detail?: string | null; targetEmail?: string | null };
+  const [emailResults, setEmailResults] = useState<Partial<Record<TestType, TestResult>>>({});
+  const [notifResult, setNotifResult] = useState<TestResult | null>(null);
 
   const isSuperAdmin = currentUser?.role === "SUPERADMIN";
 
@@ -241,34 +240,54 @@ export default function AdminPage() {
     }
   };
 
-  const handleTestDelivery = async () => {
-    setTestingDelivery(true);
-    setDeliveryResult(null);
+  const runEmailTest = async (type: TestType) => {
+    setTestingType(type);
+    setEmailResults((prev) => ({ ...prev, [type]: undefined }));
     try {
       const res = await fetch("/api/admin/migrations/test-delivery", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: testEmail.trim() || undefined }),
+        body: JSON.stringify({ testType: type, email: testEmail.trim() || undefined }),
       });
       const json = await res.json();
       if (res.ok) {
-        setDeliveryResult({
-          message: json.message ?? "Teste concluído.",
-          emailSent: Boolean(json.emailSent),
-          notificationCreated: Boolean(json.notificationCreated),
-          emailError: json.emailError ?? null,
-          targetEmail: json.targetEmail,
-        });
+        setEmailResults((prev) => ({
+          ...prev,
+          [type]: {
+            success: Boolean(json.emailSent),
+            message: json.message ?? "Concluído.",
+            detail: json.emailError ?? null,
+            targetEmail: json.targetEmail ?? null,
+          },
+        }));
       } else {
-        setDeliveryResult({
-          message: json.error ?? "Falha ao executar o teste.",
-          emailSent: false,
-          notificationCreated: false,
-          emailError: null,
-        });
+        setEmailResults((prev) => ({
+          ...prev,
+          [type]: { success: false, message: json.error ?? "Falha.", detail: null },
+        }));
       }
     } finally {
-      setTestingDelivery(false);
+      setTestingType(null);
+    }
+  };
+
+  const runNotificationTest = async () => {
+    setTestingType("notification");
+    setNotifResult(null);
+    try {
+      const res = await fetch("/api/admin/migrations/test-delivery", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ testType: "notification" }),
+      });
+      const json = await res.json();
+      if (res.ok) {
+        setNotifResult({ success: true, message: json.message ?? "Notificação criada." });
+      } else {
+        setNotifResult({ success: false, message: json.error ?? "Falha ao criar notificação." });
+      }
+    } finally {
+      setTestingType(null);
     }
   };
 
@@ -708,44 +727,85 @@ export default function AdminPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Teste de E-mail e Notificação</CardTitle>
+              <CardTitle className="text-base">Teste de E-mail</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-gray-500">
+                Escolha um tipo de e-mail e clique no botão para enviar um teste. O e-mail será enviado para o endereço informado abaixo (ou para o seu e-mail de conta se deixado em branco).
+              </p>
+              <Input
+                value={testEmail}
+                onChange={(e) => setTestEmail(e.target.value)}
+                placeholder="E-mail de destino para teste (opcional)"
+                className="max-w-md"
+              />
+              <div className="grid gap-3 sm:grid-cols-2">
+                {(
+                  [
+                    { type: "email_welcome" as const, label: "Boas-vindas / Verificação", icon: <Send className="h-3.5 w-3.5" />, description: "E-mail enviado no cadastro com link de confirmação." },
+                    { type: "email_reset" as const, label: "Redefinição de senha", icon: <Send className="h-3.5 w-3.5" />, description: "E-mail enviado ao solicitar nova senha." },
+                    { type: "email_pending" as const, label: "Lembrete de pendências", icon: <Send className="h-3.5 w-3.5" />, description: "Resumo de tarefas atrasadas e eventos próximos." },
+                  ] as const
+                ).map(({ type, label, icon, description }) => {
+                  const result = emailResults[type];
+                  const isRunning = testingType === type;
+                  return (
+                    <div key={type} className="rounded-lg border border-gray-200 dark:border-gray-700 p-3 space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{label}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">{description}</p>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => runEmailTest(type)}
+                          disabled={testingType !== null}
+                          className="flex-shrink-0 gap-1.5"
+                        >
+                          {icon}
+                          {isRunning ? "Enviando…" : "Testar"}
+                        </Button>
+                      </div>
+                      {result && (
+                        <div className={`rounded px-2.5 py-1.5 text-xs ${result.success ? "bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400" : "bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400"}`}>
+                          <span className="font-medium">{result.success ? "✓" : "✗"}</span> {result.message}
+                          {result.targetEmail && <span className="ml-1 opacity-75">→ {result.targetEmail}</span>}
+                          {result.detail && <div className="mt-1 opacity-80">{result.detail}</div>}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Teste de Notificação In-App</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <p className="text-sm text-gray-500">
-                Dispara uma notificação in-app para sua conta e tenta enviar um e-mail de teste.
+                Cria uma notificação de teste que aparece no sininho de notificações do seu usuário.
               </p>
-              <div className="flex flex-wrap gap-2">
-                <Input
-                  value={testEmail}
-                  onChange={(e) => setTestEmail(e.target.value)}
-                  placeholder="E-mail para teste (opcional)"
-                  className="max-w-md"
-                />
+              <div className="flex items-center gap-3">
                 <Button
-                  onClick={handleTestDelivery}
-                  disabled={testingDelivery}
-                  className="gap-2"
                   size="sm"
+                  variant="outline"
+                  onClick={runNotificationTest}
+                  disabled={testingType !== null}
+                  className="gap-2"
                 >
-                  <Send className="h-4 w-4" />
-                  {testingDelivery ? "Testando..." : "Testar envio"}
+                  <BellRing className="h-4 w-4" />
+                  {testingType === "notification" ? "Criando…" : "Criar notificação de teste"}
                 </Button>
+                {notifResult && (
+                  <span className={`text-sm font-medium ${notifResult.success ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+                    {notifResult.success ? "✓" : "✗"} {notifResult.message}
+                  </span>
+                )}
               </div>
-              {deliveryResult && (
-                <div className={`rounded-lg border p-3 text-sm ${deliveryResult.emailSent ? "border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-900/20 dark:text-green-400" : "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-400"}`}>
-                  <p className="font-medium">{deliveryResult.message}</p>
-                  {deliveryResult.targetEmail && (
-                    <p className="mt-1">E-mail alvo: <span className="font-medium">{deliveryResult.targetEmail}</span></p>
-                  )}
-                  <div className="mt-2 flex flex-wrap gap-3">
-                    <span className="inline-flex items-center gap-1"><BellRing className="h-3.5 w-3.5" /> Notificação: {deliveryResult.notificationCreated ? "ok" : "falhou"}</span>
-                    <span className="inline-flex items-center gap-1"><Send className="h-3.5 w-3.5" /> E-mail: {deliveryResult.emailSent ? "ok" : "falhou"}</span>
-                  </div>
-                  {deliveryResult.emailError && (
-                    <p className="mt-2 text-xs">{deliveryResult.emailError}</p>
-                  )}
-                </div>
-              )}
             </CardContent>
           </Card>
 

@@ -21,6 +21,7 @@ export async function GET() {
       items: items.map((item) => ({
         ...item,
         url: normalizeStoredMaterialUrl(item.url, item.type),
+        thumbnailUrl: item.thumbnailUrl ? normalizeStoredMaterialUrl(item.thumbnailUrl) : null,
       })),
     });
   } catch (error) {
