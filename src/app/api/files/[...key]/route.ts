@@ -66,9 +66,9 @@ async function handleFileRequest(
         return notFoundResponse();
       }
 
-      const shouldApplyRange = rangeHeader && ifRangeMatches(ifRangeHeader, headObject.httpEtag ?? null, headObject.uploaded ?? null);
+      const ifRangeValid = rangeHeader && ifRangeMatches(ifRangeHeader, headObject.httpEtag ?? null, headObject.uploaded ?? null);
 
-      if (shouldApplyRange && rangeHeader) {
+      if (ifRangeValid && rangeHeader) {
         const parsedRange = parseSingleByteRange(rangeHeader, headObject.size);
         if (!parsedRange) {
           return new NextResponse(null, {
