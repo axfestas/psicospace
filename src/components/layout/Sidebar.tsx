@@ -17,7 +17,6 @@ import {
   GraduationCap,
   Library,
   FlaskConical,
-  Brain,
   Star,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -25,7 +24,6 @@ import { useAuth } from "@/contexts/AuthContext";
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/agenda", label: "Agenda", icon: Calendar },
-  { href: "/estudo", label: "Estudo", icon: Brain },
   { href: "/psicogame", label: "PsicoGame", icon: Star },
   { href: "/biblioteca", label: "Biblioteca", icon: Library },
   { href: "/disciplinas", label: "Disciplinas", icon: GraduationCap },

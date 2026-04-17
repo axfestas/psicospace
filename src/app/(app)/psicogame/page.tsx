@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { REWARD_EXERCISE_CORRECT } from "@/lib/psico-constants";
 import {
   Coins,
   Star,
@@ -14,6 +15,7 @@ import {
   Loader2,
   BookOpen,
   CheckCircle,
+  Package,
 } from "lucide-react";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -29,7 +31,6 @@ interface Transaction {
 interface Wallet {
   id: string;
   balance: number;
-  transactions: Transaction[];
 }
 
 interface Character {
@@ -53,13 +54,21 @@ interface ShopItem {
   slot: string;
   price: number;
   imageUrl?: string | null;
-  owned: boolean;
+  owned?: boolean;
+}
+
+interface CoreData {
+  wallet: Wallet;
+  character: Character & {
+    ownedItems: string[];
+    equippedItems: Record<string, string>;
+  };
+  inventoryItems: ShopItem[];
+  transactions: Transaction[];
 }
 
 const REASON_LABELS: Record<string, string> = {
-  session_completed: "Sessão concluída",
-  recall_answered: "Active Recall respondido",
-  microtask_done: "Microtarefa concluída",
+  exercise_completed: "Exercício concluído",
   item_purchased: "Item comprado",
 };
 
@@ -85,20 +94,26 @@ function getLevelTitle(level: number): string {
 export default function PsicoGamePage() {
   const [wallet, setWallet] = useState<Wallet | null>(null);
   const [character, setCharacter] = useState<Character | null>(null);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [inventory, setInventory] = useState<ShopItem[]>([]);
   const [shopItems, setShopItems] = useState<ShopItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"character" | "shop" | "history">("character");
+  const [activeTab, setActiveTab] = useState<"character" | "shop" | "inventory" | "history">("character");
   const [buying, setBuying] = useState<string | null>(null);
   const [buyMessage, setBuyMessage] = useState<{ text: string; ok: boolean } | null>(null);
 
   const loadData = useCallback(async () => {
-    const [walletRes, charRes, shopRes] = await Promise.all([
-      fetch("/api/psicogame/wallet"),
-      fetch("/api/psicogame/character"),
+    const [coreRes, shopRes] = await Promise.all([
+      fetch("/api/psicogame/core"),
       fetch("/api/psicogame/shop"),
     ]);
-    if (walletRes.ok) setWallet((await walletRes.json()).wallet);
-    if (charRes.ok) setCharacter((await charRes.json()).character);
+    if (coreRes.ok) {
+      const core: CoreData = (await coreRes.json()).core;
+      setWallet(core.wallet);
+      setCharacter(core.character);
+      setTransactions(core.transactions || []);
+      setInventory(core.inventoryItems || []);
+    }
     if (shopRes.ok) setShopItems((await shopRes.json()).items || []);
     setLoading(false);
   }, []);
@@ -165,7 +180,7 @@ export default function PsicoGamePage() {
 
       {/* Tab navigation */}
       <div className="flex border-b border-gray-200 dark:border-gray-700">
-        {(["character", "shop", "history"] as const).map((tab) => (
+        {(["character", "shop", "inventory", "history"] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -177,8 +192,9 @@ export default function PsicoGamePage() {
           >
             {tab === "character" && <Award className="h-4 w-4" />}
             {tab === "shop" && <ShoppingBag className="h-4 w-4" />}
+            {tab === "inventory" && <Package className="h-4 w-4" />}
             {tab === "history" && <TrendingUp className="h-4 w-4" />}
-            {tab === "character" ? "Personagem" : tab === "shop" ? "Loja" : "Histórico"}
+            {tab === "character" ? "Personagem" : tab === "shop" ? "Loja" : tab === "inventory" ? "Inventário" : "Histórico"}
           </button>
         ))}
       </div>
@@ -274,16 +290,18 @@ export default function PsicoGamePage() {
             </Card>
           </div>
 
-          {/* How to earn */}
+              {/* How to earn */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-sm">Como ganhar Psico 💰</CardTitle>
+              <CardTitle className="text-sm">Como ganhar Psiquê 💰</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               {[
-                { icon: "✅", text: "Concluir uma sessão de estudo", value: "+10 Psico" },
-                { icon: "🧠", text: "Responder o active recall", value: "+5 Psico" },
-                { icon: "🎯", text: "Finalizar uma microtarefa", value: "+5 Psico" },
+                {
+                  icon: "✅",
+                  text: "Responder exercício aprovado corretamente",
+                  value: `+${REWARD_EXERCISE_CORRECT} Psiquê`,
+                },
               ].map((item, i) => (
                 <div key={i} className="flex items-center justify-between text-sm">
                   <span className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
@@ -294,7 +312,7 @@ export default function PsicoGamePage() {
                 </div>
               ))}
               <p className="text-xs text-gray-400 pt-1">
-                * Recompensas são validadas somente ao concluir sessões completas.
+                * A única fonte de ganho é a validação de exercícios aprovados da Área Docente.
               </p>
             </CardContent>
           </Card>
@@ -370,19 +388,44 @@ export default function PsicoGamePage() {
         </div>
       )}
 
+      {activeTab === "inventory" && (
+        <div className="space-y-4">
+          {inventory.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center text-gray-500">
+                <Package className="h-10 w-10 mx-auto mb-2 opacity-30" />
+                <p className="text-sm">Seu inventário está vazio.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {inventory.map((item) => (
+                <Card key={item.id}>
+                  <CardContent className="pt-4 pb-4 space-y-2">
+                    <p className="font-medium text-sm text-gray-900 dark:text-gray-100">{item.name}</p>
+                    {item.description && <p className="text-xs text-gray-500">{item.description}</p>}
+                    <Badge variant="default" className="text-xs">{item.type}</Badge>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ── TAB: history ───────────────────────────────────────────────────── */}
-      {activeTab === "history" && wallet && (
+      {activeTab === "history" && (
         <div className="space-y-3">
-          {wallet.transactions.length === 0 ? (
+          {transactions.length === 0 ? (
             <Card>
               <CardContent className="py-12 text-center text-gray-500">
                 <TrendingUp className="h-10 w-10 mx-auto mb-2 opacity-30" />
                 <p className="text-sm">Nenhuma transação ainda.</p>
-                <p className="text-xs mt-1">Complete sessões de estudo para ganhar Psico!</p>
+                <p className="text-xs mt-1">Resolva exercícios aprovados para ganhar Psiquê.</p>
               </CardContent>
             </Card>
           ) : (
-            wallet.transactions.map((tx) => (
+            transactions.map((tx) => (
               <div
                 key={tx.id}
                 className="flex items-center justify-between rounded-lg border border-gray-100 dark:border-gray-700 px-4 py-3"
