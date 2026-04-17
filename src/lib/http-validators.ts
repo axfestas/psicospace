@@ -27,7 +27,10 @@ export function selectResponseEtag({
     if (!candidate) continue;
     const normalized = normalizeEtagValue(candidate);
     if (!normalized || normalized === "*") continue;
-    if (normalized.toLowerCase() === EMPTY_CONTENT_MD5 && size !== 0) {
+    const isEmptyContentMd5 = normalized.toLowerCase() === EMPTY_CONTENT_MD5;
+    // Treat d41d8... as unreliable unless the object is explicitly known to be zero bytes.
+    const isKnownZeroByteObject = size === 0;
+    if (isEmptyContentMd5 && !isKnownZeroByteObject) {
       continue;
     }
     const headerEtag = toHeaderEtag(candidate);
