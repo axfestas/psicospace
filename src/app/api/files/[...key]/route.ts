@@ -22,11 +22,12 @@ const CONTENT_TYPE_BY_EXTENSION: Record<string, string> = {
 function buildContentDispositionFilename(fileName: string): string {
   // Keep both an ASCII fallback and UTF-8 encoded name for broad browser
   // compatibility with Content-Disposition parsing.
-  const asciiName = fileName
+  const baseName = fileName.replace(/[\r\n]/g, "");
+  const asciiName = baseName
     .normalize("NFKD")
-    .replace(/[^\x20-\x7E]/g, "_")
-    .replace(/["\\;%\r\n]/g, "_");
-  const utf8Name = encodeURIComponent(fileName)
+    .replace(/[^A-Za-z0-9!#$&+.^_`|~-]/g, "_")
+    .slice(0, 150) || "file";
+  const utf8Name = encodeURIComponent(baseName)
     .replace(/['()*]/g, (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`);
   return `filename="${asciiName}"; filename*=UTF-8''${utf8Name}`;
 }

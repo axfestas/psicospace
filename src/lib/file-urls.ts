@@ -38,7 +38,7 @@ export function normalizeStoredMaterialUrl(url: string, type?: StoredMaterialTyp
     }
   }
 
-  if (/^[a-z0-9.-]+\.[a-z]{2,}(\/|$)/i.test(trimmed) || trimmed.startsWith("//")) {
+  if (/^[a-z0-9-]+(\.[a-z0-9-]+)+\/.+/i.test(trimmed) || trimmed.startsWith("//")) {
     return trimmed;
   }
 
