@@ -16,6 +16,7 @@ interface LibraryItem {
   description?: string;
   type: "PDF" | "SLIDE" | "LINK";
   url: string;
+  thumbnailUrl?: string | null;
   uploadedBy?: { name: string };
 }
 
@@ -59,6 +60,10 @@ const FILE_ACCEPT: Record<"PDF" | "SLIDE", string> = {
   SLIDE:
     ".ppt,.pptx,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation",
 };
+const THUMBNAIL_WIDTH = 320;
+// Testing showed 0.82 gives a good balance between sharpness and upload size.
+const THUMBNAIL_JPEG_QUALITY = 0.82;
+const THUMBNAIL_FALLBACK_WARNING = "PDF salvo sem miniatura automática.";
 
 export default function DocentesPage() {
   const { user } = useAuth();
@@ -88,9 +93,10 @@ export default function DocentesPage() {
 
   // Biblioteca section state
   const [showLibrary, setShowLibrary] = useState(false);
-  const [libForm, setLibForm] = useState<{ title: string; description: string; type: "PDF" | "SLIDE" | "LINK"; url: string }>({ title: "", description: "", type: "PDF", url: "" });
+  const [libForm, setLibForm] = useState<{ title: string; description: string; type: "PDF" | "SLIDE" | "LINK"; url: string; thumbnailUrl?: string }>({ title: "", description: "", type: "PDF", url: "" });
   const [libUploading, setLibUploading] = useState(false);
   const [libUploadError, setLibUploadError] = useState<string | null>(null);
+  const [libThumbnailWarning, setLibThumbnailWarning] = useState<string | null>(null);
   const [libSaving, setLibSaving] = useState(false);
   const libFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -120,18 +126,78 @@ export default function DocentesPage() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  const uploadThumbnailFromDataUrl = useCallback(async (dataUrl: string): Promise<string | null> => {
+    const thumbResponse = await fetch(dataUrl);
+    const thumbBlob = await thumbResponse.blob();
+    const thumbFile = new File([thumbBlob], "thumbnail.jpg", { type: "image/jpeg" });
+    const thumbForm = new FormData();
+    thumbForm.append("file", thumbFile);
+    const uploadRes = await fetch("/api/upload", { method: "POST", body: thumbForm });
+    if (!uploadRes.ok) {
+      console.warn("[docentes] Thumbnail upload falhou", uploadRes.status);
+      return null;
+    }
+    const uploadData = await uploadRes.json();
+    return uploadData.url ?? null;
+  }, []);
+
+  const generatePdfThumbnail = useCallback(async (file: File): Promise<string | null> => {
+    try {
+      const pdfjsLib = await import("pdfjs-dist");
+      if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
+      }
+
+      const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+      const page = await pdf.getPage(1);
+      const viewport = page.getViewport({ scale: 1 });
+      const scale = THUMBNAIL_WIDTH / viewport.width;
+      const scaledViewport = page.getViewport({ scale });
+      const canvas = document.createElement("canvas");
+      canvas.width = scaledViewport.width;
+      canvas.height = scaledViewport.height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return null;
+      await page.render({ canvas, canvasContext: ctx, viewport: scaledViewport }).promise;
+      return canvas.toDataURL("image/jpeg", THUMBNAIL_JPEG_QUALITY);
+    } catch (error) {
+      console.warn("[docentes] Geração de thumbnail falhou", error);
+      return null;
+    }
+  }, []);
+
   // ── Biblioteca: file upload handler ─────────────────────────────────────
   const handleLibFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    const selectedType = libForm.type;
     setLibUploading(true);
     setLibUploadError(null);
+    setLibThumbnailWarning(null);
     const formData = new FormData();
     formData.append("file", file);
     const res = await fetch("/api/upload", { method: "POST", body: formData });
     if (res.ok) {
       const data = await res.json();
-      setLibForm((prev) => ({ ...prev, url: data.url }));
+      let thumbnailUrl: string | undefined;
+      if (selectedType === "PDF") {
+        const thumbDataUrl = await generatePdfThumbnail(file);
+        if (thumbDataUrl) {
+          const uploadedThumbUrl = await uploadThumbnailFromDataUrl(thumbDataUrl);
+          if (uploadedThumbUrl) {
+            thumbnailUrl = uploadedThumbUrl;
+          } else {
+            setLibThumbnailWarning(THUMBNAIL_FALLBACK_WARNING);
+          }
+        } else {
+          setLibThumbnailWarning(THUMBNAIL_FALLBACK_WARNING);
+        }
+      }
+      setLibForm((prev) => ({
+        ...prev,
+        url: data.url,
+        thumbnailUrl: selectedType === "PDF" ? thumbnailUrl : undefined,
+      }));
     } else {
       const data = await res.json().catch(() => ({}));
       setLibUploadError(data.error ?? "Falha ao enviar arquivo.");
@@ -149,7 +215,8 @@ export default function DocentesPage() {
       body: JSON.stringify(libForm),
     });
     if (res.ok) {
-      setLibForm({ title: "", description: "", type: "PDF", url: "" });
+      setLibForm({ title: "", description: "", type: "PDF", url: "", thumbnailUrl: undefined });
+      setLibThumbnailWarning(null);
       if (libFileInputRef.current) libFileInputRef.current.value = "";
       loadData();
     }
@@ -312,7 +379,10 @@ export default function DocentesPage() {
               <div className="flex gap-2 flex-wrap items-center">
                 <select
                   value={libForm.type}
-                  onChange={(e) => setLibForm({ ...libForm, type: e.target.value as "PDF" | "SLIDE" | "LINK", url: "" })}
+                  onChange={(e) => {
+                    setLibThumbnailWarning(null);
+                    setLibForm({ ...libForm, type: e.target.value as "PDF" | "SLIDE" | "LINK", url: "", thumbnailUrl: undefined });
+                  }}
                   className="flex h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
                 >
                   <option value="PDF">PDF</option>
@@ -350,6 +420,9 @@ export default function DocentesPage() {
                     )}
                     {libUploadError && (
                       <span className="text-xs text-red-600 dark:text-red-400">{libUploadError}</span>
+                    )}
+                    {libThumbnailWarning && !libUploadError && (
+                      <span className="text-xs text-amber-600 dark:text-amber-400">{libThumbnailWarning}</span>
                     )}
                   </div>
                 )}

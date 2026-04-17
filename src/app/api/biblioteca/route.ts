@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
     }
 
-    const { title, description, type, url } = await request.json();
+    const { title, description, type, url, thumbnailUrl } = await request.json();
     if (!title || !type || !url) {
       return NextResponse.json(
         { error: "Título, tipo e URL são obrigatórios" },
@@ -37,7 +37,17 @@ export async function POST(request: NextRequest) {
     }
 
     const item = await prisma.libraryItem.create({
-      data: { title, description, type, url, uploadedById: auth.userId },
+      data: {
+        title,
+        description,
+        type,
+        url,
+        thumbnailUrl:
+          typeof thumbnailUrl === "string" && thumbnailUrl.trim().length > 0
+            ? thumbnailUrl
+            : null,
+        uploadedById: auth.userId,
+      },
     });
 
     return NextResponse.json({ item }, { status: 201 });

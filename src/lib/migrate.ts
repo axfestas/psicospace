@@ -145,6 +145,12 @@ CREATE TABLE IF NOT EXISTS "LibraryItem" (
 ALTER TABLE "Material" ADD COLUMN "libraryItemId" TEXT REFERENCES "LibraryItem"("id") ON DELETE SET NULL ON UPDATE CASCADE;
     `,
   },
+  {
+    name: "20260417013600_add_library_item_thumbnail",
+    sql: `
+ALTER TABLE "LibraryItem" ADD COLUMN "thumbnailUrl" TEXT;
+    `,
+  },
 ];
 
 // ---------------------------------------------------------------------------

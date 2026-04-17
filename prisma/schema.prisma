@@ -88,6 +88,7 @@ model LibraryItem {
   description  String?
   type         MaterialType
   url          String
+  thumbnailUrl String?
   uploadedById String
   createdAt    DateTime     @default(now())
   uploadedBy   User         @relation(fields: [uploadedById], references: [id])
