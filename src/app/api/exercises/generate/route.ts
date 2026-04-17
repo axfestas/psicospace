@@ -6,6 +6,7 @@ export const runtime = "edge";
 
 const DOCENTE_ROLES = new Set(["DOCENTE", "ADMIN", "SUPERADMIN"]);
 const INSUFFICIENT_CONTENT_MESSAGE = "conteúdo insuficiente para gerar questões";
+const OPTION_LETTERS = ["A", "B", "C", "D"] as const;
 
 type ParsedGeneratedQuestion = {
   question: string;
@@ -48,7 +49,7 @@ function parseQuestions(content: string): ParsedGeneratedQuestion[] {
       const letter = String(item.correctOption ?? item.respostaCorreta ?? item.gabarito ?? "")
         .trim()
         .toUpperCase();
-      const index = ["A", "B", "C", "D"].indexOf(letter);
+      const index = OPTION_LETTERS.indexOf(letter as (typeof OPTION_LETTERS)[number]);
       if (index === -1) continue;
       options = rawOptions.map((text, i) => ({ text: text.trim(), isCorrect: i === index }));
     } else {
@@ -148,6 +149,7 @@ Se não houver conteúdo suficiente, retorne exatamente: "${INSUFFICIENT_CONTENT
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
           ],
+          // Lower temperature to maximize deterministic formatting and rule adherence.
           temperature: 0.2,
           max_tokens: 2000,
         }),
@@ -161,7 +163,9 @@ Se não houver conteúdo suficiente, retorne exatamente: "${INSUFFICIENT_CONTENT
 
       const aiData = await aiResponse.json();
       const content = String(aiData.choices?.[0]?.message?.content ?? "").trim();
-      if (content.toLocaleLowerCase().includes(INSUFFICIENT_CONTENT_MESSAGE)) {
+      const normalizedContent = content.toLowerCase();
+      const normalizedInsufficient = INSUFFICIENT_CONTENT_MESSAGE.toLowerCase();
+      if (normalizedContent.includes(normalizedInsufficient)) {
         return NextResponse.json({ error: INSUFFICIENT_CONTENT_MESSAGE }, { status: 422 });
       }
 
