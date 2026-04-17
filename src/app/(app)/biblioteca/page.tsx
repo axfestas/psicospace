@@ -86,6 +86,7 @@ export default function BibliotecaPage() {
               className="p-4 cursor-pointer focus-within:ring-2 focus-within:ring-blue-500 hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors"
               role="button"
               tabIndex={0}
+              aria-label={`Abrir documento: ${item.title}`}
               onClick={() => setViewer({ url: item.url, title: item.title, type: item.type })}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
