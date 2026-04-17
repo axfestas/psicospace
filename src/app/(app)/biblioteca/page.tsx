@@ -15,7 +15,6 @@ interface LibraryItem {
   url: string;
   thumbnailUrl?: string | null;
   createdAt: string;
-  uploadedBy: { name: string };
 }
 
 export default function BibliotecaPage() {
@@ -104,9 +103,6 @@ export default function BibliotecaPage() {
               {item.description && (
                 <p className="mt-2 text-sm text-gray-600 dark:text-gray-300 line-clamp-2">{item.description}</p>
               )}
-              <p className="mt-3 text-xs text-gray-400 dark:text-gray-500">
-                Por {item.uploadedBy.name}
-              </p>
             </Card>
           ))}
         </div>
