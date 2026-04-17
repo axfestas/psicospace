@@ -325,16 +325,15 @@ export default function AgendaPage() {
                       >
                         {day}
                       </span>
-                      {dayEvents.slice(0, 2).map((ev) => (
-                        <div
-                          key={ev.id}
-                          className="truncate rounded bg-blue-100 px-1 py-0.5 text-xs text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 mb-0.5 cursor-pointer"
-                          title={ev.title}
-                          onClick={() => handleDeleteEvent(ev.id)}
-                        >
-                          {ev.title}
-                        </div>
-                      ))}
+                       {dayEvents.slice(0, 2).map((ev) => (
+                         <div
+                           key={ev.id}
+                           className="truncate rounded bg-blue-100 px-1 py-0.5 text-xs text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 mb-0.5"
+                           title={ev.title}
+                         >
+                           {ev.title}
+                         </div>
+                       ))}
                       {dayEvents.length > 2 && (
                         <span className="text-xs text-gray-400">+{dayEvents.length - 2}</span>
                       )}

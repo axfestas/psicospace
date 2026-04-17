@@ -218,27 +218,7 @@ export default function PsicoLabPage() {
           <span className="ml-3 text-4xl sm:text-5xl">🚀</span>
         </h1>
 
-        <p className="text-blue-200 text-lg max-w-xl mx-auto leading-relaxed mb-8">
-          Experimente a Psicologia — não só estude.<br />
-          <span className="text-white font-semibold">11 simulações interativas</span> cobrindo neurociência, cognição, clínica, comportamento social e muito mais!
-        </p>
 
-        {/* Stats bar */}
-        <div className="flex items-center justify-center gap-10">
-          {[
-            { n: "11", label: "Laboratórios", emoji: "🔬" },
-            { n: "∞",  label: "Descobertas",  emoji: "🌌" },
-            { n: "100%", label: "Interativo",  emoji: "🎮" },
-          ].map((s) => (
-            <div key={s.label} className="text-center">
-              <div className="text-3xl font-black text-yellow-300 drop-shadow-sm">{s.n}</div>
-              <div className="text-xs text-blue-300 mt-0.5 flex items-center justify-center gap-1">
-                <span>{s.emoji}</span>
-                {s.label}
-              </div>
-            </div>
-          ))}
-        </div>
       </div>
 
       {/* Wave separator */}

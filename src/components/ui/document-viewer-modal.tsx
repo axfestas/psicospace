@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
-import { X, Download, Presentation, Globe, ExternalLink } from "lucide-react";
+import { useEffect, useState } from "react";
+import { X, Download, Presentation, Globe, ExternalLink, AlertTriangle } from "lucide-react";
 
 interface DocumentViewerModalProps {
   url: string;
@@ -11,12 +11,20 @@ interface DocumentViewerModalProps {
 }
 
 export function DocumentViewerModal({ url, title, type, onClose }: DocumentViewerModalProps) {
+  const [iframeError, setIframeError] = useState(false);
+
   // Close on Escape
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
+
+  // Full absolute URL for the file (needed for new-tab links and downloads)
+  const absoluteUrl =
+    typeof window !== "undefined" && url.startsWith("/")
+      ? `${window.location.origin}${url}`
+      : url;
 
   return (
     <div
@@ -25,14 +33,41 @@ export function DocumentViewerModal({ url, title, type, onClose }: DocumentViewe
     >
       {/* Header bar */}
       <div className="flex items-center justify-between bg-gray-900 px-4 py-2 flex-shrink-0">
-        <span className="text-sm font-medium text-white truncate max-w-[90%]">{title}</span>
-        <button
-          onClick={onClose}
-          className="text-gray-300 hover:text-white p-1"
-          title="Fechar"
-        >
-          <X className="h-5 w-5" />
-        </button>
+        <span className="text-sm font-medium text-white truncate max-w-[70%]">{title}</span>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {/* Download button — always present so user can get the file even if preview fails */}
+          {(type === "PDF" || type === "SLIDE") && (
+            <a
+              href={absoluteUrl}
+              download
+              className="flex items-center gap-1.5 text-xs text-gray-300 hover:text-white border border-gray-600 hover:border-gray-400 rounded px-2 py-1 transition-colors"
+              title="Baixar arquivo"
+            >
+              <Download className="h-3.5 w-3.5" />
+              Baixar
+            </a>
+          )}
+          {/* Open-in-new-tab — lets the browser render the PDF natively outside the iframe */}
+          {type === "PDF" && (
+            <a
+              href={absoluteUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 text-xs text-gray-300 hover:text-white border border-gray-600 hover:border-gray-400 rounded px-2 py-1 transition-colors"
+              title="Abrir em nova aba"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              Nova aba
+            </a>
+          )}
+          <button
+            onClick={onClose}
+            className="text-gray-300 hover:text-white p-1"
+            title="Fechar"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
       </div>
 
       {/* Content area */}
@@ -48,7 +83,7 @@ export function DocumentViewerModal({ url, title, type, onClose }: DocumentViewe
               Faça o download para abrir no PowerPoint ou LibreOffice.
             </p>
             <a
-              href={url}
+              href={absoluteUrl}
               download
               className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white font-semibold px-6 py-3 rounded-lg transition-colors"
             >
@@ -75,13 +110,46 @@ export function DocumentViewerModal({ url, title, type, onClose }: DocumentViewe
               Abrir Link
             </a>
           </div>
+        ) : iframeError ? (
+          /* Iframe failed to load — show a friendly fallback */
+          <div className="flex flex-col items-center justify-center h-full gap-6 text-white">
+            <AlertTriangle className="h-16 w-16 text-yellow-400" />
+            <p className="text-lg font-medium text-center px-4">{title}</p>
+            <p className="text-sm text-gray-400 text-center px-8">
+              Não foi possível exibir o arquivo diretamente no navegador.<br />
+              Use um dos botões abaixo para acessá-lo.
+            </p>
+            <div className="flex gap-3">
+              <a
+                href={absoluteUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white font-semibold px-5 py-2.5 rounded-lg transition-colors"
+              >
+                <ExternalLink className="h-4 w-4" />
+                Abrir em nova aba
+              </a>
+              <a
+                href={absoluteUrl}
+                download
+                className="flex items-center gap-2 bg-gray-600 hover:bg-gray-500 text-white font-semibold px-5 py-2.5 rounded-lg transition-colors"
+              >
+                <Download className="h-4 w-4" />
+                Baixar
+              </a>
+            </div>
+          </div>
         ) : (
-          /* PDF files can be rendered inline in an iframe */
+          /* PDF files — rendered inline in an iframe.
+             If the browser cannot display the PDF (e.g. mobile), the onError
+             handler shows the fallback buttons above. */
           <iframe
+            key={url}
             src={url}
             className="w-full h-full border-0"
             title={title}
             allow="fullscreen"
+            onError={() => setIframeError(true)}
           />
         )}
       </div>

@@ -41,7 +41,7 @@ import {
 interface Document {
   id: string;
   title: string;
-  content: string;
+  content?: string;
   updatedAt: string;
 }
 
@@ -1878,6 +1878,7 @@ function EditorPageInner() {
   const [showAbntCitation, setShowAbntCitation] = useState(false);
   const [showRuler, setShowRuler] = useState(true);
   const [savingStatus, setSavingStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const [saveError, setSaveError] = useState<string | null>(null);
   const savingStatusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [editorManuallyOpened, setEditorManuallyOpened] = useState(false);
   const [activeToolbarTab, setActiveToolbarTab] = useState<"inicio" | "inserir" | "layout" | "revisao" | "exibir">("inicio");
@@ -1901,7 +1902,7 @@ function EditorPageInner() {
     setViewDocId(id);
     setViewDocData(null);
     setViewDocLoading(true);
-    const res = await fetch(`/api/documents/${id}`);
+    const res = await fetch(`/api/documents/${id}`, { cache: "no-store" });
     if (res.ok) {
       const data = await res.json();
       const meta = parseDocContent(data.document.content || "");
@@ -1963,6 +1964,7 @@ function EditorPageInner() {
       setCharCount(text.length);
       setWordCount(text.trim() ? text.trim().split(/\s+/).length : 0);
       setIsDirty(true);
+      setSaveError(null);
       // Update TOC — also add data-heading-id to headings in the DOM for navigation
       const entries: TocEntry[] = [];
       const notes: string[] = [];
@@ -2004,15 +2006,19 @@ function EditorPageInner() {
   });
 
   const loadDocuments = useCallback(async () => {
-    const res = await fetch("/api/documents");
-    if (res.ok) {
-      const data = await res.json();
-      setDocuments(data.documents || []);
+    try {
+      const res = await fetch("/api/documents", { cache: "no-store" });
+      if (res.ok) {
+        const data = await res.json();
+        setDocuments(data.documents || []);
+      }
+    } catch (error) {
+      console.error("Erro ao carregar documentos:", error);
     }
   }, []);
 
   const loadDocument = useCallback(async (id: string) => {
-    const res = await fetch(`/api/documents/${id}`);
+    const res = await fetch(`/api/documents/${id}`, { cache: "no-store" });
     if (res.ok) {
       const data = await res.json();
       setCurrentDoc(data.document);
@@ -2041,64 +2047,85 @@ function EditorPageInner() {
   const handleSave = useCallback(async (opts?: { auto?: boolean }) => {
     if (!editor) return;
     setSaving(true);
-    // Create version snapshot before saving (keep last 20)
-    const newSnapshot: VersionSnapshot = {
-      at: new Date().toISOString(),
-      title,
-      html: editor.getHTML(),
-      json: editor.getJSON(),
-      header: header || undefined,
-      footer: footer || undefined,
-    };
-    const nextVersions = [...versions, newSnapshot].slice(-20);
-    setVersions(nextVersions);
-    const content = serializeDocContent({
-      html: editor.getHTML(),
-      json: editor.getJSON(),
-      header: header || undefined,
-      footer: footer || undefined,
-      margin: pageMargin,
-      orientation: pageOrientation,
-      comments: Object.keys(comments).length ? comments : undefined,
-      versions: nextVersions,
-      tags: docTags.length ? docTags : undefined,
-    });
-    if (currentDoc) {
-      await fetch(`/api/documents/${currentDoc.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, content }),
+    setSaveError(null);
+    setSavingStatus("saving");
+    try {
+      // Create version snapshot before saving (keep last 20)
+      const newSnapshot: VersionSnapshot = {
+        at: new Date().toISOString(),
+        title,
+        html: editor.getHTML(),
+        json: editor.getJSON(),
+        header: header || undefined,
+        footer: footer || undefined,
+      };
+      const nextVersions = [...versions, newSnapshot].slice(-20);
+      const content = serializeDocContent({
+        html: editor.getHTML(),
+        json: editor.getJSON(),
+        header: header || undefined,
+        footer: footer || undefined,
+        margin: pageMargin,
+        orientation: pageOrientation,
+        comments: Object.keys(comments).length ? comments : undefined,
+        versions: nextVersions,
+        tags: docTags.length ? docTags : undefined,
       });
-    } else {
-      const res = await fetch("/api/documents", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, content }),
-      });
-      if (res.ok) {
+
+      let persistedDoc: Document | null = null;
+      if (currentDoc) {
+        const res = await fetch(`/api/documents/${currentDoc.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: title.trim() || "Sem título", content }),
+        });
+        if (!res.ok) throw new Error("Falha ao atualizar documento");
         const data = await res.json();
+        persistedDoc = data.document;
+        setCurrentDoc(data.document);
+      } else {
+        const res = await fetch("/api/documents", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: title.trim() || "Sem título", content }),
+        });
+        if (!res.ok) throw new Error("Falha ao criar documento");
+        const data = await res.json();
+        persistedDoc = data.document;
         setCurrentDoc(data.document);
         router.push(`/editor?id=${data.document.id}`);
       }
+
+      if (!persistedDoc) throw new Error("Documento inválido retornado pelo servidor");
+      const savedDoc = persistedDoc;
+      setDocuments((prev) => [savedDoc, ...prev.filter((d) => d.id !== savedDoc.id)]);
+
+      setVersions(nextVersions);
+      setIsDirty(false);
+      if (savingStatusTimer.current) clearTimeout(savingStatusTimer.current);
+      setSavingStatus("saved");
+      savingStatusTimer.current = setTimeout(() => setSavingStatus("idle"), 3000);
+      if (opts?.auto) {
+        setAutoSaved(true);
+        setTimeout(() => setAutoSaved(false), 3000);
+      } else {
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2000);
+      }
+    } catch (error) {
+      console.error("Erro ao salvar documento:", error);
+      const details = error instanceof Error ? error.message : "erro desconhecido";
+      setSaveError(`Não foi possível salvar (${details}).`);
+      setSavingStatus("idle");
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
-    setIsDirty(false);
-    if (savingStatusTimer.current) clearTimeout(savingStatusTimer.current);
-    setSavingStatus("saved");
-    savingStatusTimer.current = setTimeout(() => setSavingStatus("idle"), 3000);
-    if (opts?.auto) {
-      setAutoSaved(true);
-      setTimeout(() => setAutoSaved(false), 3000);
-    } else {
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
-    }
-    loadDocuments();
-  }, [editor, currentDoc, title, header, footer, pageMargin, pageOrientation, comments, versions, docTags, router, loadDocuments]);
+  }, [editor, currentDoc, title, header, footer, pageMargin, pageOrientation, comments, versions, docTags, router]);
 
   const handleNewDocument = () => {
     setCurrentDoc(null);
     setTitle("Novo Documento");
+    setSaveError(null);
     editor?.commands.setContent("");
     setHeader("");
     setFooter("");
@@ -2187,14 +2214,29 @@ function EditorPageInner() {
   };
 
   const handleDuplicateDocument = useCallback(async (id: string, docTitle: string) => {
-    const doc = documents.find((d) => d.id === id);
-    if (!doc) return;
-    await fetch("/api/documents", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: `Cópia de ${docTitle}`, content: doc.content }),
-    });
-    loadDocuments();
+    try {
+      const doc = documents.find((d) => d.id === id);
+      if (!doc) return;
+      let content = doc.content;
+      if (content === undefined) {
+        const docRes = await fetch(`/api/documents/${id}`, { cache: "no-store" });
+        if (docRes.ok) {
+          const data = await docRes.json();
+          content = data.document?.content || "";
+        } else {
+          content = "";
+        }
+      }
+      const res = await fetch("/api/documents", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: `Cópia de ${docTitle}`, content }),
+      });
+      if (!res.ok) throw new Error("Falha ao duplicar documento");
+      loadDocuments();
+    } catch (error) {
+      console.error("Erro ao duplicar documento:", error);
+    }
   }, [documents, loadDocuments]);
 
   const handleAddTag = (tag: string) => {
@@ -2855,7 +2897,7 @@ function EditorPageInner() {
           <div className="flex-1 min-w-40 flex flex-col gap-1">
             <Input
               value={title}
-              onChange={(e) => { setTitle(e.target.value); setIsDirty(true); }}
+              onChange={(e) => { setTitle(e.target.value); setIsDirty(true); setSaveError(null); }}
               className="text-lg font-semibold border-0 border-b rounded-none px-0 focus:ring-0 bg-transparent"
               placeholder="Título do documento"
             />
@@ -3453,6 +3495,7 @@ function EditorPageInner() {
               {savingStatus === "saving" && !saving && <span className="text-blue-500 dark:text-blue-400 flex items-center gap-1"><span className="h-2 w-2 animate-pulse rounded-full bg-blue-500 inline-block" />Salvando...</span>}
               {savingStatus === "saved" && !isDirty && <span className="text-green-600 dark:text-green-400 flex items-center gap-1"><Check className="h-3 w-3" />Salvo</span>}
               {isDirty && !saving && savingStatus !== "saving" && <span className="text-orange-500 dark:text-orange-400">● não salvo</span>}
+              {saveError && <span className="text-red-500 dark:text-red-400">{saveError}</span>}
               {currentDoc && (
                 <span>Última edição: {formatDate(currentDoc.updatedAt)}</span>
               )}
