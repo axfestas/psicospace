@@ -37,19 +37,31 @@ interface CfR2PutOptions {
   customMetadata?: Record<string, string>;
 }
 
-interface CfR2ObjectBody {
+type CfR2Range =
+  | { offset: number; length?: number }
+  | { offset?: number; length: number }
+  | { suffix: number };
+
+interface CfR2GetOptions {
+  range?: CfR2Range | Headers;
+}
+
+interface CfR2Object {
   key: string;
+  writeHttpMetadata(headers: Headers): void;
+  httpMetadata?: CfR2HttpMetadata;
+  customMetadata?: Record<string, string>;
+  size: number;
+  etag: string;
+}
+
+interface CfR2ObjectBody extends CfR2Object {
   body: ReadableStream;
   bodyUsed: boolean;
   arrayBuffer(): Promise<ArrayBuffer>;
   text(): Promise<string>;
   json<T = unknown>(): Promise<T>;
   blob(): Promise<Blob>;
-  writeHttpMetadata(headers: Headers): void;
-  httpMetadata?: CfR2HttpMetadata;
-  customMetadata?: Record<string, string>;
-  size: number;
-  etag: string;
 }
 
 declare interface CloudflareEnv {
@@ -58,7 +70,8 @@ declare interface CloudflareEnv {
   /** Cloudflare R2 bucket binding (binding name: bk-psi) */
   "bk-psi": {
     put(key: string, value: ArrayBuffer | ReadableStream | string | null, options?: CfR2PutOptions): Promise<void>;
-    get(key: string): Promise<CfR2ObjectBody | null>;
+    head(key: string): Promise<CfR2Object | null>;
+    get(key: string, options?: CfR2GetOptions): Promise<CfR2ObjectBody | null>;
     delete(key: string): Promise<void>;
   };
 }

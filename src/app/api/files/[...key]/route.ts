@@ -32,8 +32,44 @@ function buildContentDispositionFilename(fileName: string): string {
   return `filename="${asciiName}"; filename*=UTF-8''${utf8Name}`;
 }
 
+function parseSingleByteRange(rangeHeader: string, totalSize: number): { start: number; end: number } | null {
+  if (!rangeHeader.startsWith("bytes=") || totalSize <= 0) return null;
+
+  const ranges = rangeHeader
+    .slice("bytes=".length)
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  // Only single-range responses are supported here.
+  if (ranges.length !== 1) return null;
+
+  const [startRaw, endRaw] = ranges[0].split("-");
+  if (typeof startRaw === "undefined" || typeof endRaw === "undefined") return null;
+
+  if (!startRaw) {
+    // Suffix range: bytes=-N
+    const suffixLength = Number(endRaw);
+    if (!Number.isInteger(suffixLength) || suffixLength <= 0) return null;
+    const start = Math.max(totalSize - suffixLength, 0);
+    return { start, end: totalSize - 1 };
+  }
+
+  const start = Number(startRaw);
+  if (!Number.isInteger(start) || start < 0 || start >= totalSize) return null;
+
+  let end = totalSize - 1;
+  if (endRaw) {
+    end = Number(endRaw);
+    if (!Number.isInteger(end) || end < start) return null;
+    end = Math.min(end, totalSize - 1);
+  }
+
+  return { start, end };
+}
+
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ key: string[] }> }
 ) {
   try {
@@ -44,7 +80,40 @@ export async function GET(
     const key = segments.join("/");
 
     const { env } = getRequestContext();
-    const object = await env["bk-psi"].get(key);
+    const bucket = env["bk-psi"];
+    const rangeHeader = request.headers.get("range");
+
+    let object: CfR2ObjectBody | null = null;
+    let status = 200;
+    let contentRange: string | null = null;
+    let partialContentLength: number | null = null;
+
+    if (rangeHeader) {
+      const head = await bucket.head(key);
+      if (!head) {
+        return NextResponse.json({ error: "Arquivo não encontrado" }, { status: 404 });
+      }
+
+      const parsedRange = parseSingleByteRange(rangeHeader, head.size);
+      if (!parsedRange) {
+        return new NextResponse(null, {
+          status: 416,
+          headers: {
+            "accept-ranges": "bytes",
+            "content-range": `bytes */${head.size}`,
+            "cache-control": "private, max-age=0, must-revalidate",
+          },
+        });
+      }
+
+      const { start, end } = parsedRange;
+      partialContentLength = end - start + 1;
+      contentRange = `bytes ${start}-${end}/${head.size}`;
+      status = 206;
+      object = await bucket.get(key, { range: { offset: start, length: partialContentLength } });
+    } else {
+      object = await bucket.get(key);
+    }
 
     if (!object) {
       return NextResponse.json({ error: "Arquivo não encontrado" }, { status: 404 });
@@ -52,9 +121,14 @@ export async function GET(
 
     const headers = new Headers();
     object.writeHttpMetadata(headers);
-    // Keys include a timestamp, so the same key always refers to the same
-    // content. 1-year immutable is safe here — old keys are never reused.
-    headers.set("cache-control", "private, max-age=31536000, immutable");
+    headers.set("accept-ranges", "bytes");
+    headers.set("cache-control", "private, max-age=0, must-revalidate");
+    if (contentRange && partialContentLength !== null) {
+      headers.set("content-range", contentRange);
+      headers.set("content-length", String(partialContentLength));
+    } else if (!headers.get("content-length")) {
+      headers.set("content-length", String(object.size));
+    }
 
     // Derive the original filename from the key (format: userId/timestamp-filename)
     const filename = segments[segments.length - 1].replace(/^\d+-/, "");
@@ -81,7 +155,7 @@ export async function GET(
       headers.set("content-disposition", `attachment; ${contentDispositionFileName}`);
     }
 
-    return new NextResponse(object.body, { headers });
+    return new NextResponse(object.body, { status, headers });
   } catch (err) {
     console.error("[/api/files] Unexpected error:", err);
     return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 });
