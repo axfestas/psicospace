@@ -95,9 +95,9 @@ export default function BibliotecaPage() {
               }}
             >
               <div className="flex items-start justify-between gap-2">
-                <h2 className="text-base font-medium text-gray-900 dark:text-gray-100 text-left leading-snug line-clamp-2">
+                <span className="text-base font-medium text-gray-900 dark:text-gray-100 text-left leading-snug line-clamp-2">
                   {item.title}
-                </h2>
+                </span>
                 {getTypeBadge(item.type)}
               </div>
               {item.description && (
