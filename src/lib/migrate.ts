@@ -315,6 +315,28 @@ VALUES
     name: "20260418001836_badge_psico_neutral",
     sql: `UPDATE "ShopItem" SET "name" = 'Badge: Psicólogue' WHERE "id" = 'shopitem_badge_psico';`,
   },
+  {
+    name: "20260418020503_exercise_difficulty",
+    sql: `ALTER TABLE "Exercise" ADD COLUMN "difficulty" TEXT NOT NULL DEFAULT 'MEDIO';`,
+  },
+  {
+    name: "20260418021500_exercise_review",
+    sql: `
+CREATE TABLE IF NOT EXISTS "ExerciseReview" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "userId" TEXT NOT NULL,
+    "exerciseId" TEXT NOT NULL,
+    "interval" INTEGER NOT NULL DEFAULT 1,
+    "repetitions" INTEGER NOT NULL DEFAULT 0,
+    "easeFactor" REAL NOT NULL DEFAULT 2.5,
+    "nextReviewAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "lastReviewedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "ExerciseReview_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT "ExerciseReview_exerciseId_fkey" FOREIGN KEY ("exerciseId") REFERENCES "Exercise" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "ExerciseReview_userId_exerciseId_key" ON "ExerciseReview"("userId", "exerciseId");
+    `,
+  },
 ];
 
 // ---------------------------------------------------------------------------

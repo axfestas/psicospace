@@ -9,6 +9,12 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { normalizeExtractedText } from "@/lib/text-normalization";
 import {
+  MIN_PDF_EXTRACTED_TEXT_CHARS,
+  PDF_EXTRACTION_FAILURE_MSG,
+  PDF_EXTRACTION_PREVIEW_CHARS,
+  DIFFICULTY_LABELS,
+} from "@/lib/pdf-extraction";
+import {
   Plus,
   CheckCircle,
   XCircle,
@@ -66,6 +72,7 @@ interface Exercise {
   question: string;
   answer?: string;
   explanation?: string;
+  difficulty?: string;
   status: string;
   sourceType: string;
   materialId?: string | null;
@@ -98,10 +105,35 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const BLANK_OPTION: ExerciseOption = { text: "", isCorrect: false };
-const EXTRACTED_TEXT_PREVIEW_CHARS = 140;
-const MIN_EXTRACTED_TEXT_CHARS = 80;
-const MAX_OCR_PAGES = 5;
+// MAX_OCR_PAGES: increased from 5 to 15 so typical academic PDFs (lecture notes, chapters)
+// are covered without requiring user intervention. Browser-side Tesseract.js is slower
+// than server-side OCR but 15 pages generally completes within ~1 minute on modern
+// hardware. PDFs with more pages show a warning and stop at this limit.
+const MAX_OCR_PAGES = 15;
 const OCR_LANG = "por+eng";
+
+type PdfExtractionMethod = "pdf_direct" | "pdf_ocr_fallback";
+
+interface PdfExtractionResult {
+  text: string;
+  method: PdfExtractionMethod;
+}
+
+function isTextInsufficient(text: string): boolean {
+  return text.trim().length < MIN_PDF_EXTRACTED_TEXT_CHARS;
+}
+
+function logPdfExtractionDebug(method: PdfExtractionMethod, text: string) {
+  const preview = text.slice(0, PDF_EXTRACTION_PREVIEW_CHARS);
+  console.info(
+    "[docentes/exercicios] PDF extraction debug",
+    JSON.stringify({
+      method,
+      length: text.length,
+      preview,
+    })
+  );
+}
 
 async function extractPdfTextFromArrayBuffer(arrayBuffer: ArrayBuffer): Promise<string> {
   const pdfjsLib = await import("pdfjs-dist");
@@ -122,9 +154,12 @@ async function extractPdfTextFromArrayBuffer(arrayBuffer: ArrayBuffer): Promise<
   return normalizeExtractedText(allPages.join("\n\n"));
 }
 
-async function extractPdfTextWithOcrFallback(arrayBuffer: ArrayBuffer): Promise<string> {
+async function extractPdfTextWithOcrFallback(arrayBuffer: ArrayBuffer): Promise<PdfExtractionResult> {
   const directText = await extractPdfTextFromArrayBuffer(arrayBuffer);
-  if (directText.length >= MIN_EXTRACTED_TEXT_CHARS) return directText;
+  if (!isTextInsufficient(directText)) {
+    logPdfExtractionDebug("pdf_direct", directText);
+    return { text: directText, method: "pdf_direct" };
+  }
 
   const [{ createWorker }, pdfjsLib] = await Promise.all([
     import("tesseract.js"),
@@ -135,6 +170,12 @@ async function extractPdfTextWithOcrFallback(arrayBuffer: ArrayBuffer): Promise<
   }
 
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  if (pdf.numPages > MAX_OCR_PAGES) {
+    console.warn(
+      "[docentes/exercicios] OCR will process a subset of pages",
+      JSON.stringify({ totalPages: pdf.numPages, processedPages: MAX_OCR_PAGES })
+    );
+  }
   const worker = await createWorker(OCR_LANG);
   const ocrPages: string[] = [];
 
@@ -158,10 +199,12 @@ async function extractPdfTextWithOcrFallback(arrayBuffer: ArrayBuffer): Promise<
     await worker.terminate();
   }
 
-  return normalizeExtractedText(`${directText}\n\n${ocrPages.join("\n\n")}`);
+  const text = normalizeExtractedText(`${directText}\n\n${ocrPages.join("\n\n")}`);
+  logPdfExtractionDebug("pdf_ocr_fallback", text);
+  return { text, method: "pdf_ocr_fallback" };
 }
 
-async function extractPdfTextFromUrl(url: string): Promise<string> {
+async function extractPdfTextFromUrl(url: string): Promise<PdfExtractionResult> {
   const response = await fetch(url, { credentials: "include" });
   if (!response.ok) {
     throw new Error(`Falha ao buscar PDF (${response.status})`);
@@ -194,6 +237,7 @@ export default function ExerciciosPage() {
   const [genMaterialId, setGenMaterialId] = useState("");
   const [genCount, setGenCount] = useState(3);
   const [genTypes, setGenTypes] = useState<string[]>(["OPEN", "COMPREHENSION", "MULTIPLE_CHOICE"]);
+  const [genDifficulty, setGenDifficulty] = useState("MISTO");
   const [genError, setGenError] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
 
@@ -271,6 +315,7 @@ export default function ExerciciosPage() {
     setGenerating(true);
     try {
       let sourceText: string | undefined;
+      let sourceExtractionMethod: PdfExtractionMethod | undefined;
       const selectedSource =
         genSourceType === "library"
           ? libraryItems.find((item) => item.id === genLibraryItemId)
@@ -278,10 +323,11 @@ export default function ExerciciosPage() {
 
       if (selectedSource?.type === "PDF" && selectedSource.url) {
         const extracted = await extractPdfTextFromUrl(selectedSource.url);
-        if (extracted.length < MIN_EXTRACTED_TEXT_CHARS) {
-          throw new Error("Não foi possível extrair texto suficiente do PDF selecionado.");
+        if (isTextInsufficient(extracted.text)) {
+          throw new Error(PDF_EXTRACTION_FAILURE_MSG);
         }
-        sourceText = extracted;
+        sourceText = extracted.text;
+        sourceExtractionMethod = extracted.method;
       }
 
       const res = await fetch("/api/exercises/generate", {
@@ -291,8 +337,10 @@ export default function ExerciciosPage() {
           libraryItemId: genSourceType === "library" ? genLibraryItemId : undefined,
           materialId: genSourceType === "material" ? genMaterialId : undefined,
           sourceText,
+          sourceExtractionMethod,
           count: genCount,
           types: genTypes,
+          difficulty: genDifficulty,
         }),
       });
       const data = await res.json();
@@ -544,7 +592,7 @@ export default function ExerciciosPage() {
               A IA usa exclusivamente o conteúdo do arquivo selecionado.
               {!process.env.NEXT_PUBLIC_HAS_AI && " (Modo placeholder — configure GROQ_API_KEY para geração real)"}
               {" "}
-              (O servidor registra até {EXTRACTED_TEXT_PREVIEW_CHARS} caracteres da prévia para diagnóstico.)
+              (O servidor registra até {PDF_EXTRACTION_PREVIEW_CHARS} caracteres da prévia para diagnóstico.)
             </p>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -601,25 +649,18 @@ export default function ExerciciosPage() {
                   className="h-9 w-20 rounded-md border border-gray-300 bg-white px-3 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
                 />
               </div>
-              <div className="space-y-1 flex-1">
-                <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Tipos</label>
-                <div className="flex gap-2 flex-wrap">
-                  {["OPEN", "COMPREHENSION", "APPLICATION", "MULTIPLE_CHOICE"].map((t) => (
-                    <label key={t} className="flex items-center gap-1 text-xs cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={genTypes.includes(t)}
-                        onChange={(e) =>
-                          setGenTypes((prev) =>
-                            e.target.checked ? [...prev, t] : prev.filter((x) => x !== t)
-                          )
-                        }
-                        className="rounded"
-                      />
-                      {TYPE_LABELS[t]}
-                    </label>
-                  ))}
-                </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Nível de dificuldade</label>
+                <select
+                  value={genDifficulty}
+                  onChange={(e) => setGenDifficulty(e.target.value)}
+                  className="h-9 rounded-md border border-gray-300 bg-white px-3 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                >
+                  <option value="MISTO">🎯 Misto (todos os níveis)</option>
+                  <option value="FACIL">🟢 Fácil (definição)</option>
+                  <option value="MEDIO">🟡 Médio (explicação)</option>
+                  <option value="DIFICIL">🔴 Difícil (aplicação)</option>
+                </select>
               </div>
             </div>
 
@@ -900,6 +941,11 @@ function ExerciseCard({
             </Badge>
             {ex.sourceType === "AI" && (
               <Badge variant="warning" className="text-xs">IA</Badge>
+            )}
+            {ex.difficulty && DIFFICULTY_LABELS[ex.difficulty] && (
+              <span className="text-xs px-1.5 py-0.5 rounded border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400">
+                {DIFFICULTY_LABELS[ex.difficulty]}
+              </span>
             )}
           </div>
           <p className="text-sm font-medium text-gray-900 dark:text-gray-100 leading-snug">{ex.title}</p>

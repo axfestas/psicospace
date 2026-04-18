@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAuthUser } from "@/lib/auth";
 import { grantExerciseReward } from "@/lib/psico-economy";
+import { nextSM2State, nextReviewDate } from "@/lib/spaced-repetition";
 
 export const runtime = "edge";
 
@@ -110,6 +111,44 @@ export async function POST(
         rewardAmount,
       },
     });
+
+    // ── Repetição espaçada (SM-2) ─────────────────────────────────────────────
+    try {
+      const existingReview = await prisma.exerciseReview.findUnique({
+        where: { userId_exerciseId: { userId: auth.userId, exerciseId: id } },
+      });
+      const sm2Input = existingReview
+        ? {
+            interval: existingReview.interval,
+            repetitions: existingReview.repetitions,
+            easeFactor: existingReview.easeFactor,
+          }
+        : null;
+      const sm2Next = nextSM2State(sm2Input, isCorrect);
+      const reviewAt = nextReviewDate(sm2Next.interval).toISOString();
+      await prisma.exerciseReview.upsert({
+        where: { userId_exerciseId: { userId: auth.userId, exerciseId: id } },
+        update: {
+          interval: sm2Next.interval,
+          repetitions: sm2Next.repetitions,
+          easeFactor: sm2Next.easeFactor,
+          nextReviewAt: reviewAt,
+          lastReviewedAt: new Date().toISOString(),
+        },
+        create: {
+          userId: auth.userId,
+          exerciseId: id,
+          interval: sm2Next.interval,
+          repetitions: sm2Next.repetitions,
+          easeFactor: sm2Next.easeFactor,
+          nextReviewAt: reviewAt,
+          lastReviewedAt: new Date().toISOString(),
+        },
+      });
+    } catch (sm2Err) {
+      // Non-critical: log but don't fail the submission
+      console.error("[exercises/[id]/submit] SM-2 update failed", sm2Err);
+    }
 
     return NextResponse.json({
       attempt,
