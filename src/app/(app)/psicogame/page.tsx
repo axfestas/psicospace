@@ -176,13 +176,20 @@ export default function PsicoGamePage() {
           setInventory((current) =>
             current.some((item) => item.id === purchasedItem.id) ? current : [...current, purchasedItem]
           );
+          setTransactions((current) => [
+            {
+              id: `purchase_${purchasedItem.id}_${Date.now()}`,
+              amount: price,
+              type: "SPEND",
+              reason: "item_purchased",
+              createdAt: new Date().toISOString(),
+            },
+            ...current,
+          ]);
           setShopItems((current) =>
             current.map((item) => (item.id === purchasedItem.id ? { ...item, owned: true } : item))
           );
         }
-        setTimeout(() => {
-          void loadData();
-        }, 1200);
       } else {
         setBuyMessage({ text: data.error || "Erro ao comprar", ok: false });
       }
