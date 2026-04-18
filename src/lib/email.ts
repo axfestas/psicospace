@@ -1,13 +1,24 @@
 import { Resend } from "resend";
+import { getRequestContext } from "@cloudflare/next-on-pages";
+
+function getCfEnv(): Partial<CloudflareEnv> {
+  try {
+    return getRequestContext().env;
+  } catch {
+    return {};
+  }
+}
 
 function getResend(): Resend {
-  const apiKey = process.env.RESEND_API_KEY;
+  const cfEnv = getCfEnv();
+  const apiKey = cfEnv.RESEND_API_KEY ?? process.env.RESEND_API_KEY;
   if (!apiKey) throw new Error("RESEND_API_KEY environment variable is required");
   return new Resend(apiKey);
 }
 
 function getFromAddress(): string {
-  const raw = process.env.EMAIL_FROM;
+  const cfEnv = getCfEnv();
+  const raw = cfEnv.EMAIL_FROM ?? process.env.EMAIL_FROM;
   if (!raw) return "PsicoSpace <noreply@resend.dev>";
   // If value has no '@', treat it as a display name and append Resend's default address
   if (!raw.includes("@")) return `${raw} <noreply@resend.dev>`;
@@ -15,7 +26,8 @@ function getFromAddress(): string {
 }
 
 function getBaseUrl(): string {
-  return process.env.NEXT_PUBLIC_BASE_URL || "https://psicospace.pages.dev";
+  const cfEnv = getCfEnv();
+  return cfEnv.NEXT_PUBLIC_BASE_URL ?? process.env.NEXT_PUBLIC_BASE_URL ?? "https://psicospace.pages.dev";
 }
 
 function escapeHtml(s: string): string {

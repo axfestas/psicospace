@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { sendPendingItemsEmail } from "@/lib/email";
+import { getRequestContext } from "@cloudflare/next-on-pages";
 
 export const runtime = "edge";
 
@@ -13,7 +14,13 @@ export const runtime = "edge";
  * and upcoming events (within 3 days, including today), then sends an email digest + in-app notifications.
  */
 export async function POST(request: NextRequest) {
-  const secret = process.env.CRON_SECRET;
+  let secret: string | undefined;
+  try {
+    secret = getRequestContext().env.CRON_SECRET;
+  } catch {
+    // Outside request context.
+  }
+  secret ??= process.env.CRON_SECRET;
   if (secret) {
     const provided = request.headers.get("x-cron-secret");
     if (provided !== secret) {

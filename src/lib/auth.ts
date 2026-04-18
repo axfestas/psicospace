@@ -1,10 +1,19 @@
 import { SignJWT, jwtVerify } from "jose";
 import { compare as bcryptCompare } from "bcrypt-ts";
 import { cookies } from "next/headers";
+import { getRequestContext } from "@cloudflare/next-on-pages";
 import type { Role } from "@/types";
 
 function getJwtSecret(): string {
-  const secret = process.env.JWT_SECRET;
+  // On Cloudflare Pages, env vars are exposed via the request context binding
+  // env object. process.env is a fallback for local Next.js development.
+  let secret: string | undefined;
+  try {
+    secret = getRequestContext().env.JWT_SECRET;
+  } catch {
+    // getRequestContext() throws outside a request context (e.g. during build).
+  }
+  secret ??= process.env.JWT_SECRET;
   if (!secret) {
     throw new Error("JWT_SECRET environment variable is required");
   }

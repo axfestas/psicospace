@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAuthUser } from "@/lib/auth";
+import { getRequestContext } from "@cloudflare/next-on-pages";
 import { normalizeExtractedText } from "@/lib/text-normalization";
 import {
   MIN_PDF_EXTRACTED_TEXT_CHARS,
@@ -143,7 +144,13 @@ interface AIProviderConfig {
 }
 
 function resolveAIProvider(): AIProviderConfig | null {
-  const groqKey = process.env.GROQ_API_KEY;
+  let groqKey: string | undefined;
+  try {
+    groqKey = getRequestContext().env.GROQ_API_KEY;
+  } catch {
+    // Outside request context (e.g. build time).
+  }
+  groqKey ??= process.env.GROQ_API_KEY;
   if (groqKey) {
     return {
       url: "https://api.groq.com/openai/v1/chat/completions",
