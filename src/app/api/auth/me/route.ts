@@ -20,7 +20,18 @@ export async function GET() {
       return NextResponse.json({ error: "Usuárie não encontrade" }, { status: 404 });
     }
 
-    return NextResponse.json({ user });
+    const shouldRefreshToken =
+      String(auth.userId) !== String(user.id) ||
+      String(auth.email) !== String(user.email) ||
+      String(auth.role) !== String(user.role);
+
+    const response = NextResponse.json({ user });
+    if (shouldRefreshToken) {
+      const token = await signToken({ userId: user.id, email: user.email, role: user.role });
+      const cookie = setAuthCookie(token);
+      response.cookies.set(cookie);
+    }
+    return response;
   } catch (error) {
     console.error("[auth/me]", error);
     return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 });
