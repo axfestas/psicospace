@@ -22,6 +22,8 @@ const SOURCE_PREVIEW_CHARS = PDF_EXTRACTION_PREVIEW_CHARS;
 type ParsedQuestion = {
   question: string;
   options: Array<{ text: string; isCorrect: boolean }>;
+  explanation: string;
+  difficulty: "FACIL" | "MEDIO" | "DIFICIL";
 };
 type SourceExtractionMethod = "pdf_direct" | "pdf_ocr_fallback" | "none";
 
@@ -83,7 +85,19 @@ function parseGeneratedQuestions(raw: string): ParsedQuestion[] {
     if (options.some((o) => !o.text)) continue;
     if (options.filter((o) => o.isCorrect).length !== 1) continue;
 
-    result.push({ question, options });
+    const rawExplanation = typeof item.explanation === "string" ? item.explanation.trim()
+      : typeof item.explicacao === "string" ? item.explicacao.trim()
+      : "";
+
+    const rawDifficulty = String(
+      (item as Record<string, unknown>).difficulty ??
+      (item as Record<string, unknown>).dificuldade ?? ""
+    ).trim().toUpperCase();
+    const difficulty: ParsedQuestion["difficulty"] = rawDifficulty === "FACIL" || rawDifficulty === "DIFICIL"
+      ? rawDifficulty
+      : "MEDIO";
+
+    result.push({ question, options, explanation: rawExplanation, difficulty });
   }
 
   return result;
@@ -110,17 +124,13 @@ function chunkSourceText(raw: string): string {
 /**
  * POST /api/exercises/generate
  *
- * Gera questões de múltipla escolha a partir de um material ou item de biblioteca.
+ * Gera questões de múltipla escolha pedagógicas a partir de um material.
  * Requer GROQ_API_KEY (Groq, gratuito, usa LLaMA).
- * Usa EXCLUSIVAMENTE o conteúdo fornecido.
  *
- * Prompt baseado nas REGRAS OBRIGATÓRIAS:
- *   1. Usar apenas o conteúdo do texto/PDF fornecido.
- *   2. Não inventar conteúdo externo.
- *   3. Apenas múltipla escolha, 4 alternativas (A–D), 1 correta.
- *   4. Não gerar questões discursivas.
- *   5. Não misturar formatos.
- *   6. Retornar "conteúdo insuficiente para gerar questões" se o material for escasso.
+ * Pipeline pedagógico:
+ *   1. Extrair conceitos-chave do conteúdo.
+ *   2. Gerar questões em 3 níveis (FACIL/MEDIO/DIFICIL) com explicações.
+ *   3. Usar EXCLUSIVAMENTE o conteúdo fornecido.
  */
 
 interface AIProviderConfig {
@@ -147,7 +157,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Apenas docentes podem gerar exercícios" }, { status: 403 });
     }
 
-    const { materialId, libraryItemId, count = 3, types, sourceText, sourceExtractionMethod } = await request.json();
+    const { materialId, libraryItemId, count = 3, types, sourceText, sourceExtractionMethod, difficulty } = await request.json();
 
     if (!materialId && !libraryItemId) {
       return NextResponse.json(
@@ -246,36 +256,51 @@ export async function POST(request: NextRequest) {
     let generated: ParsedQuestion[] = [];
 
     if (aiProvider) {
-      // System prompt follows the REGRAS OBRIGATÓRIAS from the product spec.
-      const systemPrompt = `Você é um gerador de questões educacionais.
+      // Validate requested difficulty
+      const VALID_DIFFICULTIES = new Set(["FACIL", "MEDIO", "DIFICIL", "MISTO"]);
+      const safeDifficulty: string = VALID_DIFFICULTIES.has(String(difficulty).toUpperCase())
+        ? String(difficulty).toUpperCase()
+        : "MISTO";
+
+      const difficultyInstructions = safeDifficulty === "MISTO"
+        ? `Distribua as ${safeCount} questões entre os 3 níveis de dificuldade da forma mais uniforme possível:\n- FACIL: definição/reconhecimento (ex: "O que é X?")\n- MEDIO: explicação/relação (ex: "Como X funciona / Por que Y ocorre?")\n- DIFICIL: aplicação/análise (ex: "Em que situação clínica / Como isso afeta Y?")`
+        : `Todas as ${safeCount} questões devem ser do nível: ${safeDifficulty}\n- FACIL: definição/reconhecimento (ex: "O que é X?")\n- MEDIO: explicação/relação (ex: "Como X funciona / Por que Y ocorre?")\n- DIFICIL: aplicação/análise (ex: "Em que situação clínica / Como isso afeta Y?")`;
+
+      const systemPrompt = `Você é um especialista em pedagogia e gerador de questões educacionais de alta qualidade.
+
+PIPELINE PEDAGÓGICO (execute internamente antes de gerar):
+1. Identifique os 3-5 conceitos-chave do conteúdo fornecido.
+2. Para cada questão, certifique-se de que aborda um conceito importante do texto.
+3. Gere as questões nos níveis de dificuldade solicitados.
 
 REGRAS OBRIGATÓRIAS:
-
 1. Use EXCLUSIVAMENTE o conteúdo fornecido no texto/PDF.
-2. NÃO invente conteúdo externo.
+2. NÃO invente conteúdo externo nem informações que não estejam no texto.
 3. Gere APENAS questões de múltipla escolha.
 4. Cada questão deve ter:
-   - 1 pergunta clara
+   - 1 pergunta clara e objetiva
    - 4 alternativas (A, B, C, D)
    - apenas 1 correta
-5. NÃO gerar questões discursivas.
-6. NÃO misturar formatos.
-7. Indicar o gabarito no final.
+   - 1 explicação clara da resposta correta (baseada no texto)
+5. A explicação deve: definir o conceito, explicar por que a alternativa está correta e por que as outras estão erradas (resumidamente).
+6. Não gere questões genéricas ou óbvias demais.
+7. A resposta correta deve estar no texto fornecido.
 
 Se o conteúdo for insuficiente, retorne exatamente: "${INSUFFICIENT_CONTENT_MSG}"
 
-Objetivo: gerar questões claras, diretas e baseadas no material.
-
 Responda APENAS com um JSON array válido, sem texto adicional, no formato:
-[{"question":"...","options":["A) ...","B) ...","C) ...","D) ..."],"correctOption":"A"}]`;
+[{"question":"...","options":["A) ...","B) ...","C) ...","D) ..."],"correctOption":"A","explanation":"...","difficulty":"FACIL"}]`;
 
       const userPrompt = `Título da fonte: "${sourceTitle}"
 Tipo da fonte: ${sourceType || "N/A"}
 
+${difficultyInstructions}
+
 Conteúdo extraído (use APENAS este conteúdo como base):
 ${chunkedSourceText}
 
-Gere ${safeCount} questão(ões) de múltipla escolha estritamente com base no conteúdo extraído acima.
+Gere ${safeCount} questão(ões) de múltipla escolha pedagógicas com base no conteúdo acima.
+Cada questão DEVE incluir a explicação da resposta correta e o nível de dificuldade.
 Se não houver conteúdo suficiente, retorne exatamente: "${INSUFFICIENT_CONTENT_MSG}"`;
 
       try {
@@ -291,9 +316,8 @@ Se não houver conteúdo suficiente, retorne exatamente: "${INSUFFICIENT_CONTENT
               { role: "system", content: systemPrompt },
               { role: "user", content: userPrompt },
             ],
-            // Lower temperature for deterministic, rule-adherent formatting.
-            temperature: 0.2,
-            max_tokens: 2000,
+            temperature: 0.3,
+            max_tokens: 3000,
           }),
         });
 
@@ -348,13 +372,15 @@ Se não houver conteúdo suficiente, retorne exatamente: "${INSUFFICIENT_CONTENT
     // Persist as PENDING exercises
     const created = [];
     for (const [index, ex] of generated.entries()) {
+      const difficultyLabel = ex.difficulty === "FACIL" ? "Fácil" : ex.difficulty === "DIFICIL" ? "Difícil" : "Médio";
       const exercise = await prisma.exercise.create({
         data: {
-          title: `Múltipla escolha ${index + 1} — ${sourceTitle}`,
+          title: `${difficultyLabel} ${index + 1} — ${sourceTitle}`,
           type: "MULTIPLE_CHOICE",
           question: ex.question,
           answer: null,
-          explanation: null,
+          explanation: ex.explanation || null,
+          difficulty: ex.difficulty,
           materialId: materialId || null,
           libraryItemId: libraryItemId || null,
           createdById: auth.userId,

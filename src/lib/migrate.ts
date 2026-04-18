@@ -315,6 +315,10 @@ VALUES
     name: "20260418001836_badge_psico_neutral",
     sql: `UPDATE "ShopItem" SET "name" = 'Badge: Psicólogue' WHERE "id" = 'shopitem_badge_psico';`,
   },
+  {
+    name: "20260418020503_exercise_difficulty",
+    sql: `ALTER TABLE "Exercise" ADD COLUMN "difficulty" TEXT NOT NULL DEFAULT 'MEDIO';`,
+  },
 ];
 
 // ---------------------------------------------------------------------------

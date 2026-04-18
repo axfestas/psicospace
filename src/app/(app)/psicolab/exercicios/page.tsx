@@ -18,6 +18,7 @@ interface Exercise {
   type: string;
   question: string;
   explanation?: string | null;
+  difficulty?: string | null;
   material?: { id: string; title: string } | null;
   libraryItem?: { id: string; title: string } | null;
   options: ExerciseOption[];
@@ -26,7 +27,14 @@ interface Exercise {
 interface Feedback {
   message: string;
   ok: boolean;
+  explanation?: string | null;
 }
+
+const DIFFICULTY_LABELS: Record<string, string> = {
+  FACIL: "🟢 Fácil",
+  MEDIO: "🟡 Médio",
+  DIFICIL: "🔴 Difícil",
+};
 
 export default function PsicoLabExercisesPage() {
   const [exercises, setExercises] = useState<Exercise[]>([]);
@@ -110,11 +118,11 @@ export default function PsicoLabExercisesPage() {
 
       const validation = data.validation;
       if (validation.isCorrect && validation.awarded) {
-        setFeedback({ message: `Resposta correta! +${validation.rewardAmount} Psiquê`, ok: true });
+        setFeedback({ message: `Resposta correta! +${validation.rewardAmount} Psiquê`, ok: true, explanation: selectedExercise.explanation });
       } else if (validation.isCorrect) {
-        setFeedback({ message: "Resposta correta, mas a recompensa já foi registrada antes.", ok: true });
+        setFeedback({ message: "Resposta correta, mas a recompensa já foi registrada antes.", ok: true, explanation: selectedExercise.explanation });
       } else {
-        setFeedback({ message: "Resposta incorreta. Revise e tente novamente.", ok: false });
+        setFeedback({ message: "Resposta incorreta. Revise e tente novamente.", ok: false, explanation: selectedExercise.explanation });
       }
 
       resetForm();
@@ -169,6 +177,9 @@ export default function PsicoLabExercisesPage() {
               <p className="font-medium text-sm">{exercise.title}</p>
               <div className="mt-1 flex flex-wrap gap-1">
                 <Badge variant="default" className="text-xs">{exercise.type}</Badge>
+                {exercise.difficulty && DIFFICULTY_LABELS[exercise.difficulty] && (
+                  <Badge variant="default" className="text-xs">{DIFFICULTY_LABELS[exercise.difficulty]}</Badge>
+                )}
                 {(exercise.material || exercise.libraryItem) && (
                   <Badge variant="default" className="text-xs">
                     {exercise.material?.title ?? exercise.libraryItem?.title}
@@ -218,13 +229,18 @@ export default function PsicoLabExercisesPage() {
 
               {feedback && (
                 <div
-                  className={`rounded-lg border p-3 text-sm ${
+                  className={`rounded-lg border p-3 text-sm space-y-1 ${
                     feedback.ok
                       ? "border-green-200 bg-green-50 text-green-700 dark:border-green-700 dark:bg-green-900/20 dark:text-green-300"
                       : "border-red-200 bg-red-50 text-red-700 dark:border-red-700 dark:bg-red-900/20 dark:text-red-300"
                   }`}
                 >
-                  {feedback.message}
+                  <p className="font-medium">{feedback.message}</p>
+                  {feedback.explanation && (
+                    <p className="text-xs opacity-90 mt-1 border-t border-current/20 pt-1">
+                      💡 {feedback.explanation}
+                    </p>
+                  )}
                 </div>
               )}
 

@@ -71,6 +71,7 @@ interface Exercise {
   question: string;
   answer?: string;
   explanation?: string;
+  difficulty?: string;
   status: string;
   sourceType: string;
   materialId?: string | null;
@@ -88,6 +89,12 @@ const TYPE_LABELS: Record<string, string> = {
   OPEN: "Pergunta aberta",
   COMPREHENSION: "Compreensão",
   APPLICATION: "Aplicação",
+};
+
+const DIFFICULTY_LABELS: Record<string, string> = {
+  FACIL: "🟢 Fácil",
+  MEDIO: "🟡 Médio",
+  DIFICIL: "🔴 Difícil",
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -231,6 +238,7 @@ export default function ExerciciosPage() {
   const [genMaterialId, setGenMaterialId] = useState("");
   const [genCount, setGenCount] = useState(3);
   const [genTypes, setGenTypes] = useState<string[]>(["OPEN", "COMPREHENSION", "MULTIPLE_CHOICE"]);
+  const [genDifficulty, setGenDifficulty] = useState("MISTO");
   const [genError, setGenError] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
 
@@ -333,6 +341,7 @@ export default function ExerciciosPage() {
           sourceExtractionMethod,
           count: genCount,
           types: genTypes,
+          difficulty: genDifficulty,
         }),
       });
       const data = await res.json();
@@ -641,25 +650,18 @@ export default function ExerciciosPage() {
                   className="h-9 w-20 rounded-md border border-gray-300 bg-white px-3 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
                 />
               </div>
-              <div className="space-y-1 flex-1">
-                <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Tipos</label>
-                <div className="flex gap-2 flex-wrap">
-                  {["OPEN", "COMPREHENSION", "APPLICATION", "MULTIPLE_CHOICE"].map((t) => (
-                    <label key={t} className="flex items-center gap-1 text-xs cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={genTypes.includes(t)}
-                        onChange={(e) =>
-                          setGenTypes((prev) =>
-                            e.target.checked ? [...prev, t] : prev.filter((x) => x !== t)
-                          )
-                        }
-                        className="rounded"
-                      />
-                      {TYPE_LABELS[t]}
-                    </label>
-                  ))}
-                </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Nível de dificuldade</label>
+                <select
+                  value={genDifficulty}
+                  onChange={(e) => setGenDifficulty(e.target.value)}
+                  className="h-9 rounded-md border border-gray-300 bg-white px-3 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                >
+                  <option value="MISTO">🎯 Misto (todos os níveis)</option>
+                  <option value="FACIL">🟢 Fácil (definição)</option>
+                  <option value="MEDIO">🟡 Médio (explicação)</option>
+                  <option value="DIFICIL">🔴 Difícil (aplicação)</option>
+                </select>
               </div>
             </div>
 
@@ -940,6 +942,11 @@ function ExerciseCard({
             </Badge>
             {ex.sourceType === "AI" && (
               <Badge variant="warning" className="text-xs">IA</Badge>
+            )}
+            {ex.difficulty && DIFFICULTY_LABELS[ex.difficulty] && (
+              <span className="text-xs px-1.5 py-0.5 rounded border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400">
+                {DIFFICULTY_LABELS[ex.difficulty]}
+              </span>
             )}
           </div>
           <p className="text-sm font-medium text-gray-900 dark:text-gray-100 leading-snug">{ex.title}</p>

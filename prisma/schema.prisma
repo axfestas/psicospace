@@ -193,6 +193,7 @@ model Exercise {
   question      String
   answer        String?
   explanation   String?
+  difficulty    String           @default("MEDIO")
   materialId    String?
   libraryItemId String?
   createdById   String
