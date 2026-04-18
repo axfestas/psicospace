@@ -285,63 +285,71 @@ export async function grantSessionReward(userId: string, sessionId: string, tota
 }
 
 export async function purchaseShopItem(userId: string, itemId: string) {
-  const [item, { wallet, character }] = await Promise.all([
-    prisma.shopItem.findUnique({ where: { id: itemId } }),
-    ensureEconomyState(userId),
-  ]);
+  await ensureEconomyState(userId);
 
-  if (!item || !item.active) {
-    return { ok: false as const, status: 404, error: "Item não encontrado" };
-  }
+  return prisma.$transaction(async (tx) => {
+    const [item, wallet, character] = await Promise.all([
+      tx.shopItem.findUnique({ where: { id: itemId } }),
+      tx.psicoWallet.findUnique({ where: { userId } }),
+      tx.characterProgress.findUnique({ where: { userId } }),
+    ]);
 
-  const parsed = parseCharacter(character);
-  if (parsed.ownedItems.includes(itemId)) {
-    return { ok: false as const, status: 400, error: "Você já possui este item" };
-  }
+    if (!item || !item.active) {
+      return { ok: false as const, status: 404, error: "Item não encontrado" };
+    }
 
-  if (wallet.balance < item.price) {
+    if (!wallet || !character) {
+      return { ok: false as const, status: 500, error: "Estado econômico não inicializado" };
+    }
+
+    const parsed = parseCharacter(character);
+    if (parsed.ownedItems.includes(itemId)) {
+      return { ok: false as const, status: 400, error: "Você já possui este item" };
+    }
+
+    if (wallet.balance < item.price) {
+      return {
+        ok: false as const,
+        status: 400,
+        error: `Saldo insuficiente. Você tem ${wallet.balance} Psiquê e o item custa ${item.price}`,
+      };
+    }
+
+    parsed.ownedItems.push(itemId);
+    const nowIso = new Date().toISOString();
+
+    await tx.psicoWallet.update({
+      where: { userId },
+      data: {
+        balance: { decrement: item.price },
+        updatedAt: nowIso,
+      },
+    });
+
+    await tx.psicoTransaction.create({
+      data: {
+        walletId: wallet.id,
+        amount: item.price,
+        type: "SPEND",
+        reason: "item_purchased",
+        referenceId: item.id,
+      },
+    });
+
+    await tx.characterProgress.update({
+      where: { userId },
+      data: {
+        ownedItems: JSON.stringify(parsed.ownedItems),
+        updatedAt: nowIso,
+      },
+    });
+
     return {
-      ok: false as const,
-      status: 400,
-      error: `Saldo insuficiente. Você tem ${wallet.balance} Psiquê e o item custa ${item.price}`,
+      ok: true as const,
+      item,
+      newBalance: wallet.balance - item.price,
     };
-  }
-
-  parsed.ownedItems.push(itemId);
-
-  await prisma.psicoWallet.update({
-    where: { userId },
-    data: {
-      balance: { decrement: item.price },
-      updatedAt: new Date().toISOString(),
-    },
   });
-
-  await prisma.psicoTransaction.create({
-    data: {
-      walletId: wallet.id,
-      amount: item.price,
-      type: "SPEND",
-      reason: "item_purchased",
-      referenceId: item.id,
-    },
-  });
-
-  await prisma.characterProgress.update({
-    where: { userId },
-    data: {
-      ownedItems: JSON.stringify(parsed.ownedItems),
-      updatedAt: new Date().toISOString(),
-    },
-  });
-
-  const updatedWallet = await prisma.psicoWallet.findUnique({ where: { userId } });
-
-  return {
-    ok: true as const,
-    item,
-    newBalance: updatedWallet?.balance ?? 0,
-  };
 }
 
 export async function getUserEconomyCore(userId: string) {

@@ -302,7 +302,7 @@ ALTER TABLE "ShopItem" ADD COLUMN "rarity" TEXT NOT NULL DEFAULT 'COMUM';
 INSERT OR IGNORE INTO "ShopItem" ("id", "name", "description", "type", "slot", "category", "rarity", "price", "active")
 VALUES
   ('shopitem_frame_basic',   'Moldura Básica',                  'Moldura simples para seu avatar',                  'AVATAR_FRAME', 'frame', 'AVATAR',    'COMUM',    30,  true),
-  ('shopitem_title_stud',    'Título: Estudioso',               'Para quem nunca para de aprender',                 'TITLE',        'title', 'CONQUISTA', 'COMUM',    20,  true),
+  ('shopitem_title_stud',    'Título: Estudante',               'Para quem nunca para de aprender',                 'TITLE',        'title', 'CONQUISTA', 'COMUM',    20,  true),
   ('shopitem_badge_psico',   'Badge: Psicólogue',               'Símbolo da psicologia',                            'BADGE',        'badge', 'CONQUISTA', 'INCOMUM',  50,  true),
   ('shopitem_bg_lilas',      'Fundo Lilás',                     'Fundo em tom lilás suave para seu perfil',         'BACKGROUND',   'bg',    'TEMA',      'COMUM',    40,  true),
   ('shopitem_frame_gold',    'Moldura Dourada',                 'Moldura dourada para os mais dedicados',           'AVATAR_FRAME', 'frame', 'AVATAR',    'RARO',    100,  true),
@@ -314,6 +314,10 @@ VALUES
   {
     name: "20260418001836_badge_psico_neutral",
     sql: `UPDATE "ShopItem" SET "name" = 'Badge: Psicólogue' WHERE "id" = 'shopitem_badge_psico';`,
+  },
+  {
+    name: "20260418180500_shopitem_title_estudante",
+    sql: `UPDATE "ShopItem" SET "name" = 'Título: Estudante' WHERE "id" = 'shopitem_title_stud';`,
   },
   {
     name: "20260418020503_exercise_difficulty",
