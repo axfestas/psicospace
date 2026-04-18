@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { comparePassword, signToken, setAuthCookie } from "@/lib/auth";
 
 export const runtime = "edge";
+const BCRYPT_HASH_PREFIX = "$2";
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,7 +12,7 @@ export async function POST(request: NextRequest) {
     const password = typeof body?.password === "string" ? body.password : "";
     const normalizedEmail = email.toLowerCase();
 
-    if (!email || !password) {
+    if (!normalizedEmail || !password) {
       return NextResponse.json(
         { error: "Email e senha são obrigatórios" },
         { status: 400 }
@@ -20,6 +21,7 @@ export async function POST(request: NextRequest) {
 
     const user = await prisma.user.findFirst({
       where: {
+        // Keep a temporary fallback for legacy mixed-case emails.
         OR: [{ email: normalizedEmail }, { email }],
       },
       select: { id: true, name: true, email: true, password: true, role: true, createdAt: true, avatarUrl: true },
@@ -33,7 +35,8 @@ export async function POST(request: NextRequest) {
 
     const valid = await comparePassword(password, user.password);
     if (!valid) {
-      if (user.password.startsWith("$2")) {
+      // bcrypt hashes typically start with $2a$, $2b$, or $2y$.
+      if (user.password.startsWith(BCRYPT_HASH_PREFIX)) {
         return NextResponse.json(
           { error: "Sua conta usa um formato antigo de senha. Redefina sua senha para entrar." },
           { status: 401 }
