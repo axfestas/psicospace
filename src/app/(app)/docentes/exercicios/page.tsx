@@ -363,7 +363,7 @@ export default function ExerciciosPage() {
           difficulty: genDifficulty,
         }),
       });
-      const data = await res.json();
+      const data = (await res.json().catch(() => ({}))) as { error?: string; exercises?: Exercise[] };
       if (res.ok) {
         setShowGenerate(false);
         setGenLibraryItemId("");

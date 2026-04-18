@@ -145,6 +145,14 @@ async function awardStreakBonus(walletId: string, userId: string, newStreak: num
       `streak_milestone_${newStreak}_${now.toISOString().slice(0, 10)}`,
       now,
     );
+    await prisma.notification.create({
+      data: {
+        userId,
+        title: `🔥 +${REWARD_STREAK_MILESTONE} Psiquê — bônus de sequência!`,
+        message: `Incrível! ${newStreak} dias consecutivos de estudo.`,
+        type: "success",
+      },
+    });
   }
 }
 
@@ -218,6 +226,15 @@ export async function grantExerciseReward(userId: string, exerciseId: string) {
 
   await updateCharacterProgress(userId, XP_EXERCISE_CORRECT);
 
+  await prisma.notification.create({
+    data: {
+      userId,
+      title: `💰 +${REWARD_EXERCISE_CORRECT} Psiquê`,
+      message: "Você acertou um exercício! Continue assim.",
+      type: "success",
+    },
+  });
+
   return {
     awarded: true,
     duplicate: false,
@@ -245,11 +262,24 @@ export async function grantSessionReward(userId: string, sessionId: string, tota
   await addEarnTransaction(wallet.id, userId, REWARD_SESSION_COMPLETED, "session_completed", sessionId, now);
 
   // Bônus de sessão longa (≥ 25 min = SESSION_LONG_THRESHOLD_SECONDS)
-  if (typeof totalSeconds === "number" && totalSeconds >= SESSION_LONG_THRESHOLD_SECONDS) {
+  const isLongSession = typeof totalSeconds === "number" && totalSeconds >= SESSION_LONG_THRESHOLD_SECONDS;
+  if (isLongSession) {
     await addEarnTransaction(wallet.id, userId, REWARD_SESSION_LONG_BONUS, "session_long_bonus", sessionId, now);
   }
 
   await updateCharacterProgress(userId, XP_SESSION_COMPLETED);
+
+  const sessionTotalReward = REWARD_SESSION_COMPLETED + (isLongSession ? REWARD_SESSION_LONG_BONUS : 0);
+  await prisma.notification.create({
+    data: {
+      userId,
+      title: `📖 +${sessionTotalReward} Psiquê`,
+      message: isLongSession
+        ? "Sessão longa concluída — bônus de tempo incluído!"
+        : "Sessão de estudo concluída!",
+      type: "success",
+    },
+  });
 
   return { awarded: true, duplicate: false, amount: REWARD_SESSION_COMPLETED };
 }

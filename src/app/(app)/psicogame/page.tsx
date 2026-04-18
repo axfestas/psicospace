@@ -127,8 +127,8 @@ export default function PsicoGamePage() {
   const loadData = useCallback(async () => {
     try {
       const [coreRes, shopRes] = await Promise.all([
-        fetch("/api/psicogame/core"),
-        fetch("/api/psicogame/shop"),
+        fetch("/api/psicogame/core", { cache: "no-store" }),
+        fetch("/api/psicogame/shop", { cache: "no-store" }),
       ]);
       if (coreRes.ok) {
         const core: CoreData = (await coreRes.json()).core;
@@ -160,6 +160,18 @@ export default function PsicoGamePage() {
       const data = await res.json();
       if (res.ok) {
         setBuyMessage({ text: `✅ ${data.message}`, ok: true });
+        if (typeof data.newBalance === "number") {
+          setWallet((current) => (current ? { ...current, balance: data.newBalance } : current));
+        }
+        if (data.item?.id) {
+          const purchasedItem = data.item as ShopItem;
+          setInventory((current) =>
+            current.some((item) => item.id === purchasedItem.id) ? current : [...current, purchasedItem]
+          );
+          setShopItems((current) =>
+            current.map((item) => (item.id === purchasedItem.id ? { ...item, owned: true } : item))
+          );
+        }
         await loadData();
       } else {
         setBuyMessage({ text: data.error || "Erro ao comprar", ok: false });
