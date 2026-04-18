@@ -3,7 +3,6 @@ import { prisma } from "@/lib/db";
 import { comparePassword, signToken, setAuthCookie } from "@/lib/auth";
 
 export const runtime = "edge";
-const BCRYPT_HASH_PREFIX = "$2";
 
 export async function POST(request: NextRequest) {
   try {
@@ -35,13 +34,6 @@ export async function POST(request: NextRequest) {
 
     const valid = await comparePassword(password, user.password);
     if (!valid) {
-      // bcrypt hashes typically start with $2a$, $2b$, or $2y$.
-      if (user.password.startsWith(BCRYPT_HASH_PREFIX)) {
-        return NextResponse.json(
-          { error: "Sua conta usa um formato antigo de senha. Redefina sua senha para entrar." },
-          { status: 401 }
-        );
-      }
       return NextResponse.json(
         { error: "Credenciais inválidas" },
         { status: 401 }

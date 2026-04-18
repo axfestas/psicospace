@@ -1,4 +1,5 @@
 import { SignJWT, jwtVerify } from "jose";
+import { compare as bcryptCompare } from "bcrypt-ts";
 import { cookies } from "next/headers";
 import type { Role } from "@/types";
 
@@ -51,9 +52,11 @@ export async function comparePassword(
   password: string,
   stored: string
 ): Promise<boolean> {
+  // Legacy bcrypt hashes (e.g. $2a$, $2b$, $2y$) — verified via bcrypt-ts (pure TS, Edge-compatible).
+  if (stored.startsWith("$2")) {
+    return bcryptCompare(password, stored);
+  }
   if (!stored.startsWith("pbkdf2:")) {
-    // Legacy bcrypt hashes (prefixed "$2") cannot be verified in the Edge Runtime.
-    // Affected users must reset their password.
     return false;
   }
   const parts = stored.split(":");
