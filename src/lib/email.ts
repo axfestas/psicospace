@@ -1,21 +1,33 @@
 import { Resend } from "resend";
+import { getRequestContext } from "@cloudflare/next-on-pages";
 
-function getResend(): Resend {
-  const apiKey = process.env.RESEND_API_KEY;
+interface EmailConfig {
+  resend: Resend;
+  from: string;
+  baseUrl: string;
+}
+
+function getEmailConfig(): EmailConfig {
+  let cfEnv: Partial<CloudflareEnv> = {};
+  try {
+    cfEnv = getRequestContext().env;
+  } catch {
+    // Outside request context (e.g. during build or local dev without CF runtime).
+  }
+
+  const apiKey = cfEnv.RESEND_API_KEY ?? process.env.RESEND_API_KEY;
   if (!apiKey) throw new Error("RESEND_API_KEY environment variable is required");
-  return new Resend(apiKey);
-}
 
-function getFromAddress(): string {
-  const raw = process.env.EMAIL_FROM;
-  if (!raw) return "PsicoSpace <noreply@resend.dev>";
-  // If value has no '@', treat it as a display name and append Resend's default address
-  if (!raw.includes("@")) return `${raw} <noreply@resend.dev>`;
-  return raw;
-}
+  const rawFrom = cfEnv.EMAIL_FROM ?? process.env.EMAIL_FROM;
+  const from = !rawFrom
+    ? "PsicoSpace <noreply@resend.dev>"
+    : !rawFrom.includes("@")
+      ? `${rawFrom} <noreply@resend.dev>`
+      : rawFrom;
 
-function getBaseUrl(): string {
-  return process.env.NEXT_PUBLIC_BASE_URL || "https://psicospace.pages.dev";
+  const baseUrl = cfEnv.NEXT_PUBLIC_BASE_URL ?? process.env.NEXT_PUBLIC_BASE_URL ?? "https://psicospace.pages.dev";
+
+  return { resend: new Resend(apiKey), from, baseUrl };
 }
 
 function escapeHtml(s: string): string {
@@ -33,12 +45,12 @@ export async function sendWelcomeEmail(opts: {
   name: string;
   verificationToken: string;
 }) {
-  const resend = getResend();
-  const verifyUrl = `${getBaseUrl()}/api/auth/verify-email?token=${opts.verificationToken}`;
+  const { resend, from, baseUrl } = getEmailConfig();
+  const verifyUrl = `${baseUrl}/api/auth/verify-email?token=${opts.verificationToken}`;
   const safeName = escapeHtml(opts.name);
 
   return resend.emails.send({
-    from: getFromAddress(),
+    from,
     to: opts.to,
     subject: "Bem-vinde ao PsicoSpace! Confirme seu e-mail",
     html: `
@@ -48,7 +60,7 @@ export async function sendWelcomeEmail(opts: {
 <body style="font-family:Arial,Helvetica,sans-serif;background:#f9fafb;margin:0;padding:0;">
   <div style="max-width:600px;margin:40px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.1);">
     <div style="background:#2563eb;padding:32px 40px;text-align:center;">
-      <img src="${getBaseUrl()}/icons/icon-192.png" alt="PsicoSpace" width="64" height="64" style="display:inline-block;border-radius:12px;margin-bottom:12px;">
+      <img src="${baseUrl}/icons/icon-192.png" alt="PsicoSpace" width="64" height="64" style="display:inline-block;border-radius:12px;margin-bottom:12px;">
       <h1 style="color:#fff;margin:0;font-size:28px;font-weight:700;">PsicoSpace</h1>
     </div>
     <div style="padding:40px;">
@@ -93,12 +105,12 @@ export async function sendPasswordResetEmail(opts: {
   name: string;
   resetToken: string;
 }) {
-  const resend = getResend();
-  const resetUrl = `${getBaseUrl()}/redefinir-senha?token=${opts.resetToken}`;
+  const { resend, from, baseUrl } = getEmailConfig();
+  const resetUrl = `${baseUrl}/redefinir-senha?token=${opts.resetToken}`;
   const safeName = escapeHtml(opts.name);
 
   return resend.emails.send({
-    from: getFromAddress(),
+    from,
     to: opts.to,
     subject: "PsicoSpace — Redefinição de senha",
     html: `
@@ -108,7 +120,7 @@ export async function sendPasswordResetEmail(opts: {
 <body style="font-family:Arial,Helvetica,sans-serif;background:#f9fafb;margin:0;padding:0;">
   <div style="max-width:600px;margin:40px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.1);">
     <div style="background:#2563eb;padding:32px 40px;text-align:center;">
-      <img src="${getBaseUrl()}/icons/icon-192.png" alt="PsicoSpace" width="64" height="64" style="display:inline-block;border-radius:12px;margin-bottom:12px;">
+      <img src="${baseUrl}/icons/icon-192.png" alt="PsicoSpace" width="64" height="64" style="display:inline-block;border-radius:12px;margin-bottom:12px;">
       <h1 style="color:#fff;margin:0;font-size:28px;font-weight:700;">PsicoSpace</h1>
     </div>
     <div style="padding:40px;">
@@ -146,7 +158,7 @@ export async function sendPendingItemsEmail(opts: {
   soonTasks: { title: string; dueDate: string }[];
   soonEvents: { title: string; startAt: string }[];
 }) {
-  const resend = getResend();
+  const { resend, from, baseUrl } = getEmailConfig();
   const { overdueTasks, soonTasks, soonEvents } = opts;
 
   if (!overdueTasks.length && !soonTasks.length && !soonEvents.length) return;
@@ -177,7 +189,7 @@ export async function sendPendingItemsEmail(opts: {
     : "";
 
   return resend.emails.send({
-    from: getFromAddress(),
+    from,
     to: opts.to,
     subject: `📋 Suas pendências no PsicoSpace`,
     html: `
@@ -187,7 +199,7 @@ export async function sendPendingItemsEmail(opts: {
 <body style="font-family:Arial,Helvetica,sans-serif;background:#f9fafb;margin:0;padding:0;">
   <div style="max-width:600px;margin:40px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.1);">
     <div style="background:#2563eb;padding:32px 40px;text-align:center;">
-      <img src="${getBaseUrl()}/icons/icon-192.png" alt="PsicoSpace" width="64" height="64" style="display:inline-block;border-radius:12px;margin-bottom:12px;">
+      <img src="${baseUrl}/icons/icon-192.png" alt="PsicoSpace" width="64" height="64" style="display:inline-block;border-radius:12px;margin-bottom:12px;">
       <h1 style="color:#fff;margin:0;font-size:28px;font-weight:700;">PsicoSpace</h1>
     </div>
     <div style="padding:40px;">
@@ -199,7 +211,7 @@ export async function sendPendingItemsEmail(opts: {
       ${soonTaskSection}
       ${soonEventSection}
       <div style="text-align:center;margin:32px 0;">
-        <a href="${getBaseUrl()}/dashboard"
+        <a href="${baseUrl}/dashboard"
            style="background:#2563eb;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px;display:inline-block;">
           Ver no PsicoSpace
         </a>
@@ -215,3 +227,4 @@ export async function sendPendingItemsEmail(opts: {
     `.trim(),
   });
 }
+

@@ -79,4 +79,11 @@ declare interface CloudflareEnv {
     get(key: string, options?: CfR2GetOptions): Promise<CfR2ObjectBody | null>;
     delete(key: string): Promise<void>;
   };
+  /** Environment variables / secrets set in the Cloudflare Pages dashboard */
+  JWT_SECRET?: string;
+  RESEND_API_KEY?: string;
+  GROQ_API_KEY?: string;
+  EMAIL_FROM?: string;
+  NEXT_PUBLIC_BASE_URL?: string;
+  CRON_SECRET?: string;
 }
