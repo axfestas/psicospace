@@ -9,6 +9,11 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { normalizeExtractedText } from "@/lib/text-normalization";
 import {
+  MIN_PDF_EXTRACTED_TEXT_CHARS,
+  PDF_EXTRACTION_FAILURE_MSG,
+  PDF_EXTRACTION_PREVIEW_CHARS,
+} from "@/lib/pdf-extraction";
+import {
   Plus,
   CheckCircle,
   XCircle,
@@ -98,10 +103,8 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const BLANK_OPTION: ExerciseOption = { text: "", isCorrect: false };
-const EXTRACTED_TEXT_PREVIEW_CHARS = 300;
-const MIN_EXTRACTED_TEXT_CHARS = 500;
+const MAX_OCR_PAGES = 15;
 const OCR_LANG = "por+eng";
-const PDF_EXTRACTION_FAILURE_MSG = "Não foi possível extrair conteúdo suficiente do PDF";
 
 type PdfExtractionMethod = "pdf_direct" | "pdf_ocr_fallback";
 
@@ -111,17 +114,16 @@ interface PdfExtractionResult {
 }
 
 function isTextInsufficient(text: string): boolean {
-  return normalizeExtractedText(text).length < MIN_EXTRACTED_TEXT_CHARS;
+  return text.trim().length < MIN_PDF_EXTRACTED_TEXT_CHARS;
 }
 
 function logPdfExtractionDebug(method: PdfExtractionMethod, text: string) {
-  const normalized = normalizeExtractedText(text);
-  const preview = normalized.slice(0, EXTRACTED_TEXT_PREVIEW_CHARS);
+  const preview = text.slice(0, PDF_EXTRACTION_PREVIEW_CHARS);
   console.info(
     "[docentes/exercicios] PDF extraction debug",
     JSON.stringify({
       method,
-      length: normalized.length,
+      length: text.length,
       preview,
     })
   );
@@ -162,11 +164,18 @@ async function extractPdfTextWithOcrFallback(arrayBuffer: ArrayBuffer): Promise<
   }
 
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  if (pdf.numPages > MAX_OCR_PAGES) {
+    console.warn(
+      "[docentes/exercicios] OCR will process a subset of pages",
+      JSON.stringify({ totalPages: pdf.numPages, processedPages: MAX_OCR_PAGES })
+    );
+  }
   const worker = await createWorker(OCR_LANG);
   const ocrPages: string[] = [];
 
   try {
-    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+    const pageLimit = Math.min(pdf.numPages, MAX_OCR_PAGES);
+    for (let pageNumber = 1; pageNumber <= pageLimit; pageNumber++) {
       const page = await pdf.getPage(pageNumber);
       const viewport = page.getViewport({ scale: 1.5 });
       const canvas = document.createElement("canvas");
@@ -575,7 +584,7 @@ export default function ExerciciosPage() {
               A IA usa exclusivamente o conteúdo do arquivo selecionado.
               {!process.env.NEXT_PUBLIC_HAS_AI && " (Modo placeholder — configure GROQ_API_KEY para geração real)"}
               {" "}
-              (O servidor registra até {EXTRACTED_TEXT_PREVIEW_CHARS} caracteres da prévia para diagnóstico.)
+              (O servidor registra até {PDF_EXTRACTION_PREVIEW_CHARS} caracteres da prévia para diagnóstico.)
             </p>
           </CardHeader>
           <CardContent className="space-y-4">

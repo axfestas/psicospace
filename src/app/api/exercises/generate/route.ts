@@ -2,24 +2,28 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAuthUser } from "@/lib/auth";
 import { normalizeExtractedText } from "@/lib/text-normalization";
+import {
+  MIN_PDF_EXTRACTED_TEXT_CHARS,
+  PDF_EXTRACTION_FAILURE_MSG,
+  PDF_EXTRACTION_PREVIEW_CHARS,
+} from "@/lib/pdf-extraction";
 
 export const runtime = "edge";
 
 const DOCENTE_ROLES = new Set(["DOCENTE", "ADMIN", "SUPERADMIN"]);
 const INSUFFICIENT_CONTENT_MSG = "conteúdo insuficiente para gerar questões";
-const PDF_EXTRACTION_FAILURE_MSG = "Não foi possível extrair conteúdo suficiente do PDF";
 const OPTION_LETTERS = ["A", "B", "C", "D"] as const;
 const MIN_SOURCE_TEXT_CHARS = 80;
-const MIN_PDF_SOURCE_TEXT_CHARS = 500;
 const MAX_SOURCE_TEXT_CHARS = 18000;
 const MAX_CHUNK_CHARS = 3500;
 const MAX_CHUNKS = Math.ceil(MAX_SOURCE_TEXT_CHARS / MAX_CHUNK_CHARS);
-const SOURCE_PREVIEW_CHARS = 300;
+const SOURCE_PREVIEW_CHARS = PDF_EXTRACTION_PREVIEW_CHARS;
 
 type ParsedQuestion = {
   question: string;
   options: Array<{ text: string; isCorrect: boolean }>;
 };
+type SourceExtractionMethod = "pdf_direct" | "pdf_ocr_fallback" | "none";
 
 function stripCodeFence(raw: string) {
   return raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
@@ -188,7 +192,9 @@ export async function POST(request: NextRequest) {
     const now = new Date().toISOString();
     const safeCount = Math.max(1, Math.min(Number(count) || 3, 10));
     const normalizedSourceText = normalizeExtractedText(typeof sourceText === "string" ? sourceText : "");
-    const sourceMethod = typeof sourceExtractionMethod === "string" ? sourceExtractionMethod : "none";
+    const sourceMethod: SourceExtractionMethod = sourceExtractionMethod === "pdf_direct" || sourceExtractionMethod === "pdf_ocr_fallback"
+      ? sourceExtractionMethod
+      : "none";
     const sourcePreview = normalizedSourceText.slice(0, SOURCE_PREVIEW_CHARS).replace(/\n/g, " ");
     console.info(
       "[exercises/generate] Incoming source debug",
@@ -202,7 +208,7 @@ export async function POST(request: NextRequest) {
     );
     if (
       (sourceMethod === "pdf_direct" || sourceMethod === "pdf_ocr_fallback")
-      && normalizedSourceText.length < MIN_PDF_SOURCE_TEXT_CHARS
+      && normalizedSourceText.length < MIN_PDF_EXTRACTED_TEXT_CHARS
     ) {
       return NextResponse.json({ error: PDF_EXTRACTION_FAILURE_MSG }, { status: 422 });
     }
