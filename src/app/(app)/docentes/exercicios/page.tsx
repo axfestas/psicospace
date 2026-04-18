@@ -223,6 +223,7 @@ export default function ExerciciosPage() {
   const [periods, setPeriods] = useState<Period[]>([]);
   const [libraryItems, setLibraryItems] = useState<LibraryItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -290,15 +291,26 @@ export default function ExerciciosPage() {
   }, [user, isDocente, router]);
 
   const loadData = useCallback(async () => {
-    const [exRes, periodsRes, libRes] = await Promise.all([
-      fetch("/api/exercises"),
-      fetch("/api/periods"),
-      fetch("/api/biblioteca"),
-    ]);
-    if (exRes.ok) setExercises((await exRes.json()).exercises || []);
-    if (periodsRes.ok) setPeriods((await periodsRes.json()).periods || []);
-    if (libRes.ok) setLibraryItems((await libRes.json()).items || []);
-    setLoading(false);
+    setLoadError(null);
+    try {
+      const [exRes, periodsRes, libRes] = await Promise.all([
+        fetch("/api/exercises"),
+        fetch("/api/periods"),
+        fetch("/api/biblioteca"),
+      ]);
+      if (exRes.ok) {
+        setExercises((await exRes.json()).exercises || []);
+      } else {
+        const data = await exRes.json().catch(() => ({}));
+        setLoadError(data.error || `Erro ao carregar exercícios (${exRes.status})`);
+      }
+      if (periodsRes.ok) setPeriods((await periodsRes.json()).periods || []);
+      if (libRes.ok) setLibraryItems((await libRes.json()).items || []);
+    } catch {
+      setLoadError("Não foi possível carregar os dados. Verifique a conexão.");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
@@ -563,6 +575,21 @@ export default function ExerciciosPage() {
         <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
           <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
           {error}
+        </div>
+      )}
+
+      {loadError && (
+        <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
+          <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+          <div className="flex-1">
+            <span>{loadError}</span>
+            <button
+              onClick={() => { setLoading(true); loadData(); }}
+              className="ml-2 underline hover:no-underline font-medium"
+            >
+              Tentar novamente
+            </button>
+          </div>
         </div>
       )}
 

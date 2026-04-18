@@ -379,7 +379,8 @@ Se não houver conteúdo suficiente, retorne exatamente: "${INSUFFICIENT_CONTENT
       return NextResponse.json({ error: INSUFFICIENT_CONTENT_MSG }, { status: 422 });
     }
 
-    // Persist as PENDING exercises
+    // Persist exercises — auto-approve when created by ADMIN/SUPERADMIN
+    const isAdmin = auth.role === "ADMIN" || auth.role === "SUPERADMIN";
     const created = [];
     for (const [index, ex] of generated.entries()) {
       const difficultyLabel = DIFFICULTY_TITLE_LABELS[ex.difficulty] ?? "Médio";
@@ -394,7 +395,9 @@ Se não houver conteúdo suficiente, retorne exatamente: "${INSUFFICIENT_CONTENT
           materialId: materialId || null,
           libraryItemId: libraryItemId || null,
           createdById: auth.userId,
-          status: "PENDING",
+          status: isAdmin ? "APPROVED" : "PENDING",
+          approvedById: isAdmin ? auth.userId : null,
+          approvedAt: isAdmin ? now : null,
           sourceType: aiProvider ? "AI" : "MANUAL",
           updatedAt: now,
         },

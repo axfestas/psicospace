@@ -90,6 +90,7 @@ export async function POST(request: NextRequest) {
     }
 
     const now = new Date().toISOString();
+    const isAdmin = auth.role === "ADMIN" || auth.role === "SUPERADMIN";
     const exercise = await prisma.exercise.create({
       data: {
         title: title.trim(),
@@ -100,7 +101,9 @@ export async function POST(request: NextRequest) {
         materialId: materialId || null,
         libraryItemId: libraryItemId || null,
         createdById: auth.userId,
-        status: "PENDING",
+        status: isAdmin ? "APPROVED" : "PENDING",
+        approvedById: isAdmin ? auth.userId : null,
+        approvedAt: isAdmin ? now : null,
         sourceType: "MANUAL",
         updatedAt: now,
       },

@@ -84,7 +84,7 @@ export default function PsicoLabExercisesPage() {
     try {
       const endpoint = forReview
         ? "/api/exercises/review"
-        : "/api/exercises?status=APPROVED&eligibleForReward=true";
+        : "/api/exercises?status=APPROVED";
       const res = await fetch(endpoint);
       if (res.ok) {
         const data = await res.json();
