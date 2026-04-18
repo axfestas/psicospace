@@ -81,7 +81,8 @@ function parseGeneratedQuestions(raw: string): ParsedQuestion[] {
  * POST /api/exercises/generate
  *
  * Gera questões de múltipla escolha a partir de um material ou item de biblioteca.
- * Requer OPENAI_API_KEY configurada. Usa EXCLUSIVAMENTE o conteúdo fornecido.
+ * Requer GROQ_API_KEY (Groq, gratuito, usa LLaMA).
+ * Usa EXCLUSIVAMENTE o conteúdo fornecido.
  *
  * Prompt baseado nas REGRAS OBRIGATÓRIAS:
  *   1. Usar apenas o conteúdo do texto/PDF fornecido.
@@ -91,6 +92,24 @@ function parseGeneratedQuestions(raw: string): ParsedQuestion[] {
  *   5. Não misturar formatos.
  *   6. Retornar "conteúdo insuficiente para gerar questões" se o material for escasso.
  */
+
+interface AIProviderConfig {
+  url: string;
+  key: string;
+  model: string;
+}
+
+function resolveAIProvider(): AIProviderConfig | null {
+  const groqKey = process.env.GROQ_API_KEY;
+  if (groqKey) {
+    return {
+      url: "https://api.groq.com/openai/v1/chat/completions",
+      key: groqKey,
+      model: "llama-3.1-8b-instant",
+    };
+  }
+  return null;
+}
 export async function POST(request: NextRequest) {
   try {
     const auth = await getAuthUser();
@@ -131,13 +150,13 @@ export async function POST(request: NextRequest) {
     // `types` is kept for API compatibility but generation is always MULTIPLE_CHOICE.
     void types;
 
-    const openaiKey = process.env.OPENAI_API_KEY;
+    const aiProvider = resolveAIProvider();
     const now = new Date().toISOString();
     const safeCount = Math.max(1, Math.min(Number(count) || 3, 10));
 
     let generated: ParsedQuestion[] = [];
 
-    if (openaiKey) {
+    if (aiProvider) {
       // System prompt follows the REGRAS OBRIGATÓRIAS from the product spec.
       const systemPrompt = `Você é um gerador de questões educacionais.
 
@@ -167,14 +186,14 @@ Gere ${safeCount} questão(ões) de múltipla escolha estritamente com base no c
 Se não houver conteúdo suficiente, retorne exatamente: "${INSUFFICIENT_CONTENT_MSG}"`;
 
       try {
-        const aiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+        const aiResponse = await fetch(aiProvider.url, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${openaiKey}`,
+            Authorization: `Bearer ${aiProvider.key}`,
           },
           body: JSON.stringify({
-            model: "gpt-4o-mini",
+            model: aiProvider.model,
             messages: [
               { role: "system", content: systemPrompt },
               { role: "user", content: userPrompt },
@@ -210,11 +229,11 @@ Se não houver conteúdo suficiente, retorne exatamente: "${INSUFFICIENT_CONTENT
     }
 
     if (generated.length === 0) {
-      if (!openaiKey) {
-        // No API key: return placeholder template so docente can fill manually.
+      if (!aiProvider) {
+        // No API key configured: return placeholder template so docente can fill manually.
         return NextResponse.json(
           {
-            error: "OPENAI_API_KEY não configurada. Configure a variável de ambiente para geração automática de questões.",
+            error: "Nenhuma chave de IA configurada. Defina GROQ_API_KEY (gratuito) ou OPENAI_API_KEY para geração automática de questões.",
             placeholder: {
               type: "MULTIPLE_CHOICE",
               title: `Múltipla escolha — ${sourceTitle}`,
@@ -247,7 +266,7 @@ Se não houver conteúdo suficiente, retorne exatamente: "${INSUFFICIENT_CONTENT
           libraryItemId: libraryItemId || null,
           createdById: auth.userId,
           status: "PENDING",
-          sourceType: openaiKey ? "AI" : "MANUAL",
+          sourceType: aiProvider ? "AI" : "MANUAL",
           updatedAt: now,
         },
       });
@@ -273,7 +292,7 @@ Se não houver conteúdo suficiente, retorne exatamente: "${INSUFFICIENT_CONTENT
       created.push(full);
     }
 
-    return NextResponse.json({ exercises: created, aiUsed: !!openaiKey }, { status: 201 });
+    return NextResponse.json({ exercises: created, aiUsed: !!aiProvider }, { status: 201 });
   } catch (error) {
     console.error("[exercises/generate POST]", error);
     return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 });
