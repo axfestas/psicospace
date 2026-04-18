@@ -355,7 +355,8 @@ function isIdempotentError(message: string): boolean {
   return (
     lower.includes("already exists") ||
     lower.includes("duplicate column name") ||
-    lower.includes("duplicate column")
+    lower.includes("duplicate column") ||
+    lower.includes("already has a column named")
   );
 }
 

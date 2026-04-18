@@ -53,6 +53,7 @@ export default function AdminPage() {
 
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
+  const [loadUsersError, setLoadUsersError] = useState<string | null>(null);
   const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
   const [editForm, setEditForm] = useState({ name: "", email: "", role: "" });
 
@@ -84,12 +85,21 @@ export default function AdminPage() {
   const isSuperAdmin = currentUser?.role === "SUPERADMIN";
 
   const loadUsers = useCallback(async () => {
-    const res = await fetch("/api/users");
-    if (res.ok) {
-      const data = await res.json();
-      setUsers(data.users || []);
+    setLoadUsersError(null);
+    try {
+      const res = await fetch("/api/users");
+      if (res.ok) {
+        const data = await res.json();
+        setUsers(data.users || []);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setLoadUsersError(data.error || `Erro ao carregar usuáries (${res.status})`);
+      }
+    } catch {
+      setLoadUsersError("Não foi possível carregar usuáries. Verifique a conexão.");
+    } finally {
+      setLoadingUsers(false);
     }
-    setLoadingUsers(false);
   }, []);
 
   useEffect(() => { loadUsers(); }, [loadUsers]);
@@ -375,12 +385,32 @@ export default function AdminPage() {
       {activeTab === "usuarios" && (
         <Card>
           <CardHeader>
-            <CardTitle>Usuáries ({users.length})</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle>Usuáries ({users.length})</CardTitle>
+              <Button size="sm" variant="outline" onClick={() => { setLoadingUsers(true); loadUsers(); }} disabled={loadingUsers}>
+                <RefreshCw className={`h-4 w-4 mr-1 ${loadingUsers ? "animate-spin" : ""}`} />
+                Atualizar
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             {loadingUsers ? (
               <div className="flex items-center justify-center h-32">
                 <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+              </div>
+            ) : loadUsersError ? (
+              <div className="flex flex-col items-center gap-3 py-8 text-center">
+                <AlertCircle className="h-8 w-8 text-red-500" />
+                <p className="text-sm text-red-600 dark:text-red-400">{loadUsersError}</p>
+                <Button size="sm" variant="outline" onClick={() => { setLoadingUsers(true); loadUsers(); }}>
+                  <RefreshCw className="h-4 w-4 mr-1" />
+                  Tentar novamente
+                </Button>
+              </div>
+            ) : users.length === 0 ? (
+              <div className="flex flex-col items-center gap-2 py-8 text-center text-gray-500">
+                <Users className="h-8 w-8 opacity-40" />
+                <p className="text-sm">Nenhume usuárie cadastrade ainda.</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
