@@ -50,7 +50,12 @@ export default function PsicoLabExercisesPage() {
       } else {
         setLoadError("Não foi possível carregar os exercícios agora.");
       }
-    } catch {
+    } catch (error) {
+      console.error("[psicolab/exercicios] request_error", {
+        action: "loadExercises",
+        endpoint: "/api/exercises?status=APPROVED&eligibleForReward=true",
+        error,
+      });
       setLoadError("Não foi possível carregar os exercícios agora.");
     } finally {
       setLoading(false);
@@ -113,7 +118,14 @@ export default function PsicoLabExercisesPage() {
       }
 
       resetForm();
-    } catch {
+    } catch (error) {
+      console.error("[psicolab/exercicios] request_error", {
+        action: "submitExercise",
+        endpoint: `/api/exercises/${selectedExercise.id}/submit`,
+        exerciseId: selectedExercise.id,
+        type: selectedExercise.type,
+        error,
+      });
       setFeedback({ message: "Erro de conexão ao validar exercício.", ok: false });
     } finally {
       setSubmitting(false);
