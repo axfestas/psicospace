@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { normalizeExtractedText } from "@/lib/text-normalization";
 import {
   Plus,
   CheckCircle,
@@ -102,17 +103,6 @@ const MIN_EXTRACTED_TEXT_CHARS = 80;
 const MAX_OCR_PAGES = 5;
 const OCR_LANG = "por+eng";
 
-function sanitizeExtractedText(value: string): string {
-  return value
-    .replace(/\u0000/g, "")
-    .replace(/[\u0001-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, " ")
-    .replace(/\r\n?/g, "\n")
-    .replace(/[ \t]+\n/g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .replace(/[ \t]{2,}/g, " ")
-    .trim();
-}
-
 async function extractPdfTextFromArrayBuffer(arrayBuffer: ArrayBuffer): Promise<string> {
   const pdfjsLib = await import("pdfjs-dist");
   if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
@@ -129,7 +119,7 @@ async function extractPdfTextFromArrayBuffer(arrayBuffer: ArrayBuffer): Promise<
       .join(" ");
     allPages.push(pageText);
   }
-  return sanitizeExtractedText(allPages.join("\n\n"));
+  return normalizeExtractedText(allPages.join("\n\n"));
 }
 
 async function extractPdfTextWithOcrFallback(arrayBuffer: ArrayBuffer): Promise<string> {
@@ -161,12 +151,14 @@ async function extractPdfTextWithOcrFallback(arrayBuffer: ArrayBuffer): Promise<
       await page.render({ canvas, canvasContext: ctx, viewport }).promise;
       const { data } = await worker.recognize(canvas);
       if (data?.text) ocrPages.push(data.text);
+      // Yield between OCR pages to keep the UI responsive during long scans.
+      await new Promise((resolve) => setTimeout(resolve, 0));
     }
   } finally {
     await worker.terminate();
   }
 
-  return sanitizeExtractedText(`${directText}\n\n${ocrPages.join("\n\n")}`);
+  return normalizeExtractedText(`${directText}\n\n${ocrPages.join("\n\n")}`);
 }
 
 async function extractPdfTextFromUrl(url: string): Promise<string> {
@@ -552,7 +544,7 @@ export default function ExerciciosPage() {
               A IA usa exclusivamente o conteúdo do arquivo selecionado.
               {!process.env.NEXT_PUBLIC_HAS_AI && " (Modo placeholder — configure GROQ_API_KEY para geração real)"}
               {" "}
-              (Prévia de texto extraído: até {EXTRACTED_TEXT_PREVIEW_CHARS} caracteres nos logs do servidor.)
+              (O servidor registra até {EXTRACTED_TEXT_PREVIEW_CHARS} caracteres da prévia para diagnóstico.)
             </p>
           </CardHeader>
           <CardContent className="space-y-4">

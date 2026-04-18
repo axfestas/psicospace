@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAuthUser } from "@/lib/auth";
+import { normalizeExtractedText } from "@/lib/text-normalization";
 
 export const runtime = "edge";
 
@@ -10,6 +11,8 @@ const OPTION_LETTERS = ["A", "B", "C", "D"] as const;
 const MIN_SOURCE_TEXT_CHARS = 80;
 const MAX_SOURCE_TEXT_CHARS = 18000;
 const MAX_CHUNK_CHARS = 3500;
+const MAX_CHUNKS = Math.ceil(MAX_SOURCE_TEXT_CHARS / MAX_CHUNK_CHARS);
+const SOURCE_PREVIEW_CHARS = 140;
 
 type ParsedQuestion = {
   question: string;
@@ -80,25 +83,14 @@ function parseGeneratedQuestions(raw: string): ParsedQuestion[] {
   return result;
 }
 
-function normalizeSourceText(raw: string): string {
-  return raw
-    .replace(/\u0000/g, "")
-    .replace(/[\u0001-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, " ")
-    .replace(/\r\n?/g, "\n")
-    .replace(/[ \t]+\n/g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .replace(/[ \t]{2,}/g, " ")
-    .trim();
-}
-
 function chunkSourceText(raw: string): string {
-  const normalized = normalizeSourceText(raw).slice(0, MAX_SOURCE_TEXT_CHARS);
+  const normalized = normalizeExtractedText(raw).slice(0, MAX_SOURCE_TEXT_CHARS);
   if (!normalized) return "";
 
   const chunks: string[] = [];
   let cursor = 0;
 
-  while (cursor < normalized.length && chunks.length < Math.ceil(MAX_SOURCE_TEXT_CHARS / MAX_CHUNK_CHARS)) {
+  while (cursor < normalized.length && chunks.length < MAX_CHUNKS) {
     const end = Math.min(cursor + MAX_CHUNK_CHARS, normalized.length);
     chunks.push(normalized.slice(cursor, end));
     cursor = end;
@@ -193,8 +185,8 @@ export async function POST(request: NextRequest) {
     const aiProvider = resolveAIProvider();
     const now = new Date().toISOString();
     const safeCount = Math.max(1, Math.min(Number(count) || 3, 10));
-    const normalizedSourceText = normalizeSourceText(typeof sourceText === "string" ? sourceText : "");
-    const fallbackDescriptionText = normalizeSourceText(sourceDescription);
+    const normalizedSourceText = normalizeExtractedText(typeof sourceText === "string" ? sourceText : "");
+    const fallbackDescriptionText = normalizeExtractedText(sourceDescription);
     const finalSourceText = normalizedSourceText || fallbackDescriptionText;
 
     if (finalSourceText.length < MIN_SOURCE_TEXT_CHARS) {
@@ -213,7 +205,7 @@ export async function POST(request: NextRequest) {
     }
 
     const chunkedSourceText = chunkSourceText(finalSourceText);
-    const sourcePreview = chunkedSourceText.slice(0, 140).replace(/\n/g, " ");
+    const sourcePreview = chunkedSourceText.slice(0, SOURCE_PREVIEW_CHARS).replace(/\n/g, " ");
     console.info(
       "[exercises/generate] Source text preview",
       JSON.stringify({
