@@ -135,6 +135,10 @@ function logPdfExtractionDebug(method: PdfExtractionMethod, text: string) {
   );
 }
 
+// Clone the buffer before each pdfjs parse to avoid "ArrayBuffer was detached" errors.
+// pdfjs may transfer (detach) the underlying buffer when loading a document, so
+// subsequent calls with the same instance fail. A fresh copy ensures each parse
+// starts with a live, undetached buffer.
 function cloneArrayBuffer(buffer: ArrayBuffer): ArrayBuffer {
   return buffer.slice(0);
 }
