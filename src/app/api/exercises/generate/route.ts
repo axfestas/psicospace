@@ -6,6 +6,7 @@ import {
   MIN_PDF_EXTRACTED_TEXT_CHARS,
   PDF_EXTRACTION_FAILURE_MSG,
   PDF_EXTRACTION_PREVIEW_CHARS,
+  DIFFICULTY_TITLE_LABELS,
 } from "@/lib/pdf-extraction";
 
 export const runtime = "edge";
@@ -85,15 +86,17 @@ function parseGeneratedQuestions(raw: string): ParsedQuestion[] {
     if (options.some((o) => !o.text)) continue;
     if (options.filter((o) => o.isCorrect).length !== 1) continue;
 
-    const rawExplanation = typeof item.explanation === "string" ? item.explanation.trim()
-      : typeof item.explicacao === "string" ? item.explicacao.trim()
-      : "";
+    const rawExplanation: string = (() => {
+      if (typeof item.explanation === "string") return item.explanation.trim();
+      if (typeof item.explicacao === "string") return (item.explicacao as string).trim();
+      return "";
+    })();
 
     const rawDifficulty = String(
       (item as Record<string, unknown>).difficulty ??
       (item as Record<string, unknown>).dificuldade ?? ""
     ).trim().toUpperCase();
-    const difficulty: ParsedQuestion["difficulty"] = rawDifficulty === "FACIL" || rawDifficulty === "DIFICIL"
+    const difficulty: ParsedQuestion["difficulty"] = (rawDifficulty === "FACIL" || rawDifficulty === "DIFICIL")
       ? rawDifficulty
       : "MEDIO";
 
@@ -262,9 +265,15 @@ export async function POST(request: NextRequest) {
         ? String(difficulty).toUpperCase()
         : "MISTO";
 
+      const DIFFICULTY_LEVEL_DESCRIPTIONS = [
+        "- FACIL: definição/reconhecimento (ex: \"O que é X?\")",
+        "- MEDIO: explicação/relação (ex: \"Como X funciona / Por que Y ocorre?\")",
+        "- DIFICIL: aplicação/análise (ex: \"Em que situação clínica / Como isso afeta Y?\")",
+      ].join("\n");
+
       const difficultyInstructions = safeDifficulty === "MISTO"
-        ? `Distribua as ${safeCount} questões entre os 3 níveis de dificuldade da forma mais uniforme possível:\n- FACIL: definição/reconhecimento (ex: "O que é X?")\n- MEDIO: explicação/relação (ex: "Como X funciona / Por que Y ocorre?")\n- DIFICIL: aplicação/análise (ex: "Em que situação clínica / Como isso afeta Y?")`
-        : `Todas as ${safeCount} questões devem ser do nível: ${safeDifficulty}\n- FACIL: definição/reconhecimento (ex: "O que é X?")\n- MEDIO: explicação/relação (ex: "Como X funciona / Por que Y ocorre?")\n- DIFICIL: aplicação/análise (ex: "Em que situação clínica / Como isso afeta Y?")`;
+        ? `Distribua as ${safeCount} questões entre os 3 níveis de dificuldade da forma mais uniforme possível:\n${DIFFICULTY_LEVEL_DESCRIPTIONS}`
+        : `Todas as ${safeCount} questões devem ser do nível: ${safeDifficulty}\n${DIFFICULTY_LEVEL_DESCRIPTIONS}`;
 
       const systemPrompt = `Você é um especialista em pedagogia e gerador de questões educacionais de alta qualidade.
 
@@ -372,7 +381,7 @@ Se não houver conteúdo suficiente, retorne exatamente: "${INSUFFICIENT_CONTENT
     // Persist as PENDING exercises
     const created = [];
     for (const [index, ex] of generated.entries()) {
-      const difficultyLabel = ex.difficulty === "FACIL" ? "Fácil" : ex.difficulty === "DIFICIL" ? "Difícil" : "Médio";
+      const difficultyLabel = DIFFICULTY_TITLE_LABELS[ex.difficulty] ?? "Médio";
       const exercise = await prisma.exercise.create({
         data: {
           title: `${difficultyLabel} ${index + 1} — ${sourceTitle}`,

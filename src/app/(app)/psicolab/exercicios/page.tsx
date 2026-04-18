@@ -30,11 +30,7 @@ interface Feedback {
   explanation?: string | null;
 }
 
-const DIFFICULTY_LABELS: Record<string, string> = {
-  FACIL: "🟢 Fácil",
-  MEDIO: "🟡 Médio",
-  DIFICIL: "🔴 Difícil",
-};
+import { DIFFICULTY_LABELS } from "@/lib/pdf-extraction";
 
 export default function PsicoLabExercisesPage() {
   const [exercises, setExercises] = useState<Exercise[]>([]);

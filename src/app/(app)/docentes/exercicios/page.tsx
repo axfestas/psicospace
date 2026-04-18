@@ -12,6 +12,7 @@ import {
   MIN_PDF_EXTRACTED_TEXT_CHARS,
   PDF_EXTRACTION_FAILURE_MSG,
   PDF_EXTRACTION_PREVIEW_CHARS,
+  DIFFICULTY_LABELS,
 } from "@/lib/pdf-extraction";
 import {
   Plus,
@@ -91,12 +92,6 @@ const TYPE_LABELS: Record<string, string> = {
   APPLICATION: "Aplicação",
 };
 
-const DIFFICULTY_LABELS: Record<string, string> = {
-  FACIL: "🟢 Fácil",
-  MEDIO: "🟡 Médio",
-  DIFICIL: "🔴 Difícil",
-};
-
 const STATUS_COLORS: Record<string, string> = {
   PENDING: "text-yellow-600 bg-yellow-50 border-yellow-200 dark:bg-yellow-900/20 dark:border-yellow-700 dark:text-yellow-400",
   APPROVED: "text-green-600 bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-700 dark:text-green-400",
@@ -110,6 +105,10 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const BLANK_OPTION: ExerciseOption = { text: "", isCorrect: false };
+// MAX_OCR_PAGES: increased from 5 to 15 so typical academic PDFs (lecture notes, chapters)
+// are covered without requiring user intervention. Browser-side Tesseract.js is slower
+// than server-side OCR but 15 pages generally completes within ~1 minute on modern
+// hardware. PDFs with more pages show a warning and stop at this limit.
 const MAX_OCR_PAGES = 15;
 const OCR_LANG = "por+eng";
 
