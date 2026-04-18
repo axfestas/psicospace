@@ -1,12 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAuthUser } from "@/lib/auth";
+import { normalizeExtractedText } from "@/lib/text-normalization";
 
 export const runtime = "edge";
 
 const DOCENTE_ROLES = new Set(["DOCENTE", "ADMIN", "SUPERADMIN"]);
 const INSUFFICIENT_CONTENT_MSG = "conteúdo insuficiente para gerar questões";
 const OPTION_LETTERS = ["A", "B", "C", "D"] as const;
+const MIN_SOURCE_TEXT_CHARS = 80;
+const MAX_SOURCE_TEXT_CHARS = 18000;
+const MAX_CHUNK_CHARS = 3500;
+const MAX_CHUNKS = Math.ceil(MAX_SOURCE_TEXT_CHARS / MAX_CHUNK_CHARS);
+const SOURCE_PREVIEW_CHARS = 140;
 
 type ParsedQuestion = {
   question: string;
@@ -77,6 +83,24 @@ function parseGeneratedQuestions(raw: string): ParsedQuestion[] {
   return result;
 }
 
+function chunkSourceText(raw: string): string {
+  const normalized = normalizeExtractedText(raw).slice(0, MAX_SOURCE_TEXT_CHARS);
+  if (!normalized) return "";
+
+  const chunks: string[] = [];
+  let cursor = 0;
+
+  while (cursor < normalized.length && chunks.length < MAX_CHUNKS) {
+    const end = Math.min(cursor + MAX_CHUNK_CHARS, normalized.length);
+    chunks.push(normalized.slice(cursor, end));
+    cursor = end;
+  }
+
+  return chunks
+    .map((chunk, index) => `[Trecho ${index + 1}]\n${chunk}`)
+    .join("\n\n");
+}
+
 /**
  * POST /api/exercises/generate
  *
@@ -117,7 +141,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Apenas docentes podem gerar exercícios" }, { status: 403 });
     }
 
-    const { materialId, libraryItemId, count = 3, types } = await request.json();
+    const { materialId, libraryItemId, count = 3, types, sourceText } = await request.json();
 
     if (!materialId && !libraryItemId) {
       return NextResponse.json(
@@ -129,22 +153,30 @@ export async function POST(request: NextRequest) {
     // Fetch source content for context
     let sourceTitle = "";
     let sourceDescription = "";
+    let sourceType = "";
 
     if (materialId) {
       const material = await prisma.material.findUnique({
         where: { id: materialId },
-        select: { title: true },
+        select: {
+          title: true,
+          type: true,
+          libraryItem: { select: { description: true } },
+        },
       });
       if (!material) return NextResponse.json({ error: "Material não encontrado" }, { status: 404 });
       sourceTitle = material.title;
+      sourceDescription = material.libraryItem?.description ?? "";
+      sourceType = material.type;
     } else if (libraryItemId) {
       const libItem = await prisma.libraryItem.findUnique({
         where: { id: libraryItemId },
-        select: { title: true, description: true },
+        select: { title: true, description: true, type: true },
       });
       if (!libItem) return NextResponse.json({ error: "Item não encontrado" }, { status: 404 });
       sourceTitle = libItem.title;
       sourceDescription = libItem.description ?? "";
+      sourceType = libItem.type;
     }
 
     // `types` is kept for API compatibility but generation is always MULTIPLE_CHOICE.
@@ -153,6 +185,36 @@ export async function POST(request: NextRequest) {
     const aiProvider = resolveAIProvider();
     const now = new Date().toISOString();
     const safeCount = Math.max(1, Math.min(Number(count) || 3, 10));
+    const normalizedSourceText = normalizeExtractedText(typeof sourceText === "string" ? sourceText : "");
+    const fallbackDescriptionText = normalizeExtractedText(sourceDescription);
+    const finalSourceText = normalizedSourceText || fallbackDescriptionText;
+
+    if (finalSourceText.length < MIN_SOURCE_TEXT_CHARS) {
+      console.warn(
+        "[exercises/generate] Source text too short",
+        JSON.stringify({
+          sourceType,
+          materialId: materialId ?? null,
+          libraryItemId: libraryItemId ?? null,
+          sourceTitle,
+          extractedLength: normalizedSourceText.length,
+          fallbackLength: fallbackDescriptionText.length,
+        })
+      );
+      return NextResponse.json({ error: INSUFFICIENT_CONTENT_MSG }, { status: 422 });
+    }
+
+    const chunkedSourceText = chunkSourceText(finalSourceText);
+    const sourcePreview = chunkedSourceText.slice(0, SOURCE_PREVIEW_CHARS).replace(/\n/g, " ");
+    console.info(
+      "[exercises/generate] Source text preview",
+      JSON.stringify({
+        sourceType,
+        sourceTitle,
+        totalChars: chunkedSourceText.length,
+        preview: sourcePreview,
+      })
+    );
 
     let generated: ParsedQuestion[] = [];
 
@@ -180,9 +242,13 @@ Objetivo: gerar questões claras, diretas e baseadas no material.
 Responda APENAS com um JSON array válido, sem texto adicional, no formato:
 [{"question":"...","options":["A) ...","B) ...","C) ...","D) ..."],"correctOption":"A"}]`;
 
-      const userPrompt = `Conteúdo: "${sourceTitle}${sourceDescription ? ": " + sourceDescription : ""}"
+      const userPrompt = `Título da fonte: "${sourceTitle}"
+Tipo da fonte: ${sourceType || "N/A"}
 
-Gere ${safeCount} questão(ões) de múltipla escolha estritamente com base no conteúdo acima.
+Conteúdo extraído (use APENAS este conteúdo como base):
+${chunkedSourceText}
+
+Gere ${safeCount} questão(ões) de múltipla escolha estritamente com base no conteúdo extraído acima.
 Se não houver conteúdo suficiente, retorne exatamente: "${INSUFFICIENT_CONTENT_MSG}"`;
 
       try {

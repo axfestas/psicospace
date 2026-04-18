@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { normalizeExtractedText } from "@/lib/text-normalization";
 import {
   Plus,
   CheckCircle,
@@ -29,12 +30,14 @@ interface LibraryItem {
   id: string;
   title: string;
   type: string;
+  url?: string;
 }
 
 interface Material {
   id: string;
   title: string;
   type: string;
+  url?: string;
 }
 
 interface Discipline {
@@ -95,6 +98,77 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const BLANK_OPTION: ExerciseOption = { text: "", isCorrect: false };
+const EXTRACTED_TEXT_PREVIEW_CHARS = 140;
+const MIN_EXTRACTED_TEXT_CHARS = 80;
+const MAX_OCR_PAGES = 5;
+const OCR_LANG = "por+eng";
+
+async function extractPdfTextFromArrayBuffer(arrayBuffer: ArrayBuffer): Promise<string> {
+  const pdfjsLib = await import("pdfjs-dist");
+  if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
+  }
+
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  const allPages: string[] = [];
+  for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+    const page = await pdf.getPage(pageNumber);
+    const textContent = await page.getTextContent();
+    const pageText = textContent.items
+      .map((item) => ("str" in item ? item.str : ""))
+      .join(" ");
+    allPages.push(pageText);
+  }
+  return normalizeExtractedText(allPages.join("\n\n"));
+}
+
+async function extractPdfTextWithOcrFallback(arrayBuffer: ArrayBuffer): Promise<string> {
+  const directText = await extractPdfTextFromArrayBuffer(arrayBuffer);
+  if (directText.length >= MIN_EXTRACTED_TEXT_CHARS) return directText;
+
+  const [{ createWorker }, pdfjsLib] = await Promise.all([
+    import("tesseract.js"),
+    import("pdfjs-dist"),
+  ]);
+  if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
+  }
+
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  const worker = await createWorker(OCR_LANG);
+  const ocrPages: string[] = [];
+
+  try {
+    const pageLimit = Math.min(pdf.numPages, MAX_OCR_PAGES);
+    for (let pageNumber = 1; pageNumber <= pageLimit; pageNumber++) {
+      const page = await pdf.getPage(pageNumber);
+      const viewport = page.getViewport({ scale: 1.5 });
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.ceil(viewport.width);
+      canvas.height = Math.ceil(viewport.height);
+      const ctx = canvas.getContext("2d");
+      if (!ctx) continue;
+      await page.render({ canvas, canvasContext: ctx, viewport }).promise;
+      const { data } = await worker.recognize(canvas);
+      if (data?.text) ocrPages.push(data.text);
+      // Yield between OCR pages to keep the UI responsive during long scans.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+  } finally {
+    await worker.terminate();
+  }
+
+  return normalizeExtractedText(`${directText}\n\n${ocrPages.join("\n\n")}`);
+}
+
+async function extractPdfTextFromUrl(url: string): Promise<string> {
+  const response = await fetch(url, { credentials: "include" });
+  if (!response.ok) {
+    throw new Error(`Falha ao buscar PDF (${response.status})`);
+  }
+  const buffer = await response.arrayBuffer();
+  return extractPdfTextWithOcrFallback(buffer);
+}
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -196,12 +270,27 @@ export default function ExerciciosPage() {
     setGenError(null);
     setGenerating(true);
     try {
+      let sourceText: string | undefined;
+      const selectedSource =
+        genSourceType === "library"
+          ? libraryItems.find((item) => item.id === genLibraryItemId)
+          : allMaterials.find((material) => material.id === genMaterialId);
+
+      if (selectedSource?.type === "PDF" && selectedSource.url) {
+        const extracted = await extractPdfTextFromUrl(selectedSource.url);
+        if (extracted.length < MIN_EXTRACTED_TEXT_CHARS) {
+          throw new Error("Não foi possível extrair texto suficiente do PDF selecionado.");
+        }
+        sourceText = extracted;
+      }
+
       const res = await fetch("/api/exercises/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           libraryItemId: genSourceType === "library" ? genLibraryItemId : undefined,
           materialId: genSourceType === "material" ? genMaterialId : undefined,
+          sourceText,
           count: genCount,
           types: genTypes,
         }),
@@ -215,8 +304,8 @@ export default function ExerciciosPage() {
       } else {
         setGenError(data.error || "Erro ao gerar exercícios");
       }
-    } catch {
-      setGenError("Erro ao gerar exercícios");
+    } catch (err) {
+      setGenError(err instanceof Error ? err.message : "Erro ao gerar exercícios");
     } finally {
       setGenerating(false);
     }
@@ -454,6 +543,8 @@ export default function ExerciciosPage() {
             <p className="text-xs text-gray-500">
               A IA usa exclusivamente o conteúdo do arquivo selecionado.
               {!process.env.NEXT_PUBLIC_HAS_AI && " (Modo placeholder — configure GROQ_API_KEY para geração real)"}
+              {" "}
+              (O servidor registra até {EXTRACTED_TEXT_PREVIEW_CHARS} caracteres da prévia para diagnóstico.)
             </p>
           </CardHeader>
           <CardContent className="space-y-4">

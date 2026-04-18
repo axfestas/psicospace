@@ -50,7 +50,8 @@
     "react-big-calendar": "^1.19.4",
     "react-dom": "19.2.4",
     "resend": "^6.10.0",
-    "tailwind-merge": "^3.5.0"
+    "tailwind-merge": "^3.5.0",
+    "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260408.1",
