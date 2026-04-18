@@ -135,13 +135,17 @@ function logPdfExtractionDebug(method: PdfExtractionMethod, text: string) {
   );
 }
 
+function cloneArrayBuffer(buffer: ArrayBuffer): ArrayBuffer {
+  return buffer.slice(0);
+}
+
 async function extractPdfTextFromArrayBuffer(arrayBuffer: ArrayBuffer): Promise<string> {
   const pdfjsLib = await import("pdfjs-dist");
   if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
     pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
   }
 
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  const pdf = await pdfjsLib.getDocument({ data: cloneArrayBuffer(arrayBuffer) }).promise;
   const allPages: string[] = [];
   for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
     const page = await pdf.getPage(pageNumber);
@@ -155,7 +159,7 @@ async function extractPdfTextFromArrayBuffer(arrayBuffer: ArrayBuffer): Promise<
 }
 
 async function extractPdfTextWithOcrFallback(arrayBuffer: ArrayBuffer): Promise<PdfExtractionResult> {
-  const directText = await extractPdfTextFromArrayBuffer(arrayBuffer);
+  const directText = await extractPdfTextFromArrayBuffer(cloneArrayBuffer(arrayBuffer));
   if (!isTextInsufficient(directText)) {
     logPdfExtractionDebug("pdf_direct", directText);
     return { text: directText, method: "pdf_direct" };
@@ -169,7 +173,7 @@ async function extractPdfTextWithOcrFallback(arrayBuffer: ArrayBuffer): Promise<
     pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
   }
 
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  const pdf = await pdfjsLib.getDocument({ data: cloneArrayBuffer(arrayBuffer) }).promise;
   if (pdf.numPages > MAX_OCR_PAGES) {
     console.warn(
       "[docentes/exercicios] OCR will process a subset of pages",
