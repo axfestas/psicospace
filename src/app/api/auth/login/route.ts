@@ -6,7 +6,10 @@ export const runtime = "edge";
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, password } = await request.json();
+    const body = await request.json();
+    const email = typeof body?.email === "string" ? body.email.trim() : "";
+    const password = typeof body?.password === "string" ? body.password : "";
+    const normalizedEmail = email.toLowerCase();
 
     if (!email || !password) {
       return NextResponse.json(
@@ -15,8 +18,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email },
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [{ email: normalizedEmail }, { email }],
+      },
       select: { id: true, name: true, email: true, password: true, role: true, createdAt: true, avatarUrl: true },
     });
     if (!user) {
@@ -28,6 +33,12 @@ export async function POST(request: NextRequest) {
 
     const valid = await comparePassword(password, user.password);
     if (!valid) {
+      if (user.password.startsWith("$2")) {
+        return NextResponse.json(
+          { error: "Sua conta usa um formato antigo de senha. Redefina sua senha para entrar." },
+          { status: 401 }
+        );
+      }
       return NextResponse.json(
         { error: "Credenciais inválidas" },
         { status: 401 }
