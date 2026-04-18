@@ -4,6 +4,17 @@ import { getAuthUser } from "@/lib/auth";
 
 export const runtime = "edge";
 
+interface ReviewState {
+  interval: number;
+  repetitions: number;
+  easeFactor: number;
+  nextReviewAt: Date;
+  overdue: boolean;
+}
+
+// ReviewState is null for exercises the user has never reviewed.
+type NullableReviewState = ReviewState | null;
+
 /**
  * GET /api/exercises/review
  *
@@ -12,7 +23,6 @@ export const runtime = "edge";
  * Ordem:
  *   1. Exercícios com revisão vencida (nextReviewAt <= now)  — mais urgentes
  *   2. Exercícios nunca revistos (sem ExerciseReview) — novos
- *   3. Exercícios com revisão futura agendada — manutenção
  *
  * Apenas exercícios aprovados são incluídos.
  * Limite: 20 exercícios por chamada (suficiente para uma sessão de revisão).
@@ -54,23 +64,21 @@ export async function GET() {
         easeFactor: r.easeFactor,
         nextReviewAt: r.nextReviewAt,
         overdue: true,
-      },
+      } as NullableReviewState,
     }));
 
     const remainingSlots = LIMIT - overdueExercises.length;
 
     // ── 2. Exercícios nunca revistos ─────────────────────────────────────────
-    const reviewedIds = overdueReviews.map((r) => r.exerciseId);
-
-    // Also get all reviewed exercise IDs for this user to exclude them from new
+    // Get all reviewed exercise IDs for this user to exclude
     const allReviewedIds = await prisma.exerciseReview.findMany({
       where: { userId: auth.userId },
       select: { exerciseId: true },
     });
-    const allReviewedSet = new Set(allReviewedIds.map((r) => r.exerciseId));
-    const excludeIds = [...allReviewedSet];
+    const excludeIds = allReviewedIds.map((r) => r.exerciseId);
 
-    let newExercises: typeof overdueExercises = [];
+    type ExerciseEntry = (typeof overdueExercises)[number];
+    const newExercises: ExerciseEntry[] = [];
     if (remainingSlots > 0) {
       const unseen = await prisma.exercise.findMany({
         where: {
@@ -85,11 +93,13 @@ export async function GET() {
           libraryItem: { select: { id: true, title: true } },
         },
       });
-      newExercises = unseen.map((ex) => ({
-        ...ex,
-        options: ex.options.map((o) => ({ ...o, isCorrect: false })),
-        reviewState: null,
-      }));
+      for (const ex of unseen) {
+        newExercises.push({
+          ...ex,
+          options: ex.options.map((o) => ({ ...o, isCorrect: false })),
+          reviewState: null,
+        });
+      }
     }
 
     const exercises = [...overdueExercises, ...newExercises];

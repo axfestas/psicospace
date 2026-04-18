@@ -43,8 +43,10 @@ export async function GET() {
     for (const attempt of attempts) {
       const diff = attempt.exercise.difficulty ?? "MEDIO";
       const bucket = byDifficulty[diff] ?? byDifficulty["MEDIO"];
-      bucket.total += 1;
-      if (attempt.isCorrect) bucket.correct += 1;
+      if (bucket) {
+        bucket.total += 1;
+        if (attempt.isCorrect) bucket.correct += 1;
+      }
     }
 
     for (const key of Object.keys(byDifficulty)) {

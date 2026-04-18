@@ -261,8 +261,9 @@ export async function POST(request: NextRequest) {
     if (aiProvider) {
       // Validate requested difficulty
       const VALID_DIFFICULTIES = new Set(["FACIL", "MEDIO", "DIFICIL", "MISTO"]);
-      const safeDifficulty: string = VALID_DIFFICULTIES.has(String(difficulty).toUpperCase())
-        ? String(difficulty).toUpperCase()
+      const difficultyUpper = String(difficulty).toUpperCase();
+      const safeDifficulty: string = VALID_DIFFICULTIES.has(difficultyUpper)
+        ? difficultyUpper
         : "MISTO";
 
       const DIFFICULTY_LEVEL_DESCRIPTIONS = [
