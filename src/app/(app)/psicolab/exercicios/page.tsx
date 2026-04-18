@@ -39,17 +39,27 @@ export default function PsicoLabExercisesPage() {
   const [feedback, setFeedback] = useState<Feedback | null>(null);
 
   const loadExercises = useCallback(async () => {
-    const res = await fetch("/api/exercises?status=APPROVED&eligibleForReward=true");
-    if (res.ok) {
-      const data = await res.json();
-      const approved = data.exercises || [];
-      setExercises(approved);
-      setSelectedExerciseId((prev) => prev ?? approved[0]?.id ?? null);
-      setLoadError(null);
-    } else {
+    try {
+      const res = await fetch("/api/exercises?status=APPROVED&eligibleForReward=true");
+      if (res.ok) {
+        const data = await res.json();
+        const approved = data.exercises || [];
+        setExercises(approved);
+        setSelectedExerciseId((prev) => prev ?? approved[0]?.id ?? null);
+        setLoadError(null);
+      } else {
+        setLoadError("Não foi possível carregar os exercícios agora.");
+      }
+    } catch (error) {
+      console.error("[psicolab/exercicios] request_error", {
+        action: "loadExercises",
+        endpoint: "/api/exercises?status=APPROVED&eligibleForReward=true",
+        error,
+      });
       setLoadError("Não foi possível carregar os exercícios agora.");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -81,35 +91,45 @@ export default function PsicoLabExercisesPage() {
 
     setSubmitting(true);
     setFeedback(null);
+    try {
+      const res = await fetch(`/api/exercises/${selectedExercise.id}/submit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          answer: selectedExercise.type === "MULTIPLE_CHOICE" ? undefined : textAnswer,
+          optionId: selectedExercise.type === "MULTIPLE_CHOICE" ? selectedOptionId : undefined,
+        }),
+      });
 
-    const res = await fetch(`/api/exercises/${selectedExercise.id}/submit`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        answer: selectedExercise.type === "MULTIPLE_CHOICE" ? undefined : textAnswer,
-        optionId: selectedExercise.type === "MULTIPLE_CHOICE" ? selectedOptionId : undefined,
-      }),
-    });
+      const data = await res.json();
 
-    const data = await res.json();
+      if (!res.ok) {
+        setFeedback({ message: data.error || "Erro ao validar exercício", ok: false });
+        return;
+      }
 
-    if (!res.ok) {
-      setFeedback({ message: data.error || "Erro ao validar exercício", ok: false });
+      const validation = data.validation;
+      if (validation.isCorrect && validation.awarded) {
+        setFeedback({ message: `Resposta correta! +${validation.rewardAmount} Psiquê`, ok: true });
+      } else if (validation.isCorrect) {
+        setFeedback({ message: "Resposta correta, mas a recompensa já foi registrada antes.", ok: true });
+      } else {
+        setFeedback({ message: "Resposta incorreta. Revise e tente novamente.", ok: false });
+      }
+
+      resetForm();
+    } catch (error) {
+      console.error("[psicolab/exercicios] request_error", {
+        action: "submitExercise",
+        endpoint: `/api/exercises/${selectedExercise.id}/submit`,
+        exerciseId: selectedExercise.id,
+        type: selectedExercise.type,
+        error,
+      });
+      setFeedback({ message: "Erro de conexão ao validar exercício.", ok: false });
+    } finally {
       setSubmitting(false);
-      return;
     }
-
-    const validation = data.validation;
-    if (validation.isCorrect && validation.awarded) {
-      setFeedback({ message: `Resposta correta! +${validation.rewardAmount} Psiquê`, ok: true });
-    } else if (validation.isCorrect) {
-      setFeedback({ message: "Resposta correta, mas a recompensa já foi registrada antes.", ok: true });
-    } else {
-      setFeedback({ message: "Resposta incorreta. Revise e tente novamente.", ok: false });
-    }
-
-    resetForm();
-    setSubmitting(false);
   };
 
   if (loading) {
