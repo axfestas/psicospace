@@ -1,5 +1,4 @@
 import { SignJWT, jwtVerify } from "jose";
-import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
 import type { Role } from "@/types";
 
@@ -17,15 +16,75 @@ export interface JWTPayload {
   role: Role;
 }
 
+const PBKDF2_ITERATIONS = 100_000;
+
+function toHex(arr: Uint8Array): string {
+  return Array.from(arr, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+function fromHex(hex: string): Uint8Array<ArrayBuffer> {
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < bytes.length; i++) {
+    bytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  }
+  return bytes;
+}
+
 export async function hashPassword(password: string): Promise<string> {
-  return bcrypt.hash(password, 12);
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(password),
+    "PBKDF2",
+    false,
+    ["deriveBits"]
+  );
+  const bits = await crypto.subtle.deriveBits(
+    { name: "PBKDF2", salt, iterations: PBKDF2_ITERATIONS, hash: "SHA-256" },
+    keyMaterial,
+    256
+  );
+  return `pbkdf2:sha256:${PBKDF2_ITERATIONS}:${toHex(salt)}:${toHex(new Uint8Array(bits))}`;
 }
 
 export async function comparePassword(
   password: string,
-  hash: string
+  stored: string
 ): Promise<boolean> {
-  return bcrypt.compare(password, hash);
+  if (!stored.startsWith("pbkdf2:")) {
+    // Legacy bcrypt hashes (prefixed "$2") cannot be verified in the Edge Runtime.
+    // Affected users must reset their password.
+    return false;
+  }
+  const parts = stored.split(":");
+  if (parts.length !== 5) return false;
+  const [, , iterStr, saltHex, hashHex] = parts;
+  const iterations = parseInt(iterStr, 10);
+  if (!Number.isFinite(iterations) || iterations <= 0) return false;
+
+  const salt = fromHex(saltHex);
+  const expected = fromHex(hashHex);
+
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(password),
+    "PBKDF2",
+    false,
+    ["deriveBits"]
+  );
+  const bits = await crypto.subtle.deriveBits(
+    { name: "PBKDF2", salt, iterations, hash: "SHA-256" },
+    keyMaterial,
+    expected.length * 8
+  );
+  const computed = new Uint8Array(bits);
+
+  if (computed.length !== expected.length) return false;
+  let diff = 0;
+  for (let i = 0; i < computed.length; i++) {
+    diff |= computed[i] ^ expected[i];
+  }
+  return diff === 0;
 }
 
 export async function signToken(payload: JWTPayload): Promise<string> {

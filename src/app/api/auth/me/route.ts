@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAuthUser, comparePassword, hashPassword, signToken, setAuthCookie } from "@/lib/auth";
 
+export const runtime = "edge";
+
 export async function GET() {
   try {
     const auth = await getAuthUser();

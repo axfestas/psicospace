@@ -1,10 +1,28 @@
 import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
-import bcrypt from "bcryptjs";
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
+
+async function hashPasswordForSeed(password: string): Promise<string> {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(password),
+    "PBKDF2",
+    false,
+    ["deriveBits"]
+  );
+  const bits = await crypto.subtle.deriveBits(
+    { name: "PBKDF2", salt, iterations: 100_000, hash: "SHA-256" }, // keep in sync with PBKDF2_ITERATIONS in src/lib/auth.ts
+    keyMaterial,
+    256
+  );
+  const toHex = (arr: Uint8Array) =>
+    Array.from(arr, (b) => b.toString(16).padStart(2, "0")).join("");
+  return `pbkdf2:sha256:100000:${toHex(salt)}:${toHex(new Uint8Array(bits))}`;
+}
 
 const curriculum = [
   {
@@ -111,7 +129,7 @@ const curriculum = [
 async function main() {
   console.log("🌱 Iniciando seed do banco de dados...");
 
-  const hashedPassword = await bcrypt.hash("admin123", 12);
+  const hashedPassword = await hashPasswordForSeed("admin123");
   const admin = await prisma.user.upsert({
     where: { email: "admin@psicospace.com" },
     update: {},
