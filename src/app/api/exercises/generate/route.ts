@@ -7,12 +7,14 @@ export const runtime = "edge";
 
 const DOCENTE_ROLES = new Set(["DOCENTE", "ADMIN", "SUPERADMIN"]);
 const INSUFFICIENT_CONTENT_MSG = "conteúdo insuficiente para gerar questões";
+const PDF_EXTRACTION_FAILURE_MSG = "Não foi possível extrair conteúdo suficiente do PDF";
 const OPTION_LETTERS = ["A", "B", "C", "D"] as const;
 const MIN_SOURCE_TEXT_CHARS = 80;
+const MIN_PDF_SOURCE_TEXT_CHARS = 500;
 const MAX_SOURCE_TEXT_CHARS = 18000;
 const MAX_CHUNK_CHARS = 3500;
 const MAX_CHUNKS = Math.ceil(MAX_SOURCE_TEXT_CHARS / MAX_CHUNK_CHARS);
-const SOURCE_PREVIEW_CHARS = 140;
+const SOURCE_PREVIEW_CHARS = 300;
 
 type ParsedQuestion = {
   question: string;
@@ -141,7 +143,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Apenas docentes podem gerar exercícios" }, { status: 403 });
     }
 
-    const { materialId, libraryItemId, count = 3, types, sourceText } = await request.json();
+    const { materialId, libraryItemId, count = 3, types, sourceText, sourceExtractionMethod } = await request.json();
 
     if (!materialId && !libraryItemId) {
       return NextResponse.json(
@@ -186,6 +188,24 @@ export async function POST(request: NextRequest) {
     const now = new Date().toISOString();
     const safeCount = Math.max(1, Math.min(Number(count) || 3, 10));
     const normalizedSourceText = normalizeExtractedText(typeof sourceText === "string" ? sourceText : "");
+    const sourceMethod = typeof sourceExtractionMethod === "string" ? sourceExtractionMethod : "none";
+    const sourcePreview = normalizedSourceText.slice(0, SOURCE_PREVIEW_CHARS).replace(/\n/g, " ");
+    console.info(
+      "[exercises/generate] Incoming source debug",
+      JSON.stringify({
+        sourceType,
+        sourceTitle,
+        sourceMethod,
+        extractedLength: normalizedSourceText.length,
+        preview: sourcePreview,
+      })
+    );
+    if (
+      (sourceMethod === "pdf_direct" || sourceMethod === "pdf_ocr_fallback")
+      && normalizedSourceText.length < MIN_PDF_SOURCE_TEXT_CHARS
+    ) {
+      return NextResponse.json({ error: PDF_EXTRACTION_FAILURE_MSG }, { status: 422 });
+    }
     const fallbackDescriptionText = normalizeExtractedText(sourceDescription);
     const finalSourceText = normalizedSourceText || fallbackDescriptionText;
 
@@ -205,14 +225,15 @@ export async function POST(request: NextRequest) {
     }
 
     const chunkedSourceText = chunkSourceText(finalSourceText);
-    const sourcePreview = chunkedSourceText.slice(0, SOURCE_PREVIEW_CHARS).replace(/\n/g, " ");
+    const finalSourcePreview = chunkedSourceText.slice(0, SOURCE_PREVIEW_CHARS).replace(/\n/g, " ");
     console.info(
       "[exercises/generate] Source text preview",
       JSON.stringify({
         sourceType,
         sourceTitle,
+        sourceMethod,
         totalChars: chunkedSourceText.length,
-        preview: sourcePreview,
+        preview: finalSourcePreview,
       })
     );
 

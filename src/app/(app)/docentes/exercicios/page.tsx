@@ -98,10 +98,34 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const BLANK_OPTION: ExerciseOption = { text: "", isCorrect: false };
-const EXTRACTED_TEXT_PREVIEW_CHARS = 140;
-const MIN_EXTRACTED_TEXT_CHARS = 80;
-const MAX_OCR_PAGES = 5;
+const EXTRACTED_TEXT_PREVIEW_CHARS = 300;
+const MIN_EXTRACTED_TEXT_CHARS = 500;
 const OCR_LANG = "por+eng";
+const PDF_EXTRACTION_FAILURE_MSG = "Não foi possível extrair conteúdo suficiente do PDF";
+
+type PdfExtractionMethod = "pdf_direct" | "pdf_ocr_fallback";
+
+interface PdfExtractionResult {
+  text: string;
+  method: PdfExtractionMethod;
+}
+
+function isTextInsufficient(text: string): boolean {
+  return normalizeExtractedText(text).length < MIN_EXTRACTED_TEXT_CHARS;
+}
+
+function logPdfExtractionDebug(method: PdfExtractionMethod, text: string) {
+  const normalized = normalizeExtractedText(text);
+  const preview = normalized.slice(0, EXTRACTED_TEXT_PREVIEW_CHARS);
+  console.info(
+    "[docentes/exercicios] PDF extraction debug",
+    JSON.stringify({
+      method,
+      length: normalized.length,
+      preview,
+    })
+  );
+}
 
 async function extractPdfTextFromArrayBuffer(arrayBuffer: ArrayBuffer): Promise<string> {
   const pdfjsLib = await import("pdfjs-dist");
@@ -122,9 +146,12 @@ async function extractPdfTextFromArrayBuffer(arrayBuffer: ArrayBuffer): Promise<
   return normalizeExtractedText(allPages.join("\n\n"));
 }
 
-async function extractPdfTextWithOcrFallback(arrayBuffer: ArrayBuffer): Promise<string> {
+async function extractPdfTextWithOcrFallback(arrayBuffer: ArrayBuffer): Promise<PdfExtractionResult> {
   const directText = await extractPdfTextFromArrayBuffer(arrayBuffer);
-  if (directText.length >= MIN_EXTRACTED_TEXT_CHARS) return directText;
+  if (!isTextInsufficient(directText)) {
+    logPdfExtractionDebug("pdf_direct", directText);
+    return { text: directText, method: "pdf_direct" };
+  }
 
   const [{ createWorker }, pdfjsLib] = await Promise.all([
     import("tesseract.js"),
@@ -139,8 +166,7 @@ async function extractPdfTextWithOcrFallback(arrayBuffer: ArrayBuffer): Promise<
   const ocrPages: string[] = [];
 
   try {
-    const pageLimit = Math.min(pdf.numPages, MAX_OCR_PAGES);
-    for (let pageNumber = 1; pageNumber <= pageLimit; pageNumber++) {
+    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
       const page = await pdf.getPage(pageNumber);
       const viewport = page.getViewport({ scale: 1.5 });
       const canvas = document.createElement("canvas");
@@ -158,10 +184,12 @@ async function extractPdfTextWithOcrFallback(arrayBuffer: ArrayBuffer): Promise<
     await worker.terminate();
   }
 
-  return normalizeExtractedText(`${directText}\n\n${ocrPages.join("\n\n")}`);
+  const text = normalizeExtractedText(`${directText}\n\n${ocrPages.join("\n\n")}`);
+  logPdfExtractionDebug("pdf_ocr_fallback", text);
+  return { text, method: "pdf_ocr_fallback" };
 }
 
-async function extractPdfTextFromUrl(url: string): Promise<string> {
+async function extractPdfTextFromUrl(url: string): Promise<PdfExtractionResult> {
   const response = await fetch(url, { credentials: "include" });
   if (!response.ok) {
     throw new Error(`Falha ao buscar PDF (${response.status})`);
@@ -271,6 +299,7 @@ export default function ExerciciosPage() {
     setGenerating(true);
     try {
       let sourceText: string | undefined;
+      let sourceExtractionMethod: PdfExtractionMethod | undefined;
       const selectedSource =
         genSourceType === "library"
           ? libraryItems.find((item) => item.id === genLibraryItemId)
@@ -278,10 +307,11 @@ export default function ExerciciosPage() {
 
       if (selectedSource?.type === "PDF" && selectedSource.url) {
         const extracted = await extractPdfTextFromUrl(selectedSource.url);
-        if (extracted.length < MIN_EXTRACTED_TEXT_CHARS) {
-          throw new Error("Não foi possível extrair texto suficiente do PDF selecionado.");
+        if (isTextInsufficient(extracted.text)) {
+          throw new Error(PDF_EXTRACTION_FAILURE_MSG);
         }
-        sourceText = extracted;
+        sourceText = extracted.text;
+        sourceExtractionMethod = extracted.method;
       }
 
       const res = await fetch("/api/exercises/generate", {
@@ -291,6 +321,7 @@ export default function ExerciciosPage() {
           libraryItemId: genSourceType === "library" ? genLibraryItemId : undefined,
           materialId: genSourceType === "material" ? genMaterialId : undefined,
           sourceText,
+          sourceExtractionMethod,
           count: genCount,
           types: genTypes,
         }),
