@@ -3,8 +3,6 @@ import { prisma } from "@/lib/db";
 import { hashPassword, signToken, setAuthCookie } from "@/lib/auth";
 import { sendWelcomeEmail } from "@/lib/email";
 
-export const runtime = "edge";
-
 function generateToken(): string {
   const arr = new Uint8Array(32);
   crypto.getRandomValues(arr);
