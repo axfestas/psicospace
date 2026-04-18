@@ -86,12 +86,12 @@ const LEVEL_TITLES: Record<number, string> = {
   1: "Iniciante",
   2: "Aprendiz",
   3: "Estudante",
-  4: "Dedicado",
-  5: "Concentrado",
+  4: "Dedicade",
+  5: "Concentrade",
   6: "Consistente",
-  7: "Disciplinado",
+  7: "Disciplinade",
   8: "Experiente",
-  9: "Avançado",
+  9: "Avançade",
   10: "Mestre",
 };
 
@@ -468,7 +468,7 @@ export default function PsicoGamePage() {
                   </div>
                 </div>
                 <div>
-                  <p className="font-semibold text-gray-900 dark:text-gray-100">{user?.name ?? "Jogador"}</p>
+                  <p className="font-semibold text-gray-900 dark:text-gray-100">{user?.name ?? "Jogadore"}</p>
                   <p className="text-xs text-gray-500">{inventory.length} item{inventory.length !== 1 ? "s" : ""} no inventário</p>
                 </div>
               </div>

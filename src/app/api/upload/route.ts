@@ -25,7 +25,7 @@ const ALLOWED_EXTENSIONS: Record<string, string> = {
   webp: "image/webp",
 };
 
-const MAX_SIZE_BYTES = 50 * 1024 * 1024; // 50 MB
+const MAX_SIZE_BYTES = 200 * 1024 * 1024; // 200 MB
 
 export async function POST(request: NextRequest) {
   try {
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
 
     const bytes = await file.arrayBuffer();
     if (bytes.byteLength > MAX_SIZE_BYTES) {
-      return NextResponse.json({ error: "Arquivo excede o limite de 50 MB" }, { status: 413 });
+      return NextResponse.json({ error: "Arquivo excede o limite de 200 MB" }, { status: 413 });
     }
 
     // Build a unique key: userId/timestamp-filename.ext
