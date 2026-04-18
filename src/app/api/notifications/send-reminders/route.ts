@@ -9,8 +9,8 @@ export const runtime = "edge";
  * Intended to be called by a Cron Job (e.g. Cloudflare Workers Cron or external scheduler).
  * Requires X-Cron-Secret header matching CRON_SECRET env var.
  *
- * For each user, collects overdue tasks, soon-due tasks (within 7 days),
- * and upcoming events (within 7 days), then sends an email digest + in-app notifications.
+ * For each user, collects overdue tasks, soon-due tasks (within 3 days),
+ * and upcoming events (within 3 days, including today), then sends an email digest + in-app notifications.
  */
 export async function POST(request: NextRequest) {
   const secret = process.env.CRON_SECRET;
@@ -23,7 +23,9 @@ export async function POST(request: NextRequest) {
 
   try {
     const now = new Date();
-    const in7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const startOfToday = new Date(now);
+    startOfToday.setUTCHours(0, 0, 0, 0);
+    const in3Days = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
 
     // Get all users with their pending tasks and upcoming events
     const users = await prisma.user.findMany({
@@ -40,7 +42,7 @@ export async function POST(request: NextRequest) {
         },
         events: {
           where: {
-            startAt: { gte: now, lte: in7Days },
+            startAt: { gte: startOfToday, lte: in3Days },
           },
           select: { title: true, startAt: true },
         },
@@ -55,11 +57,11 @@ export async function POST(request: NextRequest) {
       type EventItem = { title: string; startAt: Date };
 
       const overdueTasks = (user.tasks as TaskItem[])
-        .filter((t) => t.dueDate && t.dueDate < now)
+        .filter((t) => t.dueDate && t.dueDate < startOfToday)
         .map((t) => ({ title: t.title, dueDate: t.dueDate!.toISOString() }));
 
       const soonTasks = (user.tasks as TaskItem[])
-        .filter((t) => t.dueDate && t.dueDate >= now && t.dueDate <= in7Days)
+        .filter((t) => t.dueDate && t.dueDate >= startOfToday && t.dueDate <= in3Days)
         .map((t) => ({ title: t.title, dueDate: t.dueDate!.toISOString() }));
 
       const soonEvents = (user.events as EventItem[]).map((e) => ({
@@ -86,7 +88,7 @@ export async function POST(request: NextRequest) {
         await prisma.notification.create({
           data: {
             userId: user.id,
-            title: `📋 ${soonTasks.length} tarefa(s) vencem em breve`,
+            title: `📋 ${soonTasks.length} tarefa(s) vencem nos próximos 3 dias`,
             message: soonTasks.map((t: { title: string; dueDate: string }) => `• ${t.title} — ${new Date(t.dueDate).toLocaleDateString("pt-BR")}`).join("\n"),
             type: "info",
           },
@@ -98,7 +100,7 @@ export async function POST(request: NextRequest) {
         await prisma.notification.create({
           data: {
             userId: user.id,
-            title: `📅 ${soonEvents.length} evento(s) próximo(s)`,
+            title: `📅 ${soonEvents.length} evento(s) nos próximos 3 dias`,
             message: soonEvents.map((e: { title: string; startAt: string }) => `• ${e.title} — ${new Date(e.startAt).toLocaleDateString("pt-BR")}`).join("\n"),
             type: "info",
           },
