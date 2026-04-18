@@ -125,19 +125,24 @@ export default function PsicoGamePage() {
   const [buyMessage, setBuyMessage] = useState<{ text: string; ok: boolean } | null>(null);
 
   const loadData = useCallback(async () => {
-    const [coreRes, shopRes] = await Promise.all([
-      fetch("/api/psicogame/core"),
-      fetch("/api/psicogame/shop"),
-    ]);
-    if (coreRes.ok) {
-      const core: CoreData = (await coreRes.json()).core;
-      setWallet(core.wallet);
-      setCharacter(core.character);
-      setTransactions(core.transactions || []);
-      setInventory(core.inventoryItems || []);
+    try {
+      const [coreRes, shopRes] = await Promise.all([
+        fetch("/api/psicogame/core"),
+        fetch("/api/psicogame/shop"),
+      ]);
+      if (coreRes.ok) {
+        const core: CoreData = (await coreRes.json()).core;
+        setWallet(core.wallet);
+        setCharacter(core.character);
+        setTransactions(core.transactions || []);
+        setInventory(core.inventoryItems || []);
+      }
+      if (shopRes.ok) setShopItems((await shopRes.json()).items || []);
+    } catch {
+      // Silently handle network or parse errors; the page renders with empty state.
+    } finally {
+      setLoading(false);
     }
-    if (shopRes.ok) setShopItems((await shopRes.json()).items || []);
-    setLoading(false);
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);

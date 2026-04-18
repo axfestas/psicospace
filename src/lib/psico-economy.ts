@@ -44,21 +44,20 @@ function safeParseObject(value: string): Record<string, string> {
 }
 
 export async function ensureEconomyState(userId: string) {
-  let wallet = await prisma.psicoWallet.findUnique({ where: { userId } });
-  if (!wallet) {
-    wallet = await prisma.psicoWallet.create({
-      data: {
+  const [wallet, character] = await Promise.all([
+    prisma.psicoWallet.upsert({
+      where: { userId },
+      update: {},
+      create: {
         userId,
         balance: 0,
         updatedAt: new Date().toISOString(),
       },
-    });
-  }
-
-  let character = await prisma.characterProgress.findUnique({ where: { userId } });
-  if (!character) {
-    character = await prisma.characterProgress.create({
-      data: {
+    }),
+    prisma.characterProgress.upsert({
+      where: { userId },
+      update: {},
+      create: {
         userId,
         level: 1,
         xp: 0,
@@ -67,8 +66,8 @@ export async function ensureEconomyState(userId: string) {
         longestStreak: 0,
         updatedAt: new Date().toISOString(),
       },
-    });
-  }
+    }),
+  ]);
 
   return { wallet, character };
 }
