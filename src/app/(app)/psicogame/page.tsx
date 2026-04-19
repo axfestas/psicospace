@@ -135,7 +135,15 @@ export default function PsicoGamePage() {
         setWallet(core.wallet);
         setCharacter(core.character);
         setTransactions(core.transactions || []);
-        setInventory(core.inventoryItems || []);
+        setInventory((current) => {
+          const incoming = core.inventoryItems || [];
+          if (current.length === 0) return incoming;
+          const merged = new Map(incoming.map((item) => [item.id, item]));
+          for (const item of current) {
+            if (!merged.has(item.id)) merged.set(item.id, item);
+          }
+          return Array.from(merged.values());
+        });
       }
       if (shopRes.ok) setShopItems((await shopRes.json()).items || []);
     } catch {
@@ -168,11 +176,20 @@ export default function PsicoGamePage() {
           setInventory((current) =>
             current.some((item) => item.id === purchasedItem.id) ? current : [...current, purchasedItem]
           );
+          setTransactions((current) => [
+            {
+              id: `purchase_${purchasedItem.id}_${Date.now()}`,
+              amount: price,
+              type: "SPEND",
+              reason: "item_purchased",
+              createdAt: new Date().toISOString(),
+            },
+            ...current,
+          ]);
           setShopItems((current) =>
             current.map((item) => (item.id === purchasedItem.id ? { ...item, owned: true } : item))
           );
         }
-        await loadData();
       } else {
         setBuyMessage({ text: data.error || "Erro ao comprar", ok: false });
       }
