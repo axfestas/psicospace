@@ -40,14 +40,20 @@ export async function PUT(
       return NextResponse.json({ error: "status ou currentPage obrigatório" }, { status: 400 });
     }
 
-    const updateData: Record<string, unknown> = {};
-    if (status !== undefined) updateData.status = status;
-    if (currentPage !== undefined) updateData.currentPage = Number(currentPage);
-
     const progress = await prisma.materialProgress.upsert({
       where: { userId_materialId: { userId: auth.userId, materialId: id } },
-      update: updateData,
-      create: { userId: auth.userId, materialId: id, ...updateData },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      update: {
+        ...(status !== undefined && { status: status as any }),
+        ...(currentPage !== undefined && { currentPage: Number(currentPage) }),
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      create: {
+        userId: auth.userId,
+        materialId: id,
+        ...(status !== undefined && { status: status as any }),
+        ...(currentPage !== undefined && { currentPage: Number(currentPage) }),
+      },
     });
 
     return NextResponse.json({ progress });

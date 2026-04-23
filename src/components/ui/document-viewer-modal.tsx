@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 import { X, Download, Presentation, Globe, ExternalLink, AlertTriangle } from "lucide-react";
 import { isInternalFileUrl, normalizeStoredMaterialUrl, resolveViewerKind } from "@/lib/file-urls";
 import {
@@ -8,7 +8,6 @@ import {
   PomodoroHeaderButton,
   PomodoroBreakOverlay,
 } from "@/components/ui/pomodoro-timer";
-import { useState } from "react";
 
 interface DocumentViewerModalProps {
   url: string;
