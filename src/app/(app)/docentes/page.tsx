@@ -22,6 +22,7 @@ interface LibraryItem {
 
 interface Progress {
   status: "NOT_VIEWED" | "IN_PROGRESS" | "COMPLETED";
+  currentPage?: number;
 }
 
 interface Material {
@@ -91,7 +92,7 @@ export default function DocentesPage() {
   const editFileInputRef = useRef<HTMLInputElement>(null);
   const [libraryItems, setLibraryItems] = useState<LibraryItem[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [viewer, setViewer] = useState<{ url: string; title: string; type: "PDF" | "SLIDE" | "LINK" } | null>(null);
+  const [viewer, setViewer] = useState<{ url: string; title: string; type: "PDF" | "SLIDE" | "LINK"; materialId?: string; initialPage?: number } | null>(null);
 
   // Biblioteca section state
   const [showLibrary, setShowLibrary] = useState(false);
@@ -670,7 +671,7 @@ export default function DocentesPage() {
                            item.type === "SLIDE" ? <Presentation className="h-4 w-4 text-orange-500 flex-shrink-0" /> :
                            <ExternalLink className="h-4 w-4 text-blue-500 flex-shrink-0" />}
                           <button
-                            onClick={() => setViewer({ url: item.url, title: item.title, type: item.type })}
+                            onClick={() => setViewer({ url: item.url, title: item.title, type: item.type, materialId: item.id })}
                             className="text-sm font-medium text-gray-900 dark:text-gray-100 hover:underline truncate text-left"
                           >
                             {item.title}
@@ -839,7 +840,7 @@ export default function DocentesPage() {
                                   <div className="flex items-center gap-2 min-w-0">
                                     {getTypeIcon(material.type)}
                                     <button
-                                      onClick={() => setViewer({ url: material.url, title: material.title, type: material.type })}
+                                      onClick={() => setViewer({ url: material.url, title: material.title, type: material.type, materialId: material.id, initialPage: material.progress?.[0]?.currentPage ?? 0 })}
                                       className="text-sm font-medium text-gray-900 dark:text-gray-100 hover:underline truncate text-left"
                                     >
                                       {material.title}
@@ -1051,6 +1052,8 @@ export default function DocentesPage() {
           url={viewer.url}
           title={viewer.title}
           type={viewer.type}
+          materialId={viewer.materialId}
+          initialPage={viewer.initialPage}
           onClose={() => setViewer(null)}
         />
       )}
