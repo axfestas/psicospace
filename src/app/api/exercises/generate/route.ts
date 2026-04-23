@@ -16,8 +16,8 @@ const DOCENTE_ROLES = new Set(["DOCENTE", "ADMIN", "SUPERADMIN"]);
 const INSUFFICIENT_CONTENT_MSG = "conteúdo insuficiente para gerar questões";
 const OPTION_LETTERS = ["A", "B", "C", "D"] as const;
 const MIN_SOURCE_TEXT_CHARS = 80;
-const MAX_SOURCE_TEXT_CHARS = 18000;
-const MAX_CHUNK_CHARS = 3500;
+const MAX_SOURCE_TEXT_CHARS = 6000;
+const MAX_CHUNK_CHARS = 2000;
 const MAX_CHUNKS = Math.ceil(MAX_SOURCE_TEXT_CHARS / MAX_CHUNK_CHARS);
 const SOURCE_PREVIEW_CHARS = PDF_EXTRACTION_PREVIEW_CHARS;
 
@@ -334,7 +334,7 @@ Se não houver conteúdo suficiente, retorne exatamente: "${INSUFFICIENT_CONTENT
               { role: "user", content: userPrompt },
             ],
             temperature: 0.3,
-            max_tokens: 3000,
+            max_tokens: 2000,
           }),
         });
 
