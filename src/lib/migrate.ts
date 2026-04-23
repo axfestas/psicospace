@@ -605,6 +605,10 @@ ALTER TABLE "ShopItem" ADD COLUMN "rarity" TEXT NOT NULL DEFAULT 'COMUM';
 ALTER TABLE "Exercise" ADD COLUMN "difficulty" TEXT NOT NULL DEFAULT 'MEDIO';
     `,
   },
+  {
+    name: "20260423193500_material_progress_current_page",
+    sql: `ALTER TABLE "MaterialProgress" ADD COLUMN "currentPage" INTEGER NOT NULL DEFAULT 0;`,
+  },
 ];
 
 // ---------------------------------------------------------------------------

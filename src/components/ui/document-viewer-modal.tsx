@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 import { X, Download, Presentation, Globe, ExternalLink, AlertTriangle } from "lucide-react";
 import { isInternalFileUrl, normalizeStoredMaterialUrl, resolveViewerKind } from "@/lib/file-urls";
 import {
@@ -14,19 +14,104 @@ interface DocumentViewerModalProps {
   title: string;
   type: "PDF" | "SLIDE" | "LINK";
   onClose: () => void;
+  /** Material ID used to persist reading position per material */
+  materialId?: string;
+  /** Last saved page from the database (used as fallback when localStorage has no entry) */
+  initialPage?: number;
 }
 
-export function DocumentViewerModal({ url, title, type, onClose }: DocumentViewerModalProps) {
+export function DocumentViewerModal({ url, title, type, onClose, materialId, initialPage }: DocumentViewerModalProps) {
   const [iframeError, setIframeError] = useState(false);
   const normalizedUrl = normalizeStoredMaterialUrl(url, type);
   const pomodoro = usePomodoroTimer();
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  // Tracks the latest page seen via polling (used when saving on close)
+  const currentPageRef = useRef<number>(0);
+
+  const viewerKind = resolveViewerKind(type, normalizedUrl);
+  const showExternalLinkView = viewerKind === "LINK" && !isInternalFileUrl(normalizedUrl);
+  const canDownloadFile = viewerKind !== "LINK" || isInternalFileUrl(normalizedUrl);
+
+  // Build localStorage key — prefer materialId for uniqueness across shared-URL materials
+  const storageKey = `pdf_page_${materialId || normalizedUrl}`;
+
+  // Determine the starting page: localStorage value takes precedence over DB value (more recent)
+  const savedPage =
+    viewerKind === "PDF" && typeof window !== "undefined"
+      ? parseInt(localStorage.getItem(storageKey) || "0", 10) || 0
+      : 0;
+  const startPage = savedPage > 0 ? savedPage : (initialPage ?? 0);
+
+  // Build iframe src with page fragment when restoring a saved page
+  const iframeSrc =
+    viewerKind === "PDF" && startPage > 1 ? `${normalizedUrl}#page=${startPage}` : normalizedUrl;
+
+  // Use materialId + normalizedUrl as key so that materials sharing the same URL
+  // (via library items) each get their own iframe state
+  const iframeKey = materialId ? `${materialId}--${normalizedUrl}` : normalizedUrl;
+
+  // Poll the iframe URL every 2 s to capture the current page from Chrome's PDF viewer hash
+  useEffect(() => {
+    if (viewerKind !== "PDF") return;
+    const interval = setInterval(() => {
+      try {
+        const hash = iframeRef.current?.contentWindow?.location?.hash ?? "";
+        const match = hash.match(/[#&]page=(\d+)/);
+        if (match) {
+          const page = parseInt(match[1], 10);
+          if (page > 0) currentPageRef.current = page;
+        }
+      } catch {
+        // Ignore cross-origin / browser-restriction errors
+      }
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [viewerKind]);
+
+  // Save current page to localStorage and (if materialId present) to the DB
+  const persistPage = useCallback(() => {
+    if (viewerKind !== "PDF") return;
+    // Also try to read the hash one last time before saving
+    try {
+      const hash = iframeRef.current?.contentWindow?.location?.hash ?? "";
+      const match = hash.match(/[#&]page=(\d+)/);
+      if (match) {
+        const page = parseInt(match[1], 10);
+        if (page > 0) currentPageRef.current = page;
+      }
+    } catch {
+      // ignore
+    }
+    const page = currentPageRef.current;
+    if (page <= 0) return;
+    try {
+      localStorage.setItem(storageKey, String(page));
+    } catch {
+      // ignore storage errors
+    }
+    if (materialId) {
+      // Fire-and-forget: persist to DB for cross-device sync
+      fetch(`/api/materials/${materialId}/progress`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPage: page }),
+      }).catch(() => {});
+    }
+  }, [viewerKind, storageKey, materialId]);
+
+  const handleClose = useCallback(() => {
+    persistPage();
+    onClose();
+  }, [persistPage, onClose]);
 
   // Close on Escape
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") handleClose();
+    };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, [handleClose]);
 
   useEffect(() => {
     setIframeError(false);
@@ -37,14 +122,11 @@ export function DocumentViewerModal({ url, title, type, onClose }: DocumentViewe
     typeof window !== "undefined" && normalizedUrl.startsWith("/")
       ? `${window.location.origin}${normalizedUrl}`
       : normalizedUrl;
-  const viewerKind = resolveViewerKind(type, normalizedUrl);
-  const showExternalLinkView = viewerKind === "LINK" && !isInternalFileUrl(normalizedUrl);
-  const canDownloadFile = viewerKind !== "LINK" || isInternalFileUrl(normalizedUrl);
 
   return (
     <div
       className="fixed inset-0 z-50 flex flex-col bg-black/80"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      onClick={(e) => { if (e.target === e.currentTarget) handleClose(); }}
     >
       {/* Header bar */}
       <div className="flex items-center justify-between bg-gray-900 px-4 py-2 flex-shrink-0">
@@ -87,7 +169,7 @@ export function DocumentViewerModal({ url, title, type, onClose }: DocumentViewe
             onSkip={pomodoro.skipPhase}
           />
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="text-gray-300 hover:text-white p-1"
             title="Fechar"
           >
@@ -179,8 +261,9 @@ export function DocumentViewerModal({ url, title, type, onClose }: DocumentViewe
              If the browser cannot display the PDF (e.g. mobile), the onError
              handler shows the fallback buttons above. */
           <iframe
-            key={normalizedUrl}
-            src={normalizedUrl}
+            key={iframeKey}
+            ref={iframeRef}
+            src={iframeSrc}
             className="w-full h-full border-0"
             title={title}
             allow="fullscreen"

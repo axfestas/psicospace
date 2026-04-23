@@ -21,7 +21,7 @@ export default function BibliotecaPage() {
   const [items, setItems] = useState<LibraryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [viewer, setViewer] = useState<{ url: string; title: string; type: "PDF" | "SLIDE" | "LINK" } | null>(null);
+  const [viewer, setViewer] = useState<{ url: string; title: string; type: "PDF" | "SLIDE" | "LINK"; materialId?: string } | null>(null);
 
   const loadItems = useCallback(async () => {
     const res = await fetch("/api/biblioteca");
@@ -86,11 +86,11 @@ export default function BibliotecaPage() {
               role="button"
               tabIndex={0}
               aria-label={`Abrir documento: ${item.title}`}
-              onClick={() => setViewer({ url: item.url, title: item.title, type: item.type })}
+              onClick={() => setViewer({ url: item.url, title: item.title, type: item.type, materialId: item.id })}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault();
-                  setViewer({ url: item.url, title: item.title, type: item.type });
+                  setViewer({ url: item.url, title: item.title, type: item.type, materialId: item.id });
                 }
               }}
             >
@@ -113,6 +113,7 @@ export default function BibliotecaPage() {
           url={viewer.url}
           title={viewer.title}
           type={viewer.type}
+          materialId={viewer.materialId}
           onClose={() => setViewer(null)}
         />
       )}

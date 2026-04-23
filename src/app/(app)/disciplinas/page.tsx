@@ -9,6 +9,7 @@ import { DocumentViewerModal } from "@/components/ui/document-viewer-modal";
 
 interface Progress {
   status: "NOT_VIEWED" | "IN_PROGRESS" | "COMPLETED";
+  currentPage?: number;
 }
 
 interface Material {
@@ -45,7 +46,7 @@ export default function DisciplinasPage() {
   const [expandedPeriod, setExpandedPeriod] = useState<string | null>(null);
   const [expandedDiscipline, setExpandedDiscipline] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [viewer, setViewer] = useState<{ url: string; title: string; type: "PDF" | "SLIDE" | "LINK" } | null>(null);
+  const [viewer, setViewer] = useState<{ url: string; title: string; type: "PDF" | "SLIDE" | "LINK"; materialId?: string; initialPage?: number } | null>(null);
 
   const loadPeriods = useCallback(async () => {
     const res = await fetch("/api/periods");
@@ -188,7 +189,7 @@ export default function DisciplinasPage() {
                                   <div className="flex items-center gap-2 min-w-0">
                                     {getTypeIcon(material.type)}
                                     <button
-                                      onClick={() => setViewer({ url: material.url, title: material.title, type: material.type })}
+                                      onClick={() => setViewer({ url: material.url, title: material.title, type: material.type, materialId: material.id, initialPage: material.progress?.[0]?.currentPage ?? 0 })}
                                       className="text-sm font-medium text-gray-900 dark:text-gray-100 hover:underline truncate text-left"
                                     >
                                       {material.title}
@@ -233,6 +234,8 @@ export default function DisciplinasPage() {
           url={viewer.url}
           title={viewer.title}
           type={viewer.type}
+          materialId={viewer.materialId}
+          initialPage={viewer.initialPage}
           onClose={() => setViewer(null)}
         />
       )}
