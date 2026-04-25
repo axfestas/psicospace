@@ -289,48 +289,47 @@ export async function grantSessionReward(userId: string, sessionId: string, tota
 export async function purchaseShopItem(userId: string, itemId: string) {
   await ensureEconomyState(userId);
 
-  // D1 does not support concurrent queries on the same binding within a single
-  // request (no parallelism). Running the lookups sequentially avoids the
-  // "cannot use D1 concurrently" error that Promise.all can trigger inside an
-  // interactive transaction.
-  return prisma.$transaction(async (tx) => {
-    const item = await tx.shopItem.findUnique({ where: { id: itemId } });
-    const wallet = await tx.psicoWallet.findUnique({ where: { userId } });
-    const character = await tx.characterProgress.findUnique({ where: { userId } });
+  // D1 does not support interactive (callback) transactions.
+  // Read all required rows sequentially, validate, then commit all writes in a
+  // single D1-compatible batch transaction (array form).
+  const item = await prisma.shopItem.findUnique({ where: { id: itemId } });
+  const wallet = await prisma.psicoWallet.findUnique({ where: { userId } });
+  const character = await prisma.characterProgress.findUnique({ where: { userId } });
 
-    if (!item || !item.active) {
-      return { ok: false as const, status: 404, error: "Item não encontrado" };
-    }
+  if (!item || !item.active) {
+    return { ok: false as const, status: 404, error: "Item não encontrado" };
+  }
 
-    if (!wallet || !character) {
-      return { ok: false as const, status: 500, error: "Estado econômico não inicializado" };
-    }
+  if (!wallet || !character) {
+    return { ok: false as const, status: 500, error: "Estado econômico não inicializado" };
+  }
 
-    const parsed = parseCharacter(character);
-    if (parsed.ownedItems.includes(itemId)) {
-      return { ok: false as const, status: 409, error: "Você já possui este item" };
-    }
+  const parsed = parseCharacter(character);
+  if (parsed.ownedItems.includes(itemId)) {
+    return { ok: false as const, status: 409, error: "Você já possui este item" };
+  }
 
-    if (wallet.balance < item.price) {
-      return {
-        ok: false as const,
-        status: 400,
-        error: `Saldo insuficiente. Você tem ${wallet.balance} Psiquê e o item custa ${item.price}`,
-      };
-    }
+  if (wallet.balance < item.price) {
+    return {
+      ok: false as const,
+      status: 400,
+      error: `Saldo insuficiente. Você tem ${wallet.balance} Psiquê e o item custa ${item.price}`,
+    };
+  }
 
-    parsed.ownedItems.push(itemId);
-    const nowIso = new Date().toISOString();
+  parsed.ownedItems.push(itemId);
+  const nowIso = new Date().toISOString();
 
-    await tx.psicoWallet.update({
+  // Batch form is the only transaction type supported by Cloudflare D1.
+  await prisma.$transaction([
+    prisma.psicoWallet.update({
       where: { userId },
       data: {
         balance: { decrement: item.price },
         updatedAt: nowIso,
       },
-    });
-
-    await tx.psicoTransaction.create({
+    }),
+    prisma.psicoTransaction.create({
       data: {
         walletId: wallet.id,
         amount: item.price,
@@ -338,22 +337,21 @@ export async function purchaseShopItem(userId: string, itemId: string) {
         reason: "item_purchased",
         referenceId: item.id,
       },
-    });
-
-    await tx.characterProgress.update({
+    }),
+    prisma.characterProgress.update({
       where: { userId },
       data: {
         ownedItems: JSON.stringify(parsed.ownedItems),
         updatedAt: nowIso,
       },
-    });
+    }),
+  ]);
 
-    return {
-      ok: true as const,
-      item,
-      newBalance: wallet.balance - item.price,
-    };
-  });
+  return {
+    ok: true as const,
+    item,
+    newBalance: wallet.balance - item.price,
+  };
 }
 
 export async function getUserEconomyCore(userId: string) {
