@@ -2,7 +2,21 @@
 
 import type { PDFDocumentProxy, RenderTask } from "pdfjs-dist";
 import { useEffect, useRef, useState, useCallback } from "react";
-import { ChevronLeft, ChevronRight, Highlighter, Trash2 } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Highlighter,
+  Trash2,
+  ZoomIn,
+  ZoomOut,
+  Maximize2,
+  RotateCw,
+  RotateCcw,
+  Undo2,
+  Redo2,
+  ScanText,
+  Square,
+} from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -27,6 +41,15 @@ export interface PdfHighlight {
   createdAt: string;
 }
 
+/** Word from Tesseract OCR with normalised coordinates [0,1] relative to canvas buffer */
+interface OcrWord {
+  text: string;
+  x0n: number;
+  y0n: number;
+  x1n: number;
+  y1n: number;
+}
+
 interface PdfCanvasViewerProps {
   url: string;
   /** localStorage key used to persist page and highlights */
@@ -39,6 +62,30 @@ interface PdfCanvasViewerProps {
 
 const HIGHLIGHT_COLORS = ["#ffeb3b", "#a5d6a7", "#90caf9", "#ffcc80", "#f48fb1"];
 const WORKER_SRC = "/pdf.worker.min.mjs";
+const ZOOM_STEP = 0.25;
+const ZOOM_MIN = 0.25;
+const ZOOM_MAX = 5.0;
+const MAX_HISTORY = 50;
+/** Min chars in a page's text layer to be considered a "digital" (non-scanned) page */
+const MIN_TEXT_CHARS = 30;
+/** Padding subtracted from the scroll-container width to compute the fit-width baseline (2 × 16 px) */
+const SCROLL_CONTAINER_PADDING = 32;
+/** Fallback canvas aspect ratio when buffer dimensions are unavailable (√2 ≈ A4 paper ratio) */
+const DEFAULT_ASPECT_RATIO = 1.414;
+
+/** Tesseract word bbox shape (subset of what Tesseract.js v7 actually returns) */
+interface TessWord {
+  text: string;
+  bbox: { x0: number; y0: number; x1: number; y1: number };
+}
+
+/** Returns true if the currently-focused element is a text-editing field */
+function isEditableActive(): boolean {
+  const el = document.activeElement as HTMLElement | null;
+  if (!el) return false;
+  const tag = el.tagName.toLowerCase();
+  return tag === "input" || tag === "textarea" || tag === "select" || el.isContentEditable;
+}
 
 // ── Helper: combine two 2-D affine matrices ────────────────────────────────────
 // Each matrix is [a, b, c, d, e, f] representing:
@@ -88,14 +135,54 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
   const [isRendering, setIsRendering] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  // ── Zoom & Rotation ────────────────────────────────────────────────────────
+  const [zoom, setZoom] = useState(1.0);
+  const [rotation, setRotation] = useState(0);
+  /** Current rendered canvas CSS-pixel width (drives wrapper width for scrolling) */
+  const [wrapperWidth, setWrapperWidth] = useState(0);
+
+  // ── Undo / Redo ────────────────────────────────────────────────────────────
+  const [historyStack, setHistoryStack] = useState<PdfHighlight[][]>(() => {
+    if (typeof window === "undefined") return [[]];
+    try {
+      const saved = JSON.parse(
+        localStorage.getItem(`pdf_highlights_${storageKey}`) ?? "[]",
+      ) as PdfHighlight[];
+      return [saved];
+    } catch {
+      return [[]];
+    }
+  });
+  const [historyIdx, setHistoryIdx] = useState(0);
+
+  // ── Scan detection & OCR ──────────────────────────────────────────────────
+  /** null = unknown, true = scanned (image), false = digital (has text layer) */
+  const [isScannedPdf, setIsScannedPdf] = useState<boolean | null>(null);
+  const [ocrState, setOcrState] = useState<"idle" | "running" | "done" | "error">("idle");
+  const [ocrProgress, setOcrProgress] = useState(0);
+  const [ocrErrorMsg, setOcrErrorMsg] = useState<string | null>(null);
+  const [ocrWords, setOcrWords] = useState<OcrWord[]>([]);
+
+  // ── Area selection (rectangle drawing for scanned PDFs) ───────────────────
+  const [markAreaMode, setMarkAreaMode] = useState(false);
+  const [drawingRect, setDrawingRect] = useState<{
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+  } | null>(null);
+
   // ── Refs ───────────────────────────────────────────────────────────────────
 
   const pdfDocRef = useRef<PDFDocumentProxy | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const textLayerRef = useRef<HTMLDivElement>(null);
+  const ocrTextLayerRef = useRef<HTMLDivElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const renderTaskRef = useRef<RenderTask | null>(null);
   const dbSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const drawStartRef = useRef<{ x: number; y: number } | null>(null);
 
   // ── Load PDF document ──────────────────────────────────────────────────────
 
@@ -128,6 +215,16 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
     };
   }, [url]);
 
+  // ── Reset OCR when page or rotation changes (not on zoom) ─────────────────
+
+  useEffect(() => {
+    setOcrState("idle");
+    setOcrWords([]);
+    setOcrErrorMsg(null);
+    setIsScannedPdf(null);
+    if (ocrTextLayerRef.current) ocrTextLayerRef.current.innerHTML = "";
+  }, [currentPage, rotation]);
+
   // ── Render current page ───────────────────────────────────────────────────
 
   useEffect(() => {
@@ -153,18 +250,18 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
         const page = await pdfDoc.getPage(currentPage);
         if (cancelled) return;
 
-        const wrapper = wrapperRef.current;
-        if (!wrapper) return;
-
-        const containerWidth = wrapper.clientWidth || 800;
-        const viewport1 = page.getViewport({ scale: 1 });
-        const scale = containerWidth / viewport1.width;
-        const viewport = page.getViewport({ scale });
+        // Use scroll container width as base (not wrapper, which changes with zoom)
+        const scrollEl = scrollContainerRef.current;
+        const outerWidth = scrollEl ? scrollEl.clientWidth - SCROLL_CONTAINER_PADDING : 800;
+        const viewport1 = page.getViewport({ scale: 1, rotation });
+        const fitScale = outerWidth / viewport1.width;
+        const scale = fitScale * zoom;
+        const viewport = page.getViewport({ scale, rotation });
 
         // ── Canvas render ──────────────────────────────────────────────────
         const canvas = canvasRef.current!;
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
+        canvas.width = Math.round(viewport.width);
+        canvas.height = Math.round(viewport.height);
         const ctx = canvas.getContext("2d")!;
 
         const renderTask = page.render({ canvas, canvasContext: ctx, viewport });
@@ -172,14 +269,22 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
         await renderTask.promise;
         if (cancelled) return;
 
+        // Drive the wrapper width so the scroll container can scroll horizontally
+        setWrapperWidth(Math.round(viewport.width));
+
         // ── Text layer ─────────────────────────────────────────────────────
         const textLayerDiv = textLayerRef.current!;
-        textLayerDiv.style.width = `${viewport.width}px`;
-        textLayerDiv.style.height = `${viewport.height}px`;
         textLayerDiv.innerHTML = "";
 
         const textContent = await page.getTextContent();
         if (cancelled) return;
+
+        // Detect scan: if the page has almost no text characters it's likely a scan/image
+        const totalChars = (textContent.items as Array<{ str?: string }>).reduce(
+          (sum, item) => sum + (item.str?.length ?? 0),
+          0,
+        );
+        setIsScannedPdf(totalChars < MIN_TEXT_CHARS);
 
         const vt: number[] = viewport.transform; // [a,b,c,d,e,f]
 
@@ -223,7 +328,104 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
     return () => {
       cancelled = true;
     };
-  }, [pdfReady, currentPage]);
+  }, [pdfReady, currentPage, zoom, rotation]);
+
+  // ── Re-render OCR text layer when zoom changes (wrapperWidth updates) ─────
+
+  useEffect(() => {
+    const ocrDiv = ocrTextLayerRef.current;
+    const canvas = canvasRef.current;
+    if (!ocrDiv || !canvas || ocrWords.length === 0 || ocrState !== "done") return;
+
+    ocrDiv.innerHTML = "";
+    const bufW = canvas.width;
+    const bufH = canvas.height;
+    // canvas CSS display width ≈ wrapperWidth; height scales by aspect ratio
+    const cssW = canvas.offsetWidth || wrapperWidth || bufW;
+    const cssH = bufH > 0 && bufW > 0 ? cssW * (bufH / bufW) : cssW * DEFAULT_ASPECT_RATIO;
+
+    for (const word of ocrWords) {
+      const span = document.createElement("span");
+      span.textContent = word.text;
+      const wordHeightPx = (word.y1n - word.y0n) * cssH;
+      span.style.cssText = `
+        left:${word.x0n * 100}%;
+        top:${word.y0n * 100}%;
+        width:${(word.x1n - word.x0n) * 100}%;
+        font-size:${wordHeightPx * 0.82}px;
+        line-height:${wordHeightPx}px;
+        overflow:hidden;
+        white-space:nowrap;
+        user-select:text;
+        -webkit-user-select:text;
+      `;
+      ocrDiv.appendChild(span);
+    }
+  }, [ocrWords, ocrState, wrapperWidth]);
+
+  // ── Ctrl+scroll / Cmd+scroll for zoom ─────────────────────────────────────
+
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    const handleWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      if (e.deltaY < 0) {
+        setZoom((z) => Math.min(parseFloat((z + ZOOM_STEP).toFixed(2)), ZOOM_MAX));
+      } else {
+        setZoom((z) => Math.max(parseFloat((z - ZOOM_STEP).toFixed(2)), ZOOM_MIN));
+      }
+    };
+    container.addEventListener("wheel", handleWheel, { passive: false });
+    return () => container.removeEventListener("wheel", handleWheel);
+  }, []);
+
+  // ── Keyboard shortcuts (Ctrl+Z undo, Ctrl+Y redo, Delete) ─────────────────
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      // Don't hijack shortcuts when the user is typing in a form field
+      if (isEditableActive()) return;
+      const ctrl = e.ctrlKey || e.metaKey;
+      if (ctrl && e.key === "z" && !e.shiftKey) {
+        e.preventDefault();
+        setHistoryIdx((prev) => {
+          if (prev <= 0) return prev;
+          const newIdx = prev - 1;
+          // Apply via ref-captured setter; history stack is stable between renders
+          return newIdx;
+        });
+      } else if (ctrl && (e.key === "y" || (e.key === "z" && e.shiftKey))) {
+        e.preventDefault();
+        setHistoryIdx((prev) => prev + 1); // clamped in effect below
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  // Apply history when historyIdx changes (from keyboard or buttons)
+  // We use a ref to track "last applied index" to avoid double-applying on same index
+  const lastAppliedIdxRef = useRef(-1);
+  useEffect(() => {
+    const clamped = Math.max(0, Math.min(historyIdx, historyStack.length - 1));
+    if (clamped !== historyIdx) {
+      setHistoryIdx(clamped);
+      return;
+    }
+    if (clamped === lastAppliedIdxRef.current) return;
+    lastAppliedIdxRef.current = clamped;
+    const snapshot = historyStack[clamped];
+    if (snapshot !== undefined) {
+      setHighlights(snapshot);
+      try {
+        localStorage.setItem(highlightKey, JSON.stringify(snapshot));
+      } catch {
+        // ignore
+      }
+    }
+  }, [historyIdx, historyStack, highlightKey]);
 
   // ── Persist page to localStorage + DB (DB writes are debounced 1 s) ────────
 
@@ -260,10 +462,27 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
     [highlightKey],
   );
 
+  // ── Push to history stack ─────────────────────────────────────────────────
+
+  const pushToHistory = useCallback(
+    (updated: PdfHighlight[]) => {
+      saveHighlights(updated);
+      setHistoryStack((prev) => {
+        const truncated = prev.slice(0, historyIdx + 1);
+        const next = [...truncated, updated];
+        return next.length > MAX_HISTORY ? next.slice(next.length - MAX_HISTORY) : next;
+      });
+      const newIdx = Math.min(historyIdx + 1, MAX_HISTORY - 1);
+      setHistoryIdx(newIdx);
+      lastAppliedIdxRef.current = newIdx;
+    },
+    [saveHighlights, historyIdx],
+  );
+
   // ── Capture text selection as highlight ──────────────────────────────────
 
   const handleMouseUp = useCallback(() => {
-    if (!highlightMode) return;
+    if (!highlightMode || markAreaMode) return;
     const selection = window.getSelection();
     if (!selection || selection.isCollapsed || !selection.toString().trim()) return;
 
@@ -293,9 +512,136 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
       createdAt: new Date().toISOString(),
     };
 
-    saveHighlights([...highlights, hl]);
+    pushToHistory([...highlights, hl]);
     selection.removeAllRanges();
-  }, [highlightMode, currentPage, selectedColor, highlights, saveHighlights]);
+  }, [highlightMode, markAreaMode, currentPage, selectedColor, highlights, pushToHistory]);
+
+  // ── Delete selected highlight via keyboard (Delete / Backspace) ───────────
+
+  useEffect(() => {
+    if (!selectedId) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      // Don't intercept when typing in a form field
+      if (isEditableActive()) return;
+      if (e.key === "Delete" || e.key === "Backspace") {
+        pushToHistory(highlights.filter((h) => h.id !== selectedId));
+        setSelectedId(null);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [selectedId, highlights, pushToHistory]);
+
+  // ── Area selection ────────────────────────────────────────────────────────
+
+  const handleAreaMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      if (!markAreaMode) return;
+      e.preventDefault();
+      const wrapper = wrapperRef.current;
+      if (!wrapper) return;
+      const rect = wrapper.getBoundingClientRect();
+      drawStartRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    },
+    [markAreaMode],
+  );
+
+  const handleAreaMouseMove = useCallback(
+    (e: React.MouseEvent) => {
+      if (!markAreaMode || !drawStartRef.current) return;
+      const wrapper = wrapperRef.current;
+      if (!wrapper) return;
+      const rect = wrapper.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const start = drawStartRef.current;
+      setDrawingRect({
+        x: Math.min(x, start.x),
+        y: Math.min(y, start.y),
+        w: Math.abs(x - start.x),
+        h: Math.abs(y - start.y),
+      });
+    },
+    [markAreaMode],
+  );
+
+  const handleAreaMouseUp = useCallback(
+    (e: React.MouseEvent) => {
+      if (!markAreaMode || !drawStartRef.current) return;
+      e.preventDefault();
+      const wrapper = wrapperRef.current;
+      if (!wrapper || !drawingRect) {
+        drawStartRef.current = null;
+        setDrawingRect(null);
+        return;
+      }
+      const { clientWidth: w, clientHeight: h } = wrapper;
+      const topPct = (drawingRect.y / h) * 100;
+      const leftPct = (drawingRect.x / w) * 100;
+      const widthPct = (drawingRect.w / w) * 100;
+      const heightPct = (drawingRect.h / h) * 100;
+      if (widthPct > 0.5 && heightPct > 0.5) {
+        const hl: PdfHighlight = {
+          id: crypto.randomUUID(),
+          page: currentPage,
+          text: "[área marcada]",
+          rects: [{ top: topPct, left: leftPct, width: widthPct, height: heightPct }],
+          color: selectedColor,
+          createdAt: new Date().toISOString(),
+        };
+        pushToHistory([...highlights, hl]);
+      }
+      setDrawingRect(null);
+      drawStartRef.current = null;
+    },
+    [markAreaMode, drawingRect, currentPage, selectedColor, highlights, pushToHistory],
+  );
+
+  // ── OCR (Tesseract.js, current page canvas) ───────────────────────────────
+
+  const runOcr = useCallback(async () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    setOcrState("running");
+    setOcrProgress(0);
+    setOcrErrorMsg(null);
+
+    try {
+      const { createWorker } = await import("tesseract.js");
+      const worker = await createWorker("por+eng", undefined, {
+        logger: (m: { status: string; progress: number }) => {
+          if (m.status === "recognizing text") {
+            setOcrProgress(Math.round(m.progress * 100));
+          }
+        },
+      });
+
+      const { data } = await worker.recognize(canvas);
+      await worker.terminate();
+
+      const bufW = canvas.width;
+      const bufH = canvas.height;
+      const words: OcrWord[] = ((data as { words?: TessWord[] }).words ?? [])
+        .filter((wd) => wd.text.trim())
+        .map((wd) => ({
+          text: wd.text,
+          x0n: wd.bbox.x0 / bufW,
+          y0n: wd.bbox.y0 / bufH,
+          x1n: wd.bbox.x1 / bufW,
+          y1n: wd.bbox.y1 / bufH,
+        }));
+
+      setOcrWords(words);
+      setOcrState("done");
+      // Activate highlight mode automatically after OCR
+      setHighlightMode(true);
+      setMarkAreaMode(false);
+    } catch (err) {
+      console.error("[PdfCanvasViewer] OCR error", err);
+      setOcrState("error");
+      setOcrErrorMsg(String(err));
+    }
+  }, []);
 
   // ── Navigation ─────────────────────────────────────────────────────────────
 
@@ -307,6 +653,13 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
   // ── Derived ────────────────────────────────────────────────────────────────
 
   const pageHighlights = highlights.filter((h) => h.page === currentPage);
+  const canUndo = historyIdx > 0;
+  const canRedo = historyIdx < historyStack.length - 1;
+
+  // Text layer is interactive only in highlight mode (not area mode, not OCR mode)
+  const textLayerActive = highlightMode && !markAreaMode && ocrState !== "done";
+  // OCR layer is interactive in highlight mode after OCR is done
+  const ocrLayerActive = highlightMode && ocrState === "done";
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -321,7 +674,7 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
   return (
     <div className="flex flex-col h-full bg-gray-800">
       {/* ── Toolbar ──────────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-900 border-b border-gray-700 flex-shrink-0 flex-wrap">
+      <div className="flex items-center gap-1 px-3 py-1.5 bg-gray-900 border-b border-gray-700 flex-shrink-0 flex-wrap gap-y-1">
         {/* Page navigation */}
         <button
           onClick={() => goTo(currentPage - 1)}
@@ -345,10 +698,80 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
 
         <div className="w-px h-5 bg-gray-700 mx-1" />
 
-        {/* Highlight mode toggle */}
+        {/* ── Zoom controls ─────────────────────────────────────────────── */}
+        <button
+          onClick={() => setZoom((z) => Math.max(parseFloat((z - ZOOM_STEP).toFixed(2)), ZOOM_MIN))}
+          disabled={zoom <= ZOOM_MIN}
+          className="p-1 text-gray-300 hover:text-white disabled:opacity-40 rounded"
+          title="Diminuir zoom (Ctrl+Scroll)"
+        >
+          <ZoomOut className="h-4 w-4" />
+        </button>
+        <span className="text-xs text-gray-300 tabular-nums min-w-[38px] text-center">
+          {Math.round(zoom * 100)}%
+        </span>
+        <button
+          onClick={() => setZoom((z) => Math.min(parseFloat((z + ZOOM_STEP).toFixed(2)), ZOOM_MAX))}
+          disabled={zoom >= ZOOM_MAX}
+          className="p-1 text-gray-300 hover:text-white disabled:opacity-40 rounded"
+          title="Aumentar zoom (Ctrl+Scroll)"
+        >
+          <ZoomIn className="h-4 w-4" />
+        </button>
+        <button
+          onClick={() => setZoom(1.0)}
+          disabled={zoom === 1.0}
+          className="p-1 text-gray-300 hover:text-white disabled:opacity-40 rounded"
+          title="Ajustar à largura (zoom 100%)"
+        >
+          <Maximize2 className="h-4 w-4" />
+        </button>
+
+        <div className="w-px h-5 bg-gray-700 mx-1" />
+
+        {/* ── Rotation controls ─────────────────────────────────────────── */}
+        <button
+          onClick={() => setRotation((r) => (r - 90 + 360) % 360)}
+          className="p-1 text-gray-300 hover:text-white rounded"
+          title="Girar 90° para a esquerda"
+        >
+          <RotateCcw className="h-4 w-4" />
+        </button>
+        <button
+          onClick={() => setRotation((r) => (r + 90) % 360)}
+          className="p-1 text-gray-300 hover:text-white rounded"
+          title="Girar 90° para a direita"
+        >
+          <RotateCw className="h-4 w-4" />
+        </button>
+
+        <div className="w-px h-5 bg-gray-700 mx-1" />
+
+        {/* ── Undo / Redo ───────────────────────────────────────────────── */}
+        <button
+          onClick={() => setHistoryIdx((i) => Math.max(0, i - 1))}
+          disabled={!canUndo}
+          className="p-1 text-gray-300 hover:text-white disabled:opacity-40 rounded"
+          title="Desfazer (Ctrl+Z)"
+        >
+          <Undo2 className="h-4 w-4" />
+        </button>
+        <button
+          onClick={() => setHistoryIdx((i) => Math.min(historyStack.length - 1, i + 1))}
+          disabled={!canRedo}
+          className="p-1 text-gray-300 hover:text-white disabled:opacity-40 rounded"
+          title="Refazer (Ctrl+Y)"
+        >
+          <Redo2 className="h-4 w-4" />
+        </button>
+
+        <div className="w-px h-5 bg-gray-700 mx-1" />
+
+        {/* ── Highlight mode toggle ─────────────────────────────────────── */}
         <button
           onClick={() => {
             setHighlightMode((v) => !v);
+            if (markAreaMode) setMarkAreaMode(false);
             setSelectedId(null);
           }}
           className={`flex items-center gap-1 text-xs px-2 py-1 rounded transition-colors ${
@@ -362,8 +785,26 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
           Marca-texto
         </button>
 
-        {/* Color picker — visible only in highlight mode */}
-        {highlightMode && (
+        {/* ── Area selection mode ───────────────────────────────────────── */}
+        <button
+          onClick={() => {
+            setMarkAreaMode((v) => !v);
+            if (highlightMode) setHighlightMode(false);
+            setSelectedId(null);
+          }}
+          className={`flex items-center gap-1 text-xs px-2 py-1 rounded transition-colors ${
+            markAreaMode
+              ? "bg-blue-400 text-gray-900 font-medium"
+              : "text-gray-300 hover:text-white border border-gray-600"
+          }`}
+          title="Marcar área (retângulo) — útil para PDFs digitalizados"
+        >
+          <Square className="h-3.5 w-3.5" />
+          Área
+        </button>
+
+        {/* Color picker — visible in either marking mode */}
+        {(highlightMode || markAreaMode) && (
           <div className="flex items-center gap-1">
             {HIGHLIGHT_COLORS.map((color) => (
               <button
@@ -385,11 +826,11 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
             <div className="w-px h-5 bg-gray-700 mx-1" />
             <button
               onClick={() => {
-                saveHighlights(highlights.filter((h) => h.id !== selectedId));
+                pushToHistory(highlights.filter((h) => h.id !== selectedId));
                 setSelectedId(null);
               }}
               className="flex items-center gap-1 text-xs text-red-400 hover:text-red-300 border border-red-800 rounded px-2 py-1"
-              title="Apagar marca-texto selecionado"
+              title="Apagar marca-texto selecionado (Delete)"
             >
               <Trash2 className="h-3.5 w-3.5" />
               Apagar
@@ -405,8 +846,42 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
         )}
       </div>
 
+      {/* ── Scan banner ──────────────────────────────────────────────────── */}
+      {isScannedPdf && pdfReady && (
+        <div className="flex items-center gap-2 px-3 py-2 bg-amber-900/70 border-b border-amber-700 text-amber-200 text-xs flex-shrink-0 flex-wrap">
+          <ScanText className="h-4 w-4 flex-shrink-0" />
+          <span className="flex-1 min-w-0">
+            PDF digitalizado — sem camada de texto. Use &ldquo;Área&rdquo; para marcar livremente
+            ou ative o OCR para reconhecer palavras.
+          </span>
+          {ocrState === "idle" && (
+            <button
+              onClick={runOcr}
+              className="px-3 py-1 bg-amber-600 hover:bg-amber-500 text-white rounded text-xs font-medium flex-shrink-0"
+            >
+              Ativar OCR
+            </button>
+          )}
+          {ocrState === "running" && (
+            <span className="text-amber-300 flex-shrink-0">
+              OCR em andamento… {ocrProgress}%
+            </span>
+          )}
+          {ocrState === "done" && (
+            <span className="text-green-300 flex-shrink-0">
+              ✓ OCR concluído — selecione o texto para marcar
+            </span>
+          )}
+          {ocrState === "error" && (
+            <span className="text-red-300 flex-shrink-0">
+              Erro no OCR{ocrErrorMsg ? `: ${ocrErrorMsg}` : ""}. Use o modo &ldquo;Área&rdquo;.
+            </span>
+          )}
+        </div>
+      )}
+
       {/* ── PDF canvas area ──────────────────────────────────────────────── */}
-      <div className="flex-1 overflow-auto bg-gray-700 p-4">
+      <div ref={scrollContainerRef} className="flex-1 overflow-auto bg-gray-700 p-4">
         {!pdfReady && (
           <div className="flex items-center justify-center h-32">
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" />
@@ -414,13 +889,31 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
         )}
 
         {pdfReady && (
-          <div className="max-w-4xl mx-auto">
+          <div className="flex justify-center">
             <div
               ref={wrapperRef}
               className="relative bg-white shadow-xl"
-              style={{ userSelect: highlightMode ? "text" : "none" }}
-              onMouseUp={handleMouseUp}
-              onClick={() => setSelectedId(null)}
+              style={{
+                width: wrapperWidth > 0 ? `${wrapperWidth}px` : "100%",
+                maxWidth: zoom > 1 ? "none" : "56rem",
+                userSelect: highlightMode || ocrLayerActive ? "text" : "none",
+                cursor: markAreaMode ? "crosshair" : "default",
+              }}
+              onMouseDown={handleAreaMouseDown}
+              onMouseMove={handleAreaMouseMove}
+              onMouseUp={(e) => {
+                handleAreaMouseUp(e);
+                handleMouseUp();
+              }}
+              onMouseLeave={() => {
+                if (markAreaMode) {
+                  setDrawingRect(null);
+                  drawStartRef.current = null;
+                }
+              }}
+              onClick={() => {
+                if (!markAreaMode) setSelectedId(null);
+              }}
             >
               {/* Page canvas */}
               <canvas ref={canvasRef} className="block w-full" />
@@ -455,8 +948,32 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
               <div
                 ref={textLayerRef}
                 className="pdf-text-layer"
-                style={{ pointerEvents: highlightMode ? "auto" : "none" }}
+                style={{ pointerEvents: textLayerActive ? "auto" : "none" }}
               />
+
+              {/* OCR text layer — populated after running Tesseract */}
+              <div
+                ref={ocrTextLayerRef}
+                className="pdf-text-layer"
+                style={{ pointerEvents: ocrLayerActive ? "auto" : "none" }}
+              />
+
+              {/* Drawing rect preview (area selection mode) */}
+              {drawingRect && markAreaMode && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: `${drawingRect.y}px`,
+                    left: `${drawingRect.x}px`,
+                    width: `${drawingRect.w}px`,
+                    height: `${drawingRect.h}px`,
+                    border: `2px dashed ${selectedColor}`,
+                    backgroundColor: selectedColor,
+                    opacity: 0.3,
+                    pointerEvents: "none",
+                  }}
+                />
+              )}
 
               {/* Rendering spinner */}
               {isRendering && (
