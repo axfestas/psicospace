@@ -68,6 +68,24 @@ const ZOOM_MAX = 5.0;
 const MAX_HISTORY = 50;
 /** Min chars in a page's text layer to be considered a "digital" (non-scanned) page */
 const MIN_TEXT_CHARS = 30;
+/** Padding subtracted from the scroll-container width to compute the fit-width baseline (2 × 16 px) */
+const SCROLL_CONTAINER_PADDING = 32;
+/** Fallback canvas aspect ratio when buffer dimensions are unavailable (√2 ≈ A4 paper ratio) */
+const DEFAULT_ASPECT_RATIO = 1.414;
+
+/** Tesseract word bbox shape (subset of what Tesseract.js v7 actually returns) */
+interface TessWord {
+  text: string;
+  bbox: { x0: number; y0: number; x1: number; y1: number };
+}
+
+/** Returns true if the currently-focused element is a text-editing field */
+function isEditableActive(): boolean {
+  const el = document.activeElement as HTMLElement | null;
+  if (!el) return false;
+  const tag = el.tagName.toLowerCase();
+  return tag === "input" || tag === "textarea" || tag === "select" || el.isContentEditable;
+}
 
 // ── Helper: combine two 2-D affine matrices ────────────────────────────────────
 // Each matrix is [a, b, c, d, e, f] representing:
@@ -234,7 +252,7 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
 
         // Use scroll container width as base (not wrapper, which changes with zoom)
         const scrollEl = scrollContainerRef.current;
-        const outerWidth = scrollEl ? scrollEl.clientWidth - 32 : 800; // 32 = 2×16 px padding
+        const outerWidth = scrollEl ? scrollEl.clientWidth - SCROLL_CONTAINER_PADDING : 800;
         const viewport1 = page.getViewport({ scale: 1, rotation });
         const fitScale = outerWidth / viewport1.width;
         const scale = fitScale * zoom;
@@ -324,7 +342,7 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
     const bufH = canvas.height;
     // canvas CSS display width ≈ wrapperWidth; height scales by aspect ratio
     const cssW = canvas.offsetWidth || wrapperWidth || bufW;
-    const cssH = bufH > 0 && bufW > 0 ? cssW * (bufH / bufW) : cssW * 1.414;
+    const cssH = bufH > 0 && bufW > 0 ? cssW * (bufH / bufW) : cssW * DEFAULT_ASPECT_RATIO;
 
     for (const word of ocrWords) {
       const span = document.createElement("span");
@@ -367,6 +385,8 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
+      // Don't hijack shortcuts when the user is typing in a form field
+      if (isEditableActive()) return;
       const ctrl = e.ctrlKey || e.metaKey;
       if (ctrl && e.key === "z" && !e.shiftKey) {
         e.preventDefault();
@@ -501,6 +521,8 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
   useEffect(() => {
     if (!selectedId) return;
     const onKeyDown = (e: KeyboardEvent) => {
+      // Don't intercept when typing in a form field
+      if (isEditableActive()) return;
       if (e.key === "Delete" || e.key === "Backspace") {
         pushToHistory(highlights.filter((h) => h.id !== selectedId));
         setSelectedId(null);
@@ -599,7 +621,6 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
 
       const bufW = canvas.width;
       const bufH = canvas.height;
-      type TessWord = { text: string; bbox: { x0: number; y0: number; x1: number; y1: number } };
       const words: OcrWord[] = ((data as { words?: TessWord[] }).words ?? [])
         .filter((wd) => wd.text.trim())
         .map((wd) => ({
