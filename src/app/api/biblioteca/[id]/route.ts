@@ -97,11 +97,10 @@ export async function DELETE(
       return NextResponse.json({ error: "Sem permissão para remover este item" }, { status: 403 });
     }
 
-    const transactionResults = await prisma.$transaction([
-      prisma.material.deleteMany({ where: { libraryItemId: id } }),
-      prisma.libraryItem.delete({ where: { id } }),
-    ]);
-    const deletedMaterials = transactionResults[0].count;
+    // D1 does not support $transaction; run as sequential individual queries.
+    const deletedMaterialsResult = await prisma.material.deleteMany({ where: { libraryItemId: id } });
+    await prisma.libraryItem.delete({ where: { id } });
+    const deletedMaterials = deletedMaterialsResult.count;
     return NextResponse.json({ success: true, deletedMaterials });
   } catch (error) {
     console.error("[biblioteca/[id] DELETE]", error);
