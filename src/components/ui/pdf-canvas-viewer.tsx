@@ -1,5 +1,6 @@
 "use client";
 
+import type { PDFDocumentProxy, RenderTask } from "pdfjs-dist";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { ChevronLeft, ChevronRight, Highlighter, Trash2 } from "lucide-react";
 
@@ -89,13 +90,12 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
 
   // ── Refs ───────────────────────────────────────────────────────────────────
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const pdfDocRef = useRef<any>(null);
+  const pdfDocRef = useRef<PDFDocumentProxy | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const textLayerRef = useRef<HTMLDivElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const renderTaskRef = useRef<any>(null);
+  const renderTaskRef = useRef<RenderTask | null>(null);
+  const dbSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Load PDF document ──────────────────────────────────────────────────────
 
@@ -148,7 +148,9 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
       }
 
       try {
-        const page = await pdfDocRef.current.getPage(currentPage);
+        const pdfDoc = pdfDocRef.current;
+        if (!pdfDoc) return;
+        const page = await pdfDoc.getPage(currentPage);
         if (cancelled) return;
 
         const wrapper = wrapperRef.current;
@@ -165,7 +167,7 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
         canvas.height = viewport.height;
         const ctx = canvas.getContext("2d")!;
 
-        const renderTask = page.render({ canvasContext: ctx, viewport });
+        const renderTask = page.render({ canvas, canvasContext: ctx, viewport });
         renderTaskRef.current = renderTask;
         await renderTask.promise;
         if (cancelled) return;
@@ -223,7 +225,7 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
     };
   }, [pdfReady, currentPage]);
 
-  // ── Persist page to localStorage + DB ────────────────────────────────────
+  // ── Persist page to localStorage + DB (DB writes are debounced 1 s) ────────
 
   useEffect(() => {
     if (!pdfReady) return;
@@ -233,11 +235,14 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
       // ignore storage errors
     }
     if (materialId) {
-      fetch(`/api/materials/${materialId}/progress`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ currentPage }),
-      }).catch(() => {});
+      if (dbSaveTimerRef.current) clearTimeout(dbSaveTimerRef.current);
+      dbSaveTimerRef.current = setTimeout(() => {
+        fetch(`/api/materials/${materialId}/progress`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ currentPage }),
+        }).catch(() => {});
+      }, 1000);
     }
   }, [currentPage, pdfReady, storageKey, materialId]);
 
@@ -280,7 +285,7 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
     if (rects.length === 0) return;
 
     const hl: PdfHighlight = {
-      id: `hl_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      id: crypto.randomUUID(),
       page: currentPage,
       text,
       rects,
