@@ -64,6 +64,8 @@ export async function ensureEconomyState(userId: string) {
         totalSessions: 0,
         currentStreak: 0,
         longestStreak: 0,
+        ownedItems: "[]",
+        equippedItems: "{}",
         updatedAt: new Date().toISOString(),
       },
     }),
