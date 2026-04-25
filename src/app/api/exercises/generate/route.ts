@@ -23,6 +23,10 @@ const MAX_SOURCE_TEXT_CHARS = 4000;
 const MAX_CHUNK_CHARS = 1500;
 const MAX_CHUNKS = Math.ceil(MAX_SOURCE_TEXT_CHARS / MAX_CHUNK_CHARS);
 const SOURCE_PREVIEW_CHARS = PDF_EXTRACTION_PREVIEW_CHARS;
+// Maximum time to wait for a response from the AI provider (ms).
+const AI_REQUEST_TIMEOUT_MS = 25_000;
+// Matches Groq's rate-limit error messages: "rate_limit_exceeded", "rate limit", etc.
+const RATE_LIMIT_PATTERN = /rate[_\s]?limit/i;
 
 type ParsedQuestion = {
   question: string;
@@ -325,7 +329,7 @@ Se não houver conteúdo suficiente, retorne exatamente: "${INSUFFICIENT_CONTENT
 
       try {
         const abortController = new AbortController();
-        const timeoutId = setTimeout(() => abortController.abort(), 25_000);
+        const timeoutId = setTimeout(() => abortController.abort(), AI_REQUEST_TIMEOUT_MS);
         let aiResponse: Response;
         try {
           aiResponse = await fetch(aiProvider.url, {
@@ -366,7 +370,7 @@ Se não houver conteúdo suficiente, retorne exatamente: "${INSUFFICIENT_CONTENT
           const details = await aiResponse.text();
           console.error("[exercises/generate] AI call failed", aiResponse.status, details);
           // Detect rate-limit error (Groq returns 429 or mentions rate_limit in body).
-          if (aiResponse.status === 429 || /rate[_\s]?limit/i.test(details)) {
+          if (aiResponse.status === 429 || RATE_LIMIT_PATTERN.test(details)) {
             return NextResponse.json(
               { error: "Limite de requisições da IA atingido. Aguarde alguns segundos e tente novamente." },
               { status: 429 }

@@ -609,6 +609,36 @@ ALTER TABLE "Exercise" ADD COLUMN "difficulty" TEXT NOT NULL DEFAULT 'MEDIO';
     name: "20260423193500_material_progress_current_page",
     sql: `ALTER TABLE "MaterialProgress" ADD COLUMN "currentPage" INTEGER NOT NULL DEFAULT 0;`,
   },
+  {
+    name: "20260425232144_add_perf_indexes",
+    sql: `
+CREATE INDEX IF NOT EXISTS "Discipline_periodId_idx" ON "Discipline"("periodId");
+CREATE INDEX IF NOT EXISTS "Material_disciplineId_idx" ON "Material"("disciplineId");
+CREATE INDEX IF NOT EXISTS "Material_uploadedById_idx" ON "Material"("uploadedById");
+CREATE INDEX IF NOT EXISTS "Material_libraryItemId_idx" ON "Material"("libraryItemId");
+CREATE INDEX IF NOT EXISTS "MaterialProgress_userId_idx" ON "MaterialProgress"("userId");
+CREATE INDEX IF NOT EXISTS "LibraryItem_uploadedById_idx" ON "LibraryItem"("uploadedById");
+CREATE INDEX IF NOT EXISTS "Exercise_createdById_idx" ON "Exercise"("createdById");
+CREATE INDEX IF NOT EXISTS "Exercise_materialId_idx" ON "Exercise"("materialId");
+CREATE INDEX IF NOT EXISTS "Exercise_libraryItemId_idx" ON "Exercise"("libraryItemId");
+CREATE INDEX IF NOT EXISTS "Exercise_status_idx" ON "Exercise"("status");
+CREATE INDEX IF NOT EXISTS "ExerciseOption_exerciseId_idx" ON "ExerciseOption"("exerciseId");
+CREATE INDEX IF NOT EXISTS "ExerciseAttempt_exerciseId_idx" ON "ExerciseAttempt"("exerciseId");
+CREATE INDEX IF NOT EXISTS "ExerciseReview_exerciseId_idx" ON "ExerciseReview"("exerciseId");
+CREATE INDEX IF NOT EXISTS "PsicoTransaction_walletId_idx" ON "PsicoTransaction"("walletId");
+CREATE INDEX IF NOT EXISTS "StudySession_userId_idx" ON "StudySession"("userId");
+CREATE INDEX IF NOT EXISTS "StudySession_microTaskId_idx" ON "StudySession"("microTaskId");
+CREATE INDEX IF NOT EXISTS "MicroTask_userId_idx" ON "MicroTask"("userId");
+CREATE INDEX IF NOT EXISTS "MicroTask_materialId_idx" ON "MicroTask"("materialId");
+CREATE INDEX IF NOT EXISTS "ActiveRecallAnswer_sessionId_idx" ON "ActiveRecallAnswer"("sessionId");
+CREATE INDEX IF NOT EXISTS "Notification_userId_idx" ON "Notification"("userId");
+CREATE INDEX IF NOT EXISTS "Notification_userId_read_idx" ON "Notification"("userId", "read");
+CREATE INDEX IF NOT EXISTS "Task_userId_idx" ON "Task"("userId");
+CREATE INDEX IF NOT EXISTS "Event_userId_idx" ON "Event"("userId");
+CREATE INDEX IF NOT EXISTS "Note_userId_idx" ON "Note"("userId");
+CREATE INDEX IF NOT EXISTS "Document_userId_idx" ON "Document"("userId");
+    `,
+  },
 ];
 
 // ---------------------------------------------------------------------------

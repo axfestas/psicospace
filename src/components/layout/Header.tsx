@@ -8,7 +8,7 @@ function PsiqueBadge() {
   const [balance, setBalance] = useState<number | null>(null);
 
   useEffect(() => {
-    fetch("/api/psicogame/wallet")
+    fetch("/api/psicogame/wallet?minimal=true")
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         if (d?.wallet?.balance !== undefined) setBalance(d.wallet.balance);
