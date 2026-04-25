@@ -290,8 +290,7 @@ export async function purchaseShopItem(userId: string, itemId: string) {
   await ensureEconomyState(userId);
 
   // D1 does not support interactive (callback) transactions.
-  // Read all required rows sequentially, validate, then commit all writes in a
-  // single D1-compatible batch transaction (array form).
+  // Read all required rows sequentially, validate, then write individually.
   const item = await prisma.shopItem.findUnique({ where: { id: itemId } });
   const wallet = await prisma.psicoWallet.findUnique({ where: { userId } });
   const character = await prisma.characterProgress.findUnique({ where: { userId } });
@@ -320,32 +319,30 @@ export async function purchaseShopItem(userId: string, itemId: string) {
   parsed.ownedItems.push(itemId);
   const nowIso = new Date().toISOString();
 
-  // Batch form is the only transaction type supported by Cloudflare D1.
-  await prisma.$transaction([
-    prisma.psicoWallet.update({
-      where: { userId },
-      data: {
-        balance: { decrement: item.price },
-        updatedAt: nowIso,
-      },
-    }),
-    prisma.psicoTransaction.create({
-      data: {
-        walletId: wallet.id,
-        amount: item.price,
-        type: "SPEND",
-        reason: "item_purchased",
-        referenceId: item.id,
-      },
-    }),
-    prisma.characterProgress.update({
-      where: { userId },
-      data: {
-        ownedItems: JSON.stringify(parsed.ownedItems),
-        updatedAt: nowIso,
-      },
-    }),
-  ]);
+  // D1 does not support $transaction (batch form); run as sequential individual queries.
+  await prisma.psicoWallet.update({
+    where: { userId },
+    data: {
+      balance: { decrement: item.price },
+      updatedAt: nowIso,
+    },
+  });
+  await prisma.psicoTransaction.create({
+    data: {
+      walletId: wallet.id,
+      amount: item.price,
+      type: "SPEND",
+      reason: "item_purchased",
+      referenceId: item.id,
+    },
+  });
+  await prisma.characterProgress.update({
+    where: { userId },
+    data: {
+      ownedItems: JSON.stringify(parsed.ownedItems),
+      updatedAt: nowIso,
+    },
+  });
 
   return {
     ok: true as const,
