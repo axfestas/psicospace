@@ -1926,7 +1926,10 @@ function EditorPageInner() {
 
   const editor = useEditor({
     extensions: [
-      StarterKit,
+      // StarterKit v3 includes `link` and `underline` by default. We configure
+      // them both as `false` here because we add them explicitly below with
+      // custom options, avoiding the "Duplicate extension names" tiptap warning.
+      StarterKit.configure({ link: false, underline: false }),
       Underline,
       TextAlign.configure({ types: ["heading", "paragraph"] }),
       Link.configure({ openOnClick: false, HTMLAttributes: { class: "text-blue-600 underline cursor-pointer" } }),

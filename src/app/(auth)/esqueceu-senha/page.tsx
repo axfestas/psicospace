@@ -67,10 +67,12 @@ export default function EsqueceuSenhaPage() {
             )}
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              <label htmlFor="forgot-email" className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
                 E-mail
               </label>
               <Input
+                id="forgot-email"
+                name="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
