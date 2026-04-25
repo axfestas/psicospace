@@ -22,9 +22,10 @@ export async function GET(request: NextRequest) {
       take: 50,
     });
 
-    const unreadCount = await prisma.notification.count({
-      where: { userId: auth.userId, read: false },
-    });
+    // Count unread from the fetched list (avoids an extra D1 round-trip).
+    // Since we order by createdAt desc and take 50 most-recent, unread
+    // notifications are almost always within this window.
+    const unreadCount = notifications.filter((n) => !n.read).length;
 
     return NextResponse.json({ notifications, unreadCount });
   } catch (error) {

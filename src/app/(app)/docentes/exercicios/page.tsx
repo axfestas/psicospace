@@ -162,13 +162,18 @@ async function extractPdfTextFromArrayBuffer(arrayBuffer: ArrayBuffer): Promise<
   return normalizeExtractedText(allPages.join("\n\n"));
 }
 
-async function extractPdfTextWithOcrFallback(arrayBuffer: ArrayBuffer): Promise<PdfExtractionResult> {
+async function extractPdfTextWithOcrFallback(
+  arrayBuffer: ArrayBuffer,
+  onProgress?: (step: string) => void,
+): Promise<PdfExtractionResult> {
+  onProgress?.("Lendo texto do PDF…");
   const directText = await extractPdfTextFromArrayBuffer(cloneArrayBuffer(arrayBuffer));
   if (!isTextInsufficient(directText)) {
     logPdfExtractionDebug("pdf_direct", directText);
     return { text: directText, method: "pdf_direct" };
   }
 
+  onProgress?.("PDF sem texto selecionável — iniciando OCR…");
   const [{ createWorker }, pdfjsLib] = await Promise.all([
     import("tesseract.js"),
     import("pdfjs-dist"),
@@ -190,6 +195,7 @@ async function extractPdfTextWithOcrFallback(arrayBuffer: ArrayBuffer): Promise<
   try {
     const pageLimit = Math.min(pdf.numPages, MAX_OCR_PAGES);
     for (let pageNumber = 1; pageNumber <= pageLimit; pageNumber++) {
+      onProgress?.(`OCR — pág. ${pageNumber}/${pageLimit}…`);
       const page = await pdf.getPage(pageNumber);
       const viewport = page.getViewport({ scale: 1.5 });
       const canvas = document.createElement("canvas");
@@ -212,13 +218,17 @@ async function extractPdfTextWithOcrFallback(arrayBuffer: ArrayBuffer): Promise<
   return { text, method: "pdf_ocr_fallback" };
 }
 
-async function extractPdfTextFromUrl(url: string): Promise<PdfExtractionResult> {
+async function extractPdfTextFromUrl(
+  url: string,
+  onProgress?: (step: string) => void,
+): Promise<PdfExtractionResult> {
+  onProgress?.("Baixando PDF…");
   const response = await fetch(url, { credentials: "include" });
   if (!response.ok) {
     throw new Error(`Falha ao buscar PDF (${response.status})`);
   }
   const buffer = await response.arrayBuffer();
-  return extractPdfTextWithOcrFallback(buffer);
+  return extractPdfTextWithOcrFallback(buffer, onProgress);
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -249,6 +259,7 @@ export default function ExerciciosPage() {
   const [genDifficulty, setGenDifficulty] = useState("MISTO");
   const [genError, setGenError] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
+  const [genStatus, setGenStatus] = useState<string | null>(null);
 
   // Create manual form
   const [showCreate, setShowCreate] = useState(false);
@@ -332,6 +343,7 @@ export default function ExerciciosPage() {
       return;
     }
     setGenError(null);
+    setGenStatus(null);
     setGenerating(true);
     try {
       let sourceText: string | undefined;
@@ -342,7 +354,10 @@ export default function ExerciciosPage() {
           : allMaterials.find((material) => material.id === genMaterialId);
 
       if (selectedSource?.type === "PDF" && selectedSource.url) {
-        const extracted = await extractPdfTextFromUrl(selectedSource.url);
+        const extracted = await extractPdfTextFromUrl(
+          selectedSource.url,
+          (step) => setGenStatus(step),
+        );
         if (isTextInsufficient(extracted.text)) {
           throw new Error(PDF_EXTRACTION_FAILURE_MSG);
         }
@@ -350,6 +365,7 @@ export default function ExerciciosPage() {
         sourceExtractionMethod = extracted.method;
       }
 
+      setGenStatus("Gerando exercícios com IA…");
       const res = await fetch("/api/exercises/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -368,6 +384,7 @@ export default function ExerciciosPage() {
         setShowGenerate(false);
         setGenLibraryItemId("");
         setGenMaterialId("");
+        setGenStatus(null);
         await loadData();
       } else {
         setGenError(data.error || "Erro ao gerar exercícios");
@@ -376,6 +393,7 @@ export default function ExerciciosPage() {
       setGenError(err instanceof Error ? err.message : "Erro ao gerar exercícios");
     } finally {
       setGenerating(false);
+      setGenStatus(null);
     }
   };
 
@@ -700,6 +718,13 @@ export default function ExerciciosPage() {
             </div>
 
             {genError && <p className="text-xs text-red-600">{genError}</p>}
+
+            {generating && genStatus && (
+              <p className="flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400">
+                <Loader2 className="h-3.5 w-3.5 animate-spin flex-shrink-0" />
+                {genStatus}
+              </p>
+            )}
 
             <div className="flex gap-2">
               <Button onClick={handleGenerate} loading={generating} size="sm">

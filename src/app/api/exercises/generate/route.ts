@@ -16,10 +16,17 @@ const DOCENTE_ROLES = new Set(["DOCENTE", "ADMIN", "SUPERADMIN"]);
 const INSUFFICIENT_CONTENT_MSG = "conteúdo insuficiente para gerar questões";
 const OPTION_LETTERS = ["A", "B", "C", "D"] as const;
 const MIN_SOURCE_TEXT_CHARS = 80;
-const MAX_SOURCE_TEXT_CHARS = 6000;
-const MAX_CHUNK_CHARS = 2000;
+// Keep source text well under Groq's free-tier 6000 TPM cap.
+// Portuguese text is token-dense (~3 chars/token), so 4000 chars ≈ 1300 tokens,
+// leaving room for prompts (~600 tokens) and output (≤2000 tokens).
+const MAX_SOURCE_TEXT_CHARS = 4000;
+const MAX_CHUNK_CHARS = 1500;
 const MAX_CHUNKS = Math.ceil(MAX_SOURCE_TEXT_CHARS / MAX_CHUNK_CHARS);
 const SOURCE_PREVIEW_CHARS = PDF_EXTRACTION_PREVIEW_CHARS;
+// Maximum time to wait for a response from the AI provider (ms).
+const AI_REQUEST_TIMEOUT_MS = 25_000;
+// Matches Groq's rate-limit error messages: "rate_limit_exceeded", "rate limit", etc.
+const RATE_LIMIT_PATTERN = /rate[_\s]?limit/i;
 
 type ParsedQuestion = {
   question: string;
@@ -321,22 +328,30 @@ Cada questão DEVE incluir a explicação da resposta correta e o nível de difi
 Se não houver conteúdo suficiente, retorne exatamente: "${INSUFFICIENT_CONTENT_MSG}"`;
 
       try {
-        const aiResponse = await fetch(aiProvider.url, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${aiProvider.key}`,
-          },
-          body: JSON.stringify({
-            model: aiProvider.model,
-            messages: [
-              { role: "system", content: systemPrompt },
-              { role: "user", content: userPrompt },
-            ],
-            temperature: 0.3,
-            max_tokens: 2000,
-          }),
-        });
+        const abortController = new AbortController();
+        const timeoutId = setTimeout(() => abortController.abort(), AI_REQUEST_TIMEOUT_MS);
+        let aiResponse: Response;
+        try {
+          aiResponse = await fetch(aiProvider.url, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${aiProvider.key}`,
+            },
+            body: JSON.stringify({
+              model: aiProvider.model,
+              messages: [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: userPrompt },
+              ],
+              temperature: 0.3,
+              max_tokens: 2000,
+            }),
+            signal: abortController.signal,
+          });
+        } finally {
+          clearTimeout(timeoutId);
+        }
 
         if (aiResponse.ok) {
           const aiData = await aiResponse.json();
@@ -353,10 +368,21 @@ Se não houver conteúdo suficiente, retorne exatamente: "${INSUFFICIENT_CONTENT
           generated = parsed.slice(0, safeCount);
         } else {
           const details = await aiResponse.text();
-          console.error("[exercises/generate] AI call failed", details);
+          console.error("[exercises/generate] AI call failed", aiResponse.status, details);
+          // Detect rate-limit error (Groq returns 429 or mentions rate_limit in body).
+          if (aiResponse.status === 429 || RATE_LIMIT_PATTERN.test(details)) {
+            return NextResponse.json(
+              { error: "Limite de requisições da IA atingido. Aguarde alguns segundos e tente novamente." },
+              { status: 429 }
+            );
+          }
           return NextResponse.json({ error: "Falha ao gerar questões com IA" }, { status: 502 });
         }
       } catch (e) {
+        if (e instanceof Error && e.name === "AbortError") {
+          console.error("[exercises/generate] AI request timed out");
+          return NextResponse.json({ error: "A IA demorou demais para responder. Tente novamente." }, { status: 504 });
+        }
         console.error("[exercises/generate] AI parsing failed", e);
         return NextResponse.json({ error: "Falha ao interpretar questões geradas" }, { status: 502 });
       }
@@ -389,6 +415,9 @@ Se não houver conteúdo suficiente, retorne exatamente: "${INSUFFICIENT_CONTENT
     // Persist exercises — auto-approve when created by ADMIN/SUPERADMIN
     const isAdmin = auth.role === "ADMIN" || auth.role === "SUPERADMIN";
     const created = [];
+
+    // Create exercises sequentially (D1 doesn't support parallel writes reliably).
+    const exerciseRecords: Array<{ id: string; index: number }> = [];
     for (const [index, ex] of generated.entries()) {
       const difficultyLabel = DIFFICULTY_TITLE_LABELS[ex.difficulty] ?? "Médio";
       const exercise = await prisma.exercise.create({
@@ -409,27 +438,39 @@ Se não houver conteúdo suficiente, retorne exatamente: "${INSUFFICIENT_CONTENT
           updatedAt: now,
         },
       });
-
-      for (let i = 0; i < ex.options.length; i++) {
-        const opt = ex.options[i];
-        if (opt?.text) {
-          await prisma.exerciseOption.create({
-            data: {
-              exerciseId: exercise.id,
-              text: opt.text,
-              isCorrect: !!opt.isCorrect,
-              order: i,
-            },
-          });
-        }
-      }
-
-      const full = await prisma.exercise.findUnique({
-        where: { id: exercise.id },
-        include: { options: { orderBy: { order: "asc" } } },
-      });
-      created.push(full);
+      exerciseRecords.push({ id: exercise.id, index });
     }
+
+    // Batch-insert all options at once (reduces N×4 round-trips to 1).
+    const allOptionsData = exerciseRecords.flatMap(({ id: exerciseId, index }) =>
+      (generated[index]?.options ?? [])
+        .filter((opt) => opt?.text)
+        .map((opt, i) => ({
+          exerciseId,
+          text: opt.text,
+          isCorrect: !!opt.isCorrect,
+          order: i,
+        }))
+    );
+    if (allOptionsData.length > 0) {
+      await prisma.exerciseOption.createMany({ data: allOptionsData });
+    }
+
+    // Single query to return all created exercises with their options,
+    // preserving the original generation order via exerciseRecords.
+    const exerciseMap = new Map(
+      (
+        await prisma.exercise.findMany({
+          where: { id: { in: exerciseRecords.map((r) => r.id) } },
+          include: { options: { orderBy: { order: "asc" } } },
+        })
+      ).map((ex) => [ex.id, ex])
+    );
+    created.push(
+      ...exerciseRecords
+        .map((r) => exerciseMap.get(r.id))
+        .filter((ex): ex is NonNullable<typeof ex> => ex !== undefined)
+    );
 
     return NextResponse.json({ exercises: created, aiUsed: !!aiProvider }, { status: 201 });
   } catch (error) {

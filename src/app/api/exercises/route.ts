@@ -110,18 +110,17 @@ export async function POST(request: NextRequest) {
     });
 
     if (type === "MULTIPLE_CHOICE" && Array.isArray(options)) {
-      for (let i = 0; i < options.length; i++) {
-        const opt = options[i];
-        if (opt?.text?.trim()) {
-          await prisma.exerciseOption.create({
-            data: {
-              exerciseId: exercise.id,
-              text: opt.text.trim(),
-              isCorrect: !!opt.isCorrect,
-              order: i,
-            },
-          });
-        }
+      const optionData = options
+        .map((opt: { text?: string; isCorrect?: boolean }, i: number) => ({
+          text: opt?.text?.trim() ?? "",
+          isCorrect: !!opt?.isCorrect,
+          order: i,
+        }))
+        .filter((opt) => opt.text.length > 0)
+        .map((opt) => ({ ...opt, exerciseId: exercise.id }));
+
+      if (optionData.length > 0) {
+        await prisma.exerciseOption.createMany({ data: optionData });
       }
     }
 

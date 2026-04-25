@@ -73,6 +73,8 @@ model Discipline {
   createdAt   DateTime   @default(now())
   period      Period     @relation(fields: [periodId], references: [id], onDelete: Cascade)
   materials   Material[]
+
+  @@index([periodId])
 }
 
 model Material {
@@ -90,6 +92,10 @@ model Material {
   progress     MaterialProgress[]
   microTasks   MicroTask[]
   exercises    Exercise[]
+
+  @@index([disciplineId])
+  @@index([uploadedById])
+  @@index([libraryItemId])
 }
 
 model LibraryItem {
@@ -104,6 +110,8 @@ model LibraryItem {
   uploadedBy   User         @relation(fields: [uploadedById], references: [id])
   materials    Material[]
   exercises    Exercise[]
+
+  @@index([uploadedById])
 }
 
 model MaterialProgress {
@@ -116,6 +124,7 @@ model MaterialProgress {
   material    Material       @relation(fields: [materialId], references: [id], onDelete: Cascade)
 
   @@unique([userId, materialId])
+  @@index([userId])
 }
 
 model Event {
@@ -127,6 +136,8 @@ model Event {
   userId      String
   createdAt   DateTime @default(now())
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model Task {
@@ -138,6 +149,8 @@ model Task {
   dueDate   DateTime?
   group     String?
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 // ── Study system ────────────────────────────────────────────────────────────
@@ -154,6 +167,9 @@ model MicroTask {
   material    Material?      @relation(fields: [materialId], references: [id], onDelete: SetNull)
   user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   sessions    StudySession[]
+
+  @@index([userId])
+  @@index([materialId])
 }
 
 // phase: selecting | pomodoro | content | recall | break | done
@@ -172,6 +188,9 @@ model StudySession {
   user               User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
   microTask          MicroTask            @relation(fields: [microTaskId], references: [id], onDelete: Cascade)
   recallAnswers      ActiveRecallAnswer[]
+
+  @@index([userId])
+  @@index([microTaskId])
 }
 
 model ActiveRecallAnswer {
@@ -181,6 +200,8 @@ model ActiveRecallAnswer {
   answer    String
   createdAt DateTime     @default(now())
   session   StudySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
 }
 
 // ── Exercises ───────────────────────────────────────────────────────────────
@@ -212,6 +233,11 @@ model Exercise {
   reviews       ExerciseReview[]
   createdBy     User             @relation("CreatedExercises", fields: [createdById], references: [id])
   approvedBy    User?            @relation("ApprovedExercises", fields: [approvedById], references: [id])
+
+  @@index([createdById])
+  @@index([materialId])
+  @@index([libraryItemId])
+  @@index([status])
 }
 
 model ExerciseOption {
@@ -221,6 +247,8 @@ model ExerciseOption {
   isCorrect  Boolean  @default(false)
   order      Int      @default(0)
   exercise   Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+
+  @@index([exerciseId])
 }
 
 model ExerciseAttempt {
@@ -238,6 +266,7 @@ model ExerciseAttempt {
   exercise     Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
 
   @@unique([userId, exerciseId])
+  @@index([exerciseId])
 }
 
 model ExerciseReview {
@@ -253,6 +282,7 @@ model ExerciseReview {
   exercise       Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
 
   @@unique([userId, exerciseId])
+  @@index([exerciseId])
 }
 
 // ── Gamification (PsicoGame) ────────────────────────────────────────────────
@@ -277,6 +307,8 @@ model PsicoTransaction {
   referenceId String?
   createdAt   DateTime    @default(now())
   wallet      PsicoWallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@index([walletId])
 }
 
 model CharacterProgress {
@@ -318,6 +350,8 @@ model Note {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model Document {
@@ -328,6 +362,8 @@ model Document {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model Notification {
@@ -339,4 +375,7 @@ model Notification {
   read      Boolean  @default(false)
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, read])
 }
