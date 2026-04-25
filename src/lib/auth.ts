@@ -136,11 +136,24 @@ export async function getAuthUser(): Promise<JWTPayload | null> {
 }
 
 export function setAuthCookie(token: string) {
+  // In Cloudflare Pages/Edge, process.env.NODE_ENV is not reliably "production"
+  // (CF Pages runtime does not populate it from the dashboard env vars into
+  // process.env). We detect the CF runtime by calling getRequestContext(): it
+  // succeeds inside a real CF Workers/Pages request and throws otherwise (e.g.
+  // during a local `next dev` server). CF Pages always serves over HTTPS, so
+  // secure=true is always correct there.
+  let isSecure = process.env.NODE_ENV === "production";
+  try {
+    getRequestContext();
+    isSecure = true;
+  } catch {
+    // Not in CF runtime (local Next.js dev server) — keep process.env.NODE_ENV check.
+  }
   return {
     name: "auth-token",
     value: token,
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: isSecure,
     sameSite: "lax" as const,
     maxAge: 60 * 60 * 24 * 7,
     path: "/",

@@ -289,12 +289,14 @@ export async function grantSessionReward(userId: string, sessionId: string, tota
 export async function purchaseShopItem(userId: string, itemId: string) {
   await ensureEconomyState(userId);
 
+  // D1 does not support concurrent queries on the same binding within a single
+  // request (no parallelism). Running the lookups sequentially avoids the
+  // "cannot use D1 concurrently" error that Promise.all can trigger inside an
+  // interactive transaction.
   return prisma.$transaction(async (tx) => {
-    const [item, wallet, character] = await Promise.all([
-      tx.shopItem.findUnique({ where: { id: itemId } }),
-      tx.psicoWallet.findUnique({ where: { userId } }),
-      tx.characterProgress.findUnique({ where: { userId } }),
-    ]);
+    const item = await tx.shopItem.findUnique({ where: { id: itemId } });
+    const wallet = await tx.psicoWallet.findUnique({ where: { userId } });
+    const character = await tx.characterProgress.findUnique({ where: { userId } });
 
     if (!item || !item.active) {
       return { ok: false as const, status: 404, error: "Item não encontrado" };
@@ -306,7 +308,7 @@ export async function purchaseShopItem(userId: string, itemId: string) {
 
     const parsed = parseCharacter(character);
     if (parsed.ownedItems.includes(itemId)) {
-      return { ok: false as const, status: 400, error: "Você já possui este item" };
+      return { ok: false as const, status: 409, error: "Você já possui este item" };
     }
 
     if (wallet.balance < item.price) {
