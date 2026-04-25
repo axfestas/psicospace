@@ -57,6 +57,28 @@ body {
   pointer-events: none;
 }
 
+/* pdfjs text layer — required for text selection inside the PDF canvas viewer */
+.pdf-text-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  text-size-adjust: none;
+  line-height: 1;
+  text-align: initial;
+}
+
+.pdf-text-layer span {
+  color: transparent;
+  position: absolute;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0% 0%;
+}
+
+.pdf-text-layer ::selection {
+  background: rgba(0, 100, 255, 0.25);
+}
+
 
 /* ── Landscape orientation ──────────────────────────────────── */
 .editor-page[data-orientation="landscape"] {
