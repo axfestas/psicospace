@@ -25,7 +25,7 @@ interface ParsedCharacter {
   equippedItems: Record<string, string>;
 }
 
-function safeParseArray(value: string): string[] {
+export function safeParseArray(value: string): string[] {
   try {
     const parsed = JSON.parse(value);
     return Array.isArray(parsed) ? parsed : [];
