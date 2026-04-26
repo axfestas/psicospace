@@ -287,13 +287,16 @@ export async function grantSessionReward(userId: string, sessionId: string, tota
 }
 
 export async function purchaseShopItem(userId: string, itemId: string) {
-  await ensureEconomyState(userId);
-
-  // D1 does not support interactive (callback) transactions.
-  // Read all required rows sequentially, validate, then write individually.
-  const item = await prisma.shopItem.findUnique({ where: { id: itemId } });
-  const wallet = await prisma.psicoWallet.findUnique({ where: { userId } });
-  const character = await prisma.characterProgress.findUnique({ where: { userId } });
+  // Parallelise the two independent lookups: economy state init and item fetch.
+  // Re-use the wallet/character returned by ensureEconomyState to avoid two
+  // extra D1 round-trips (previously the return value was discarded and the
+  // same rows were fetched again with findUnique, causing 8 sequential DB ops
+  // that would hit D1 write-serialisation latency and leave the client loading
+  // indefinitely).
+  const [{ wallet, character }, item] = await Promise.all([
+    ensureEconomyState(userId),
+    prisma.shopItem.findUnique({ where: { id: itemId } }),
+  ]);
 
   if (!item || !item.active) {
     return { ok: false as const, status: 404, error: "Item não encontrado" };
