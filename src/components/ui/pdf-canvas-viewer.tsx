@@ -16,6 +16,9 @@ import {
   Redo2,
   ScanText,
   Square,
+  MessageSquare,
+  Check,
+  X,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -39,6 +42,8 @@ export interface PdfHighlight {
   rects: HighlightRect[];
   color: string;
   createdAt: string;
+  /** Optional user note/comment attached to this highlight */
+  note?: string;
 }
 
 /** Word from Tesseract OCR with normalised coordinates [0,1] relative to canvas buffer */
@@ -131,6 +136,9 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
   const [selectedColor, setSelectedColor] = useState(HIGHLIGHT_COLORS[0]);
   const [highlightMode, setHighlightMode] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  /** Id of the highlight whose note is currently being edited */
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [noteInputValue, setNoteInputValue] = useState("");
   const [pdfReady, setPdfReady] = useState(false);
   const [isRendering, setIsRendering] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -479,6 +487,24 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
     [saveHighlights, historyIdx],
   );
 
+  // ── Save note to a highlight (no new history entry — just a quick mutation) ──
+
+  const saveNote = useCallback(
+    (id: string, note: string) => {
+      const updated = highlights.map((h) => (h.id === id ? { ...h, note: note.trim() || undefined } : h));
+      saveHighlights(updated);
+      // Also patch current history snapshot so undo restores the note
+      setHistoryStack((prev) =>
+        prev.map((snap, i) =>
+          i === historyIdx
+            ? snap.map((h) => (h.id === id ? { ...h, note: note.trim() || undefined } : h))
+            : snap,
+        ),
+      );
+    },
+    [highlights, saveHighlights, historyIdx],
+  );
+
   // ── Capture text selection as highlight ──────────────────────────────────
 
   const handleMouseUp = useCallback(() => {
@@ -646,7 +672,12 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
   // ── Navigation ─────────────────────────────────────────────────────────────
 
   const goTo = useCallback(
-    (page: number) => setCurrentPage(Math.max(1, Math.min(numPages, page))),
+    (page: number) => {
+      setCurrentPage(Math.max(1, Math.min(numPages, page)));
+      setSelectedId(null);
+      setEditingNoteId(null);
+      setNoteInputValue("");
+    },
     [numPages],
   );
 
@@ -826,8 +857,33 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
             <div className="w-px h-5 bg-gray-700 mx-1" />
             <button
               onClick={() => {
+                const hl = highlights.find((h) => h.id === selectedId);
+                if (editingNoteId === selectedId) {
+                  setEditingNoteId(null);
+                  setNoteInputValue("");
+                } else {
+                  setEditingNoteId(selectedId);
+                  setNoteInputValue(hl?.note ?? "");
+                }
+              }}
+              className={`flex items-center gap-1 text-xs px-2 py-1 rounded border transition-colors ${
+                editingNoteId === selectedId
+                  ? "bg-indigo-500 text-white border-indigo-400"
+                  : highlights.find((h) => h.id === selectedId)?.note
+                    ? "text-indigo-300 border-indigo-700 hover:text-indigo-200"
+                    : "text-gray-300 hover:text-white border-gray-600"
+              }`}
+              title="Adicionar / editar comentário"
+            >
+              <MessageSquare className="h-3.5 w-3.5" />
+              Comentar
+            </button>
+            <button
+              onClick={() => {
                 pushToHistory(highlights.filter((h) => h.id !== selectedId));
                 setSelectedId(null);
+                setEditingNoteId(null);
+                setNoteInputValue("");
               }}
               className="flex items-center gap-1 text-xs text-red-400 hover:text-red-300 border border-red-800 rounded px-2 py-1"
               title="Apagar marca-texto selecionado (Delete)"
@@ -845,6 +901,52 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
           </span>
         )}
       </div>
+
+      {/* ── Note editing panel ───────────────────────────────────────────── */}
+      {editingNoteId && (
+        <div className="flex items-center gap-2 px-3 py-2 bg-indigo-950/80 border-b border-indigo-800 flex-shrink-0">
+          <MessageSquare className="h-4 w-4 text-indigo-300 flex-shrink-0" />
+          <input
+            autoFocus
+            type="text"
+            value={noteInputValue}
+            onChange={(e) => setNoteInputValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                saveNote(editingNoteId, noteInputValue);
+                setEditingNoteId(null);
+                setNoteInputValue("");
+              } else if (e.key === "Escape") {
+                setEditingNoteId(null);
+                setNoteInputValue("");
+              }
+            }}
+            placeholder="Digite seu comentário e pressione Enter…"
+            className="flex-1 bg-transparent text-sm text-white placeholder:text-indigo-400 outline-none"
+          />
+          <button
+            onClick={() => {
+              saveNote(editingNoteId, noteInputValue);
+              setEditingNoteId(null);
+              setNoteInputValue("");
+            }}
+            className="p-1 text-green-400 hover:text-green-300"
+            title="Salvar comentário (Enter)"
+          >
+            <Check className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => {
+              setEditingNoteId(null);
+              setNoteInputValue("");
+            }}
+            className="p-1 text-gray-400 hover:text-gray-300"
+            title="Cancelar (Esc)"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       {/* ── Scan banner ──────────────────────────────────────────────────── */}
       {isScannedPdf && pdfReady && (
@@ -912,7 +1014,11 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
                 }
               }}
               onClick={() => {
-                if (!markAreaMode) setSelectedId(null);
+                if (!markAreaMode) {
+                  setSelectedId(null);
+                  setEditingNoteId(null);
+                  setNoteInputValue("");
+                }
               }}
             >
               {/* Page canvas */}
@@ -937,10 +1043,45 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
                     }}
                     onClick={(e) => {
                       e.stopPropagation();
-                      setSelectedId((prev) => (prev === hl.id ? null : hl.id));
+                      setSelectedId((prev) => {
+                        if (prev === hl.id) {
+                          setEditingNoteId(null);
+                          setNoteInputValue("");
+                          return null;
+                        }
+                        setEditingNoteId(null);
+                        setNoteInputValue("");
+                        return hl.id;
+                      });
                     }}
-                    title={hl.text}
-                  />
+                    title={hl.note ? `${hl.text}\n\n💬 ${hl.note}` : hl.text}
+                  >
+                    {/* Note indicator badge on the last rect only */}
+                    {hl.note && ri === hl.rects.length - 1 && (
+                      <span
+                        style={{
+                          position: "absolute",
+                          top: "-6px",
+                          right: "-6px",
+                          background: "#6366f1",
+                          borderRadius: "50%",
+                          width: "14px",
+                          height: "14px",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          pointerEvents: "none",
+                          mixBlendMode: "normal",
+                          opacity: 1,
+                        }}
+                        title={hl.note}
+                      >
+                        <svg width="8" height="8" viewBox="0 0 8 8" fill="white">
+                          <path d="M1 1h6v4H4.5L3 6.5V5H1z" />
+                        </svg>
+                      </span>
+                    )}
+                  </div>
                 )),
               )}
 
