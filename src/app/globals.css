@@ -65,6 +65,10 @@ body {
   text-size-adjust: none;
   line-height: 1;
   text-align: initial;
+
+  /* IMPORTANT: allow selecting text */
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 .pdf-text-layer span {
@@ -73,6 +77,10 @@ body {
   white-space: pre;
   cursor: text;
   transform-origin: 0% 0%;
+
+  /* IMPORTANT: allow selecting text (some browsers need it on the spans) */
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 .pdf-text-layer ::selection {
