@@ -51,7 +51,6 @@ export async function ensureEconomyState(userId: string) {
       create: {
         userId,
         balance: 0,
-        updatedAt: new Date().toISOString(),
       },
     }),
     prisma.characterProgress.upsert({
@@ -66,7 +65,6 @@ export async function ensureEconomyState(userId: string) {
         longestStreak: 0,
         ownedItems: "[]",
         equippedItems: "{}",
-        updatedAt: new Date().toISOString(),
       },
     }),
   ]);
@@ -112,7 +110,7 @@ async function addEarnTransaction(
     where: { userId },
     data: {
       balance: { increment: amount },
-      updatedAt: now.toISOString(),
+      updatedAt: now,
     },
   });
   await prisma.psicoTransaction.create({
@@ -188,8 +186,8 @@ async function updateCharacterProgress(userId: string, xpGain: number) {
       totalSessions: { increment: 1 },
       currentStreak: newStreak,
       longestStreak: Math.max(character.longestStreak, newStreak),
-      lastSessionAt: now.toISOString(),
-      updatedAt: now.toISOString(),
+      lastSessionAt: now,
+      updatedAt: now,
     },
   });
 

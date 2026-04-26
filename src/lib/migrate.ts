@@ -591,18 +591,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS "PsicoWallet_userId_key" ON "PsicoWallet"("use
 CREATE UNIQUE INDEX IF NOT EXISTS "CharacterProgress_userId_key" ON "CharacterProgress"("userId");
 CREATE UNIQUE INDEX IF NOT EXISTS "ExerciseAttempt_userId_exerciseId_key" ON "ExerciseAttempt"("userId", "exerciseId");
 CREATE UNIQUE INDEX IF NOT EXISTS "ExerciseReview_userId_exerciseId_key" ON "ExerciseReview"("userId", "exerciseId");
-ALTER TABLE "User" ADD COLUMN "emailVerified" BOOLEAN NOT NULL DEFAULT false;
-ALTER TABLE "User" ADD COLUMN "emailVerificationToken" TEXT;
-ALTER TABLE "User" ADD COLUMN "passwordResetToken" TEXT;
-ALTER TABLE "User" ADD COLUMN "passwordResetExpires" DATETIME;
-ALTER TABLE "User" ADD COLUMN "avatarUrl" TEXT;
-ALTER TABLE "Notification" ADD COLUMN "type" TEXT NOT NULL DEFAULT 'info';
-ALTER TABLE "Task" ADD COLUMN "group" TEXT;
-ALTER TABLE "LibraryItem" ADD COLUMN "thumbnailUrl" TEXT;
-ALTER TABLE "Material" ADD COLUMN "libraryItemId" TEXT REFERENCES "LibraryItem"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-ALTER TABLE "ShopItem" ADD COLUMN "category" TEXT NOT NULL DEFAULT 'GERAL';
-ALTER TABLE "ShopItem" ADD COLUMN "rarity" TEXT NOT NULL DEFAULT 'COMUM';
-ALTER TABLE "Exercise" ADD COLUMN "difficulty" TEXT NOT NULL DEFAULT 'MEDIO';
     `,
   },
   {
@@ -691,6 +679,51 @@ export interface MigrationResult {
 }
 
 // ---------------------------------------------------------------------------
+// runMigrationStatements — execute a migration's SQL using a single D1 batch
+// (1 subrequest) when possible, falling back to per-statement execution when
+// any statement triggers an idempotent error (table/column already exists).
+//
+// Batching is critical: Cloudflare Workers has a per-request subrequest limit
+// (50 on the free tier, 1 000 on Workers Paid). A fresh database needs ~18
+// migrations × many statements ≈ 130+ individual prepare().run() calls, which
+// exceeds the free-tier limit and causes the Worker to be killed with 503.
+// Using d1.batch() reduces this to ~38 total subrequests.
+// ---------------------------------------------------------------------------
+async function runMigrationStatements(
+  d1: CfD1Database,
+  sql: string
+): Promise<void> {
+  const statements = splitSqlStatements(sql);
+  if (statements.length === 0) return;
+
+  // Attempt to run all statements as a single batch (1 subrequest).
+  try {
+    await d1.batch(statements.map((stmt) => d1.prepare(stmt)));
+    return;
+  } catch (batchErr) {
+    const msg = batchErr instanceof Error ? batchErr.message : String(batchErr);
+    if (!isIdempotentError(msg)) throw batchErr;
+    // Batch failed because some statements hit idempotent errors (table/column
+    // already exists). Fall back to executing statements one-by-one so that
+    // idempotent errors are skipped while non-idempotent errors still propagate.
+  }
+
+  for (const stmt of statements) {
+    try {
+      await d1.prepare(stmt).run();
+    } catch (stmtErr) {
+      const msg = stmtErr instanceof Error ? stmtErr.message : String(stmtErr);
+      if (isIdempotentError(msg)) {
+        // Column or table already exists — safe to skip.
+        continue;
+      }
+      console.error(`[migrate] statement failed: ${stmt}`);
+      throw stmtErr;
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // runMigrations — apply all pending migrations in order.
 // Safe to call on every request; already-applied migrations are skipped.
 // ---------------------------------------------------------------------------
@@ -709,21 +742,7 @@ export async function runMigrations(
     }
 
     try {
-      const statements = splitSqlStatements(migration.sql);
-      for (const stmt of statements) {
-        try {
-          await d1.prepare(stmt).run();
-        } catch (stmtErr) {
-          const msg =
-            stmtErr instanceof Error ? stmtErr.message : String(stmtErr);
-          if (isIdempotentError(msg)) {
-            // Column or table already exists — safe to skip.
-            continue;
-          }
-          console.error(`[migrate] statement failed: ${stmt}`);
-          throw stmtErr;
-        }
-      }
+      await runMigrationStatements(d1, migration.sql);
       await d1
         .prepare(
           "INSERT INTO _psico_migrations (name, applied_at) VALUES (?, datetime('now'))"
