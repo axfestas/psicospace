@@ -127,8 +127,8 @@ export default function PsicoGamePage() {
   const loadData = useCallback(async () => {
     try {
       const [coreRes, shopRes] = await Promise.all([
-        fetch("/api/psicogame/core", { cache: "no-store" }),
-        fetch("/api/psicogame/shop", { cache: "no-store" }),
+        fetch("/api/psicogame/core", { cache: "no-store", signal: AbortSignal.timeout(15_000) }),
+        fetch("/api/psicogame/shop", { cache: "no-store", signal: AbortSignal.timeout(15_000) }),
       ]);
       if (coreRes.ok) {
         const core: CoreData = (await coreRes.json()).core;
