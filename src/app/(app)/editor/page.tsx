@@ -36,6 +36,7 @@ import {
   Maximize2, Minimize2, Tag, Keyboard, Hash, Filter, ChevronRight, Pencil,
   Scissors, GitMerge, SpellCheck, BookText, GraduationCap,
   AlignHorizontalDistributeCenter, Ruler, FilePlus2, Copy,
+  AlertCircle, RefreshCw,
 } from "lucide-react";
 
 interface Document {
@@ -1879,6 +1880,7 @@ function EditorPageInner() {
   const [showRuler, setShowRuler] = useState(true);
   const [savingStatus, setSavingStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [loadDocsError, setLoadDocsError] = useState<string | null>(null);
   const savingStatusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [editorManuallyOpened, setEditorManuallyOpened] = useState(false);
   const [activeToolbarTab, setActiveToolbarTab] = useState<"inicio" | "inserir" | "layout" | "revisao" | "exibir">("inicio");
@@ -2009,14 +2011,23 @@ function EditorPageInner() {
   });
 
   const loadDocuments = useCallback(async () => {
+    setLoadDocsError(null);
     try {
-      const res = await fetch("/api/documents", { cache: "no-store" });
+      const res = await fetch("/api/documents", { cache: "no-store", signal: AbortSignal.timeout(15_000) });
       if (res.ok) {
         const data = await res.json();
         setDocuments(data.documents || []);
+      } else {
+        if (process.env.NODE_ENV === "development") {
+          console.error("[editor/loadDocuments] status", res.status);
+        }
+        setLoadDocsError(`Não foi possível carregar os documentos (${res.status}).`);
       }
     } catch (error) {
-      console.error("Erro ao carregar documentos:", error);
+      if (process.env.NODE_ENV === "development") {
+        console.error("Erro ao carregar documentos:", error);
+      }
+      setLoadDocsError("Não foi possível carregar os documentos. Verifique a conexão.");
     }
   }, []);
 
@@ -2789,7 +2800,15 @@ function EditorPageInner() {
           </div>
           {/* Document grid */}
           <div className="flex-1 overflow-y-auto">
-            {documents.length === 0 ? (
+            {loadDocsError ? (
+              <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
+                <AlertCircle className="h-8 w-8 text-red-500" />
+                <p className="text-sm text-red-600 dark:text-red-400">{loadDocsError}</p>
+                <Button size="sm" variant="outline" onClick={loadDocuments}>
+                  <RefreshCw className="h-4 w-4 mr-1" /> Tentar novamente
+                </Button>
+              </div>
+            ) : documents.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-24 text-center">
                 <div className="w-16 h-16 rounded-full bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center mb-4">
                   <FileText className="h-8 w-8 text-blue-400" />

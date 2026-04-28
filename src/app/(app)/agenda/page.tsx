@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Task, Note } from "@/types";
 import { formatDate } from "@/lib/utils";
-import { Plus, Trash2, Check, X, ChevronLeft, ChevronRight, Edit2 } from "lucide-react";
+import { Plus, Trash2, Check, X, ChevronLeft, ChevronRight, Edit2, AlertCircle, RefreshCw, Loader2 } from "lucide-react";
 
 interface CalendarEvent {
   id: string;
@@ -82,6 +82,10 @@ export default function AgendaPage() {
   const [editingGroupName, setEditingGroupName] = useState<string | null>(null);
   const [newGroupName, setNewGroupName] = useState("");
 
+  // ── Data loading error state ─────────────────────────────────────────────
+  const [loadDataError, setLoadDataError] = useState<string | null>(null);
+  const [loadingData, setLoadingData] = useState(true);
+
   // Schedule state (localStorage)
   const [scheduleSlots, setScheduleSlots] = useState<ScheduleSlot[]>([]);
   const [editingSlot, setEditingSlot] = useState<{ day: string; time: string } | null>(null);
@@ -102,20 +106,39 @@ export default function AgendaPage() {
   };
 
   const loadData = useCallback(async () => {
-    const [evRes, taskRes, noteRes] = await Promise.all([
-      fetch("/api/events"),
-      fetch("/api/tasks"),
-      fetch("/api/notes"),
-    ]);
-    if (evRes.ok) setEvents((await evRes.json()).events || []);
-    if (taskRes.ok) setTasks((await taskRes.json()).tasks || []);
-    if (noteRes.ok) {
-      const n = (await noteRes.json()).notes || [];
-      setNotes(n);
-      if (n.length > 0 && !currentNoteId) {
-        setCurrentNoteId(n[0].id);
-        setNoteContent(n[0].content);
+    setLoadDataError(null);
+    setLoadingData(true);
+    try {
+      const sig = () => AbortSignal.timeout(15_000);
+      const [evRes, taskRes, noteRes] = await Promise.all([
+        fetch("/api/events", { cache: "no-store", signal: sig() }),
+        fetch("/api/tasks", { cache: "no-store", signal: sig() }),
+        fetch("/api/notes", { cache: "no-store", signal: sig() }),
+      ]);
+      if (!evRes.ok && !taskRes.ok && !noteRes.ok) {
+        const status = taskRes.status || evRes.status || noteRes.status;
+        if (process.env.NODE_ENV === "development") {
+          console.error("[agenda/loadData] all requests failed", { ev: evRes.status, task: taskRes.status, note: noteRes.status });
+        }
+        setLoadDataError(`Não foi possível carregar os dados (${status}). Verifique a conexão ou tente novamente.`);
       }
+      if (evRes.ok) setEvents((await evRes.json()).events || []);
+      if (taskRes.ok) setTasks((await taskRes.json()).tasks || []);
+      if (noteRes.ok) {
+        const n = (await noteRes.json()).notes || [];
+        setNotes(n);
+        if (n.length > 0 && !currentNoteId) {
+          setCurrentNoteId(n[0].id);
+          setNoteContent(n[0].content);
+        }
+      }
+    } catch (err) {
+      if (process.env.NODE_ENV === "development") {
+        console.error("[agenda/loadData] error", err);
+      }
+      setLoadDataError("Não foi possível carregar os dados. Verifique a conexão.");
+    } finally {
+      setLoadingData(false);
     }
   }, [currentNoteId]);
 
@@ -452,6 +475,23 @@ export default function AgendaPage() {
           </button>
         ))}
       </div>
+
+      {/* ── Loading / error banner ── */}
+      {loadingData && (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin text-blue-600 mr-2" />
+          <span className="text-sm text-gray-500">Carregando dados…</span>
+        </div>
+      )}
+      {!loadingData && loadDataError && (
+        <div className="flex flex-col items-center gap-3 rounded-lg border border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20 p-4 text-center">
+          <AlertCircle className="h-6 w-6 text-red-500" />
+          <p className="text-sm text-red-600 dark:text-red-400">{loadDataError}</p>
+          <Button size="sm" variant="outline" onClick={loadData}>
+            <RefreshCw className="h-4 w-4 mr-1" /> Tentar novamente
+          </Button>
+        </div>
+      )}
 
       {/* ── CALENDAR ── */}
       {activeTab === "calendar" && (
