@@ -195,7 +195,7 @@ export default function PsicoGamePage() {
                   <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                     {character.totalSessions}
                   </p>
-                  <p className="text-xs text-gray-500">Sessões</p>
+                  <p className="text-xs text-gray-500">Sessões concluídas</p>
                 </div>
               </div>
             </CardContent>
