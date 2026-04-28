@@ -6,7 +6,7 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Sun, Moon, Palette, KeyRound, Mail, Check, X, Loader2 } from "lucide-react";
+import { Sun, Moon, Palette, KeyRound, Mail, Check, X, Loader2, MessageCircle } from "lucide-react";
 
 export default function ConfiguracoesPage() {
   const { theme, toggleTheme } = useTheme();
@@ -88,6 +88,43 @@ export default function ConfiguracoesPage() {
 
   const handleCancelEmail = () => {
     setNewEmail(""); setCurrentPasswordEmail(""); setEmailError(""); setShowEmailForm(false);
+  };
+
+  // Feedback / Suggestion
+  const FEEDBACK_CATEGORIES = ["Sugestão", "Erro / Bug", "Melhoria", "Outro"];
+  const [feedbackCategory, setFeedbackCategory] = useState(FEEDBACK_CATEGORIES[0]);
+  const [feedbackMessage, setFeedbackMessage] = useState("");
+  const [feedbackSaving, setFeedbackSaving] = useState(false);
+  const [feedbackError, setFeedbackError] = useState("");
+  const [feedbackSent, setFeedbackSent] = useState(false);
+
+  const handleSendFeedback = async () => {
+    setFeedbackError("");
+    if (!feedbackMessage.trim() || feedbackMessage.trim().length < 5) {
+      setFeedbackError("Descreva o problema ou sugestão com pelo menos 5 caracteres.");
+      return;
+    }
+    setFeedbackSaving(true);
+    try {
+      const res = await fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: feedbackMessage.trim(), category: feedbackCategory }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setFeedbackError(data.error || "Erro ao enviar mensagem.");
+      } else {
+        setFeedbackSent(true);
+        setFeedbackMessage("");
+        setFeedbackCategory(FEEDBACK_CATEGORIES[0]);
+        setTimeout(() => setFeedbackSent(false), 5000);
+      }
+    } catch {
+      setFeedbackError("Erro de conexão. Tente novamente.");
+    } finally {
+      setFeedbackSaving(false);
+    }
   };
 
   return (
@@ -240,6 +277,91 @@ export default function ConfiguracoesPage() {
                   <X className="h-3.5 w-3.5 mr-1" />Cancelar
                 </Button>
               </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Feedback / Suggestion */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <MessageCircle className="h-4 w-4" />
+            Sugestão / Reportar problema
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Encontrou um erro ou tem uma sugestão? Envie uma mensagem para a equipe — ela chegará
+            direto na caixa de notificações do{" "}
+            <span className="font-medium text-gray-700 dark:text-gray-300">administrador</span>.
+          </p>
+
+          {feedbackSent ? (
+            <div className="flex items-center gap-2 rounded-lg bg-green-50 border border-green-200 px-4 py-3 text-green-700 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400">
+              <Check className="h-4 w-4 flex-shrink-0" />
+              <span className="text-sm">Mensagem enviada! Obrigade pelo retorno 💙</span>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {/* Category selector */}
+              <div>
+                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 block">
+                  Categoria
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {FEEDBACK_CATEGORIES.map((cat) => (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setFeedbackCategory(cat)}
+                      className={`rounded-full px-3 py-1 text-xs font-medium border transition-colors ${
+                        feedbackCategory === cat
+                          ? "bg-blue-600 text-white border-blue-600"
+                          : "border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-blue-400"
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Message textarea */}
+              <div>
+                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 block">
+                  Mensagem
+                </label>
+                <textarea
+                  value={feedbackMessage}
+                  onChange={(e) => setFeedbackMessage(e.target.value)}
+                  placeholder="Descreva o problema ou sugestão com o máximo de detalhes possível…"
+                  rows={4}
+                  maxLength={2000}
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                />
+                <p className="text-xs text-gray-400 text-right mt-0.5">
+                  {feedbackMessage.length}/2000
+                </p>
+              </div>
+
+              {feedbackError && (
+                <p className="text-xs text-red-500">{feedbackError}</p>
+              )}
+
+              <Button
+                size="sm"
+                onClick={handleSendFeedback}
+                loading={feedbackSaving}
+                disabled={feedbackSaving || !feedbackMessage.trim()}
+              >
+                {feedbackSaving ? (
+                  <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                ) : (
+                  <MessageCircle className="h-3.5 w-3.5 mr-1" />
+                )}
+                Enviar mensagem
+              </Button>
             </div>
           )}
         </CardContent>

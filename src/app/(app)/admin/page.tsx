@@ -87,15 +87,24 @@ export default function AdminPage() {
   const loadUsers = useCallback(async () => {
     setLoadUsersError(null);
     try {
-      const res = await fetch("/api/users");
+      const res = await fetch("/api/users", {
+        signal: AbortSignal.timeout(15_000),
+        cache: "no-store",
+      });
       if (res.ok) {
         const data = await res.json();
         setUsers(data.users || []);
       } else {
         const data = await res.json().catch(() => ({}));
+        if (process.env.NODE_ENV === "development") {
+          console.error("[admin/loadUsers] status", res.status, data);
+        }
         setLoadUsersError(data.error || `Erro ao carregar usuáries (${res.status})`);
       }
-    } catch {
+    } catch (err) {
+      if (process.env.NODE_ENV === "development") {
+        console.error("[admin/loadUsers] network error", err);
+      }
       setLoadUsersError("Não foi possível carregar usuáries. Verifique a conexão.");
     } finally {
       setLoadingUsers(false);
