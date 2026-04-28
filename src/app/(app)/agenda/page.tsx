@@ -116,11 +116,11 @@ export default function AgendaPage() {
         fetch("/api/notes", { cache: "no-store", signal: sig() }),
       ]);
       if (!evRes.ok && !taskRes.ok && !noteRes.ok) {
-        const status = taskRes.status || evRes.status || noteRes.status;
+        const errorStatus = [evRes.status, taskRes.status, noteRes.status].find((s) => s >= 400) ?? taskRes.status;
         if (process.env.NODE_ENV === "development") {
           console.error("[agenda/loadData] all requests failed", { ev: evRes.status, task: taskRes.status, note: noteRes.status });
         }
-        setLoadDataError(`Não foi possível carregar os dados (${status}). Verifique a conexão ou tente novamente.`);
+        setLoadDataError(`Não foi possível carregar os dados (${errorStatus}). Verifique a conexão ou tente novamente.`);
       }
       if (evRes.ok) setEvents((await evRes.json()).events || []);
       if (taskRes.ok) setTasks((await taskRes.json()).tasks || []);
