@@ -14,7 +14,6 @@ import {
   RotateCcw,
   Undo2,
   Redo2,
-  ScanText,
   Square,
   MessageSquare,
   Check,
@@ -71,18 +70,10 @@ const ZOOM_STEP = 0.25;
 const ZOOM_MIN = 0.25;
 const ZOOM_MAX = 5.0;
 const MAX_HISTORY = 50;
-/** Min chars in a page's text layer to be considered a "digital" (non-scanned) page */
-const MIN_TEXT_CHARS = 30;
 /** Padding subtracted from the scroll-container width to compute the fit-width baseline (2 × 16 px) */
 const SCROLL_CONTAINER_PADDING = 32;
 /** Fallback canvas aspect ratio when buffer dimensions are unavailable (√2 ≈ A4 paper ratio) */
 const DEFAULT_ASPECT_RATIO = 1.414;
-
-/** Tesseract word bbox shape (subset of what Tesseract.js v7 actually returns) */
-interface TessWord {
-  text: string;
-  bbox: { x0: number; y0: number; x1: number; y1: number };
-}
 
 /** Returns true if the currently-focused element is a text-editing field */
 function isEditableActive(): boolean {
@@ -164,11 +155,7 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
   const [historyIdx, setHistoryIdx] = useState(0);
 
   // ── Scan detection & OCR ──────────────────────────────────────────────────
-  /** null = unknown, true = scanned (image), false = digital (has text layer) */
-  const [isScannedPdf, setIsScannedPdf] = useState<boolean | null>(null);
   const [ocrState, setOcrState] = useState<"idle" | "running" | "done" | "error">("idle");
-  const [ocrProgress, setOcrProgress] = useState(0);
-  const [ocrErrorMsg, setOcrErrorMsg] = useState<string | null>(null);
   const [ocrWords, setOcrWords] = useState<OcrWord[]>([]);
 
   // ── Area selection (rectangle drawing for scanned PDFs) ───────────────────
@@ -228,8 +215,6 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
   useEffect(() => {
     setOcrState("idle");
     setOcrWords([]);
-    setOcrErrorMsg(null);
-    setIsScannedPdf(null);
     if (ocrTextLayerRef.current) ocrTextLayerRef.current.innerHTML = "";
   }, [currentPage, rotation]);
 
@@ -267,10 +252,18 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
         const viewport = page.getViewport({ scale, rotation });
 
         // ── Canvas render ──────────────────────────────────────────────────
+        // Apply devicePixelRatio so the canvas buffer matches physical pixels,
+        // preventing blurriness on Retina / high-DPI (mobile) screens.
+        const dpr = typeof window !== "undefined" ? (window.devicePixelRatio || 1) : 1;
+        const cssWidth = Math.round(viewport.width);
+        const cssHeight = Math.round(viewport.height);
         const canvas = canvasRef.current!;
-        canvas.width = Math.round(viewport.width);
-        canvas.height = Math.round(viewport.height);
+        canvas.width = Math.round(cssWidth * dpr);
+        canvas.height = Math.round(cssHeight * dpr);
+        canvas.style.width = `${cssWidth}px`;
+        canvas.style.height = `${cssHeight}px`;
         const ctx = canvas.getContext("2d")!;
+        if (dpr !== 1) ctx.scale(dpr, dpr);
 
         const renderTask = page.render({ canvas, canvasContext: ctx, viewport });
         renderTaskRef.current = renderTask;
@@ -278,7 +271,7 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
         if (cancelled) return;
 
         // Drive the wrapper width so the scroll container can scroll horizontally
-        setWrapperWidth(Math.round(viewport.width));
+        setWrapperWidth(cssWidth);
 
         // ── Text layer ─────────────────────────────────────────────────────
         const textLayerDiv = textLayerRef.current!;
@@ -286,13 +279,6 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
 
         const textContent = await page.getTextContent();
         if (cancelled) return;
-
-        // Detect scan: if the page has almost no text characters it's likely a scan/image
-        const totalChars = (textContent.items as Array<{ str?: string }>).reduce(
-          (sum, item) => sum + (item.str?.length ?? 0),
-          0,
-        );
-        setIsScannedPdf(totalChars < MIN_TEXT_CHARS);
 
         const vt: number[] = viewport.transform; // [a,b,c,d,e,f]
 
@@ -623,52 +609,6 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
     [markAreaMode, drawingRect, currentPage, selectedColor, highlights, pushToHistory],
   );
 
-  // ── OCR (Tesseract.js, current page canvas) ───────────────────────────────
-
-  const runOcr = useCallback(async () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    setOcrState("running");
-    setOcrProgress(0);
-    setOcrErrorMsg(null);
-
-    try {
-      const { createWorker } = await import("tesseract.js");
-      const worker = await createWorker("por+eng", undefined, {
-        logger: (m: { status: string; progress: number }) => {
-          if (m.status === "recognizing text") {
-            setOcrProgress(Math.round(m.progress * 100));
-          }
-        },
-      });
-
-      const { data } = await worker.recognize(canvas);
-      await worker.terminate();
-
-      const bufW = canvas.width;
-      const bufH = canvas.height;
-      const words: OcrWord[] = ((data as { words?: TessWord[] }).words ?? [])
-        .filter((wd) => wd.text.trim())
-        .map((wd) => ({
-          text: wd.text,
-          x0n: wd.bbox.x0 / bufW,
-          y0n: wd.bbox.y0 / bufH,
-          x1n: wd.bbox.x1 / bufW,
-          y1n: wd.bbox.y1 / bufH,
-        }));
-
-      setOcrWords(words);
-      setOcrState("done");
-      // Activate highlight mode automatically after OCR
-      setHighlightMode(true);
-      setMarkAreaMode(false);
-    } catch (err) {
-      console.error("[PdfCanvasViewer] OCR error", err);
-      setOcrState("error");
-      setOcrErrorMsg(String(err));
-    }
-  }, []);
-
   // ── Navigation ─────────────────────────────────────────────────────────────
 
   const goTo = useCallback(
@@ -687,8 +627,9 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
   const canUndo = historyIdx > 0;
   const canRedo = historyIdx < historyStack.length - 1;
 
-  // Text layer is interactive only in highlight mode (not area mode, not OCR mode)
-  const textLayerActive = highlightMode && !markAreaMode && ocrState !== "done";
+  // Text layer is interactive for text selection/copy unless in area-draw mode.
+  // Highlight creation is still gated by highlightMode inside handleMouseUp.
+  const textLayerActive = !markAreaMode && ocrState !== "done";
   // OCR layer is interactive in highlight mode after OCR is done
   const ocrLayerActive = highlightMode && ocrState === "done";
 
@@ -948,40 +889,6 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
         </div>
       )}
 
-      {/* ── Scan banner ──────────────────────────────────────────────────── */}
-      {isScannedPdf && pdfReady && (
-        <div className="flex items-center gap-2 px-3 py-2 bg-amber-900/70 border-b border-amber-700 text-amber-200 text-xs flex-shrink-0 flex-wrap">
-          <ScanText className="h-4 w-4 flex-shrink-0" />
-          <span className="flex-1 min-w-0">
-            PDF digitalizado — sem camada de texto. Use &ldquo;Área&rdquo; para marcar livremente
-            ou ative o OCR para reconhecer palavras.
-          </span>
-          {ocrState === "idle" && (
-            <button
-              onClick={runOcr}
-              className="px-3 py-1 bg-amber-600 hover:bg-amber-500 text-white rounded text-xs font-medium flex-shrink-0"
-            >
-              Ativar OCR
-            </button>
-          )}
-          {ocrState === "running" && (
-            <span className="text-amber-300 flex-shrink-0">
-              OCR em andamento… {ocrProgress}%
-            </span>
-          )}
-          {ocrState === "done" && (
-            <span className="text-green-300 flex-shrink-0">
-              ✓ OCR concluído — selecione o texto para marcar
-            </span>
-          )}
-          {ocrState === "error" && (
-            <span className="text-red-300 flex-shrink-0">
-              Erro no OCR{ocrErrorMsg ? `: ${ocrErrorMsg}` : ""}. Use o modo &ldquo;Área&rdquo;.
-            </span>
-          )}
-        </div>
-      )}
-
       {/* ── PDF canvas area ──────────────────────────────────────────────── */}
       <div ref={scrollContainerRef} className="flex-1 overflow-auto bg-gray-700 p-4">
         {!pdfReady && (
@@ -998,7 +905,7 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
               style={{
                 width: wrapperWidth > 0 ? `${wrapperWidth}px` : "100%",
                 maxWidth: zoom > 1 ? "none" : "56rem",
-                userSelect: highlightMode || ocrLayerActive ? "text" : "none",
+                userSelect: markAreaMode ? "none" : "text",
                 cursor: markAreaMode ? "crosshair" : "default",
               }}
               onMouseDown={handleAreaMouseDown}
