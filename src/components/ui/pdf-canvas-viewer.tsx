@@ -176,25 +176,6 @@ function buildSelectionTextFromGeometry(wrapper: HTMLDivElement, range: Range): 
   return normalizeSelectionText(result);
 }
 
-// ── Helper: combine two 2-D affine matrices ────────────────────────────────────
-// Each matrix is [a, b, c, d, e, f] representing:
-//   | a  c  e |
-//   | b  d  f |
-//   | 0  0  1 |
-function multiplyMatrix(
-  [a1, b1, c1, d1, e1, f1]: number[],
-  [a2, b2, c2, d2, e2, f2]: number[],
-): number[] {
-  return [
-    a1 * a2 + c1 * b2,
-    b1 * a2 + d1 * b2,
-    a1 * c2 + c1 * d2,
-    b1 * c2 + d1 * d2,
-    a1 * e2 + c1 * f2 + e1,
-    b1 * e2 + d1 * f2 + f1,
-  ];
-}
-
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewerProps) {
@@ -269,6 +250,7 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
   const wrapperRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const renderTaskRef = useRef<RenderTask | null>(null);
+  const textLayerTaskRef = useRef<{ cancel: () => void } | null>(null);
   const dbSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const drawStartRef = useRef<{ x: number; y: number } | null>(null);
 
@@ -329,6 +311,14 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
         }
         renderTaskRef.current = null;
       }
+      if (textLayerTaskRef.current) {
+        try {
+          textLayerTaskRef.current.cancel();
+        } catch {
+          // ignore
+        }
+        textLayerTaskRef.current = null;
+      }
 
       try {
         const pdfDoc = pdfDocRef.current;
@@ -369,34 +359,23 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
         // ── Text layer ─────────────────────────────────────────────────────
         const textLayerDiv = textLayerRef.current!;
         textLayerDiv.innerHTML = "";
+        textLayerDiv.style.setProperty("--total-scale-factor", `${viewport.scale}`);
+        textLayerDiv.style.setProperty("--scale-round-x", "1px");
+        textLayerDiv.style.setProperty("--scale-round-y", "1px");
 
-        const textContent = await page.getTextContent();
+        const textLayer = new pdfjs.TextLayer({
+          textContentSource: page.streamTextContent({
+            includeMarkedContent: true,
+            disableNormalization: true,
+          }),
+          container: textLayerDiv,
+          viewport,
+        });
+        textLayerTaskRef.current = textLayer;
+        await textLayer.render();
         if (cancelled) return;
-
-        const vt: number[] = viewport.transform; // [a,b,c,d,e,f]
-
-        for (const item of textContent.items as Array<{
-          str?: string;
-          transform: number[];
-          width: number;
-          height: number;
-        }>) {
-          if (!item.str) continue;
-          const m = multiplyMatrix(vt, item.transform);
-          const span = document.createElement("span");
-          span.textContent = item.str;
-          span.style.cssText = `
-            position:absolute;
-            left:0;top:0;
-            transform:matrix(${m[0]},${m[1]},${m[2]},${m[3]},${m[4]},${m[5]});
-            transform-origin:0% 0%;
-            color:transparent;
-            white-space:pre;
-            cursor:text;
-            user-select:text;
-            -webkit-user-select:text;
-          `;
-          textLayerDiv.appendChild(span);
+        if (textLayerTaskRef.current === textLayer) {
+          textLayerTaskRef.current = null;
         }
       } catch (err: unknown) {
         // RenderingCancelledException is expected — not a real error
@@ -414,6 +393,14 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
     render();
     return () => {
       cancelled = true;
+      if (textLayerTaskRef.current) {
+        try {
+          textLayerTaskRef.current.cancel();
+        } catch {
+          // ignore
+        }
+        textLayerTaskRef.current = null;
+      }
     };
   }, [pdfReady, currentPage, zoom, rotation]);
 
@@ -1122,7 +1109,7 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
               {/* Text layer — spans are transparent so only selection colour shows */}
               <div
                 ref={textLayerRef}
-                className="pdf-text-layer"
+                className="pdf-text-layer textLayer"
                 style={{ pointerEvents: textLayerActive ? "auto" : "none" }}
               />
 
