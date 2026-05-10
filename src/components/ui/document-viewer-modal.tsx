@@ -21,6 +21,13 @@ interface DocumentViewerModalProps {
   initialPage?: number;
 }
 
+const VIEWER_KIND_LABELS: Record<string, string> = {
+  PDF: "Leitor PDF",
+  IMAGE: "Imagem",
+  SLIDE: "Apresentação",
+  LINK: "Link externo",
+};
+
 export function DocumentViewerModal({ url, title, type, onClose, materialId, initialPage }: DocumentViewerModalProps) {
   const [iframeError, setIframeError] = useState(false);
   const normalizedUrl = normalizeStoredMaterialUrl(url, type);
@@ -81,7 +88,7 @@ export function DocumentViewerModal({ url, title, type, onClose, materialId, ini
                 {title}
               </span>
               <span className="block text-[11px] uppercase tracking-[0.2em] text-slate-400">
-                {viewerKind === "PDF" ? "Leitor PDF" : viewerKind}
+                {VIEWER_KIND_LABELS[viewerKind] ?? viewerKind}
               </span>
             </div>
           </div>

@@ -78,6 +78,10 @@ const DEFAULT_ASPECT_RATIO = 1.414;
 const SELECTION_LINE_TOLERANCE_RATIO = 0.6;
 /** Horizontal gap tuned to reinsert missing spaces without over-spacing punctuation or hyphenation. */
 const SELECTION_SPACE_GAP_RATIO = 0.18;
+const TOOLBAR_GROUP_CLASS =
+  "flex items-center gap-1 rounded-xl border border-white/10 bg-[#0f172a]/70 px-1.5 py-1 shadow-sm";
+const ICON_BUTTON_CLASS =
+  "rounded-lg p-1.5 text-slate-300 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-40";
 
 /** Returns true if the currently-focused element is a text-editing field */
 function isEditableActive(): boolean {
@@ -180,10 +184,6 @@ function buildSelectionTextFromGeometry(wrapper: HTMLDivElement, range: Range): 
 
 export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewerProps) {
   const highlightKey = `pdf_highlights_${storageKey}`;
-  const toolbarGroupClass =
-    "flex items-center gap-1 rounded-xl border border-white/10 bg-[#0f172a]/70 px-1.5 py-1 shadow-sm";
-  const iconButtonClass =
-    "rounded-lg p-1.5 text-slate-300 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-40";
 
   // ── State ──────────────────────────────────────────────────────────────────
 
@@ -750,6 +750,14 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
     setPageInput(String(currentPage));
   }, [currentPage]);
 
+  const commitPageInput = useCallback(() => {
+    if (!pageInput) {
+      setPageInput(String(currentPage));
+      return;
+    }
+    goTo(parseInt(pageInput, 10) || 1);
+  }, [currentPage, goTo, pageInput]);
+
   // ── Derived ────────────────────────────────────────────────────────────────
 
   const pageHighlights = highlights.filter((h) => h.page === currentPage);
@@ -777,11 +785,11 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
       {/* ── Toolbar ──────────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center gap-2 border-b border-white/10 bg-[#111827] px-3 py-2.5 flex-shrink-0">
         {/* Page navigation */}
-        <div className={toolbarGroupClass}>
+        <div className={TOOLBAR_GROUP_CLASS}>
           <button
             onClick={() => goTo(currentPage - 1)}
             disabled={currentPage <= 1}
-            className={iconButtonClass}
+            className={ICON_BUTTON_CLASS}
             title="Página anterior"
           >
             <ChevronLeft className="h-4 w-4" />
@@ -794,10 +802,10 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
                   setPageInput(e.target.value);
                 }
               }}
-              onBlur={() => goTo(parseInt(pageInput, 10) || 1)}
+              onBlur={commitPageInput}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
-                  goTo(parseInt(pageInput, 10) || 1);
+                  commitPageInput();
                   e.currentTarget.blur();
                 }
               }}
@@ -810,7 +818,7 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
           <button
             onClick={() => goTo(currentPage + 1)}
             disabled={currentPage >= numPages}
-            className={iconButtonClass}
+            className={ICON_BUTTON_CLASS}
             title="Próxima página"
           >
             <ChevronRight className="h-4 w-4" />
@@ -818,11 +826,11 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
         </div>
 
         {/* ── Zoom controls ─────────────────────────────────────────────── */}
-        <div className={toolbarGroupClass}>
+        <div className={TOOLBAR_GROUP_CLASS}>
           <button
             onClick={() => setZoom((z) => Math.max(parseFloat((z - ZOOM_STEP).toFixed(2)), ZOOM_MIN))}
             disabled={zoom <= ZOOM_MIN}
-            className={iconButtonClass}
+            className={ICON_BUTTON_CLASS}
             title="Diminuir zoom (Ctrl+Scroll)"
           >
             <ZoomOut className="h-4 w-4" />
@@ -833,7 +841,7 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
           <button
             onClick={() => setZoom((z) => Math.min(parseFloat((z + ZOOM_STEP).toFixed(2)), ZOOM_MAX))}
             disabled={zoom >= ZOOM_MAX}
-            className={iconButtonClass}
+            className={ICON_BUTTON_CLASS}
             title="Aumentar zoom (Ctrl+Scroll)"
           >
             <ZoomIn className="h-4 w-4" />
@@ -841,7 +849,7 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
           <button
             onClick={() => setZoom(1.0)}
             disabled={zoom === 1.0}
-            className={iconButtonClass}
+            className={ICON_BUTTON_CLASS}
             title="Ajustar à largura (zoom 100%)"
           >
             <Maximize2 className="h-4 w-4" />
@@ -849,17 +857,17 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
         </div>
 
         {/* ── Rotation controls ─────────────────────────────────────────── */}
-        <div className={toolbarGroupClass}>
+        <div className={TOOLBAR_GROUP_CLASS}>
           <button
             onClick={() => setRotation((r) => (r - 90 + 360) % 360)}
-            className={iconButtonClass}
+            className={ICON_BUTTON_CLASS}
             title="Girar 90° para a esquerda"
           >
             <RotateCcw className="h-4 w-4" />
           </button>
           <button
             onClick={() => setRotation((r) => (r + 90) % 360)}
-            className={iconButtonClass}
+            className={ICON_BUTTON_CLASS}
             title="Girar 90° para a direita"
           >
             <RotateCw className="h-4 w-4" />
@@ -867,11 +875,11 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
         </div>
 
         {/* ── Undo / Redo ───────────────────────────────────────────────── */}
-        <div className={toolbarGroupClass}>
+        <div className={TOOLBAR_GROUP_CLASS}>
           <button
             onClick={() => setHistoryIdx((i) => Math.max(0, i - 1))}
             disabled={!canUndo}
-            className={iconButtonClass}
+            className={ICON_BUTTON_CLASS}
             title="Desfazer (Ctrl+Z)"
           >
             <Undo2 className="h-4 w-4" />
@@ -879,7 +887,7 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
           <button
             onClick={() => setHistoryIdx((i) => Math.min(historyStack.length - 1, i + 1))}
             disabled={!canRedo}
-            className={iconButtonClass}
+            className={ICON_BUTTON_CLASS}
             title="Refazer (Ctrl+Y)"
           >
             <Redo2 className="h-4 w-4" />
@@ -944,7 +952,7 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
         {/* Delete selected highlight */}
         {selectedId && (
           <>
-            <div className={toolbarGroupClass}>
+            <div className={TOOLBAR_GROUP_CLASS}>
               <button
                 onClick={() => {
                   const hl = highlights.find((h) => h.id === selectedId);
