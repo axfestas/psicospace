@@ -60,6 +60,8 @@ const DIFFICULTY_STYLES: Record<DifficultyKey, string> = {
   MEDIO: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800",
   DIFICIL: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-900/20 dark:text-rose-300 dark:border-rose-800",
 };
+const ERROR_MSG_NO_OPTION_SELECTED = "Selecione uma alternativa para enviar.";
+const ERROR_MSG_NO_TEXT_ANSWER = "Digite uma resposta para enviar.";
 
 function isDifficultyKey(value: string | null | undefined): value is DifficultyKey {
   return value === "FACIL" || value === "MEDIO" || value === "DIFICIL";
@@ -164,6 +166,7 @@ export default function PsicoLabExercisesPage() {
   );
 
   const sessionProgress = exercises.length ? Math.round((answeredCount / exercises.length) * 100) : 0;
+  const dueReviewCount = stats?.dueForReview ?? 0;
 
   const goToExercise = (exerciseId: string, nextDirection?: 1 | -1) => {
     if (nextDirection) setDirection(nextDirection);
@@ -183,12 +186,12 @@ export default function PsicoLabExercisesPage() {
     if (!selectedExercise) return;
 
     if (selectedExercise.type === "MULTIPLE_CHOICE" && !selectedOptionId) {
-      setFeedback({ message: "Selecione uma alternativa para enviar.", ok: false });
+      setFeedback({ message: ERROR_MSG_NO_OPTION_SELECTED, ok: false });
       return;
     }
 
     if (selectedExercise.type !== "MULTIPLE_CHOICE" && !textAnswer.trim()) {
-      setFeedback({ message: "Digite uma resposta para enviar.", ok: false });
+      setFeedback({ message: ERROR_MSG_NO_TEXT_ANSWER, ok: false });
       return;
     }
 
@@ -270,7 +273,7 @@ export default function PsicoLabExercisesPage() {
             </Link>
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-gray-900 dark:text-gray-100">{getSourceLabel(selectedExercise)}</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Sessão {answeredCount}/{exercises.length} concluída</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{answeredCount}/{exercises.length} questões respondidas</p>
             </div>
           </div>
 
@@ -286,9 +289,9 @@ export default function PsicoLabExercisesPage() {
           >
             <RotateCcw className="mr-1.5 h-4 w-4" />
             Revisão
-            {(stats?.dueForReview ?? 0) > 0 && (
+            {dueReviewCount > 0 && (
               <span className="ml-1 rounded-full bg-black/15 px-1.5 py-0.5 text-[10px] font-semibold text-white">
-                {stats!.dueForReview > 99 ? "99+" : stats!.dueForReview}
+                {dueReviewCount > 99 ? "99+" : dueReviewCount}
               </span>
             )}
           </Button>

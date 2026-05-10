@@ -111,6 +111,7 @@ const BLANK_OPTION: ExerciseOption = { text: "", isCorrect: false };
 // hardware. PDFs with more pages show a warning and stop at this limit.
 const MAX_OCR_PAGES = 15;
 const OCR_LANG = "por+eng";
+const MAX_PAGE_RANGE_INPUT = 5000;
 
 type PdfExtractionMethod = "pdf_direct" | "pdf_ocr_fallback";
 
@@ -166,8 +167,8 @@ async function extractPdfTextFromArrayBuffer(
   for (let pageNumber = start; pageNumber <= end; pageNumber++) {
     const page = await pdf.getPage(pageNumber);
     const textContent = await page.getTextContent();
-    // Use hasEOL to reconstruct line breaks properly; join with "" since each
-    // item's str already contains its natural whitespace.
+    // Use hasEOL to reconstruct line breaks properly: append "\n" when hasEOL
+    // is true, then join with "" since each item's str already has whitespace.
     const pageText = textContent.items
       .map((item) => {
         if (!("str" in item)) return "";
@@ -287,6 +288,21 @@ export default function ExerciciosPage() {
   const [generating, setGenerating] = useState(false);
   const [genStatus, setGenStatus] = useState<string | null>(null);
 
+  const parsePageInputValue = (rawValue: string): number | "" => {
+    if (rawValue === "") return "";
+    const parsed = Number.parseInt(rawValue, 10);
+    if (!Number.isInteger(parsed) || parsed < 1) return "";
+    return parsed;
+  };
+
+  const validatePageInput = (value: number | "", fieldLabel: string): string | null => {
+    if (value === "") return null;
+    if (value < 1 || value > MAX_PAGE_RANGE_INPUT) {
+      return `${fieldLabel} deve ser um número inteiro entre 1 e ${MAX_PAGE_RANGE_INPUT}`;
+    }
+    return null;
+  };
+
   const handleGenSourceTypeChange = useCallback((type: "library" | "material") => {
     setGenSourceType(type);
     setGenPageFrom("");
@@ -372,6 +388,16 @@ export default function ExerciciosPage() {
     const sourceId = genSourceType === "library" ? genLibraryItemId : genMaterialId;
     if (!sourceId) {
       setGenError("Selecione um arquivo como base");
+      return;
+    }
+    const pageFromError = validatePageInput(genPageFrom, "A página inicial");
+    if (pageFromError) {
+      setGenError(pageFromError);
+      return;
+    }
+    const pageToError = validatePageInput(genPageTo, "A página final");
+    if (pageToError) {
+      setGenError(pageToError);
       return;
     }
     if (genPageFrom !== "" && genPageTo !== "" && genPageFrom > genPageTo) {
@@ -747,18 +773,20 @@ export default function ExerciciosPage() {
                     <input
                       type="number"
                       min={1}
+                      max={MAX_PAGE_RANGE_INPUT}
                       placeholder="De"
                       value={genPageFrom}
-                      onChange={(e) => setGenPageFrom(e.target.value === "" ? "" : Number(e.target.value))}
+                      onChange={(e) => setGenPageFrom(parsePageInputValue(e.target.value))}
                       className="h-9 w-20 rounded-md border border-gray-300 bg-white px-3 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
                     />
                     <span className="text-xs text-gray-500">até</span>
                     <input
                       type="number"
                       min={1}
+                      max={MAX_PAGE_RANGE_INPUT}
                       placeholder="Até"
                       value={genPageTo}
-                      onChange={(e) => setGenPageTo(e.target.value === "" ? "" : Number(e.target.value))}
+                      onChange={(e) => setGenPageTo(parsePageInputValue(e.target.value))}
                       className="h-9 w-20 rounded-md border border-gray-300 bg-white px-3 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
                     />
                   </div>
