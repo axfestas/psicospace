@@ -506,6 +506,15 @@ CREATE INDEX IF NOT EXISTS "Note_userId_idx" ON "Note"("userId");
 CREATE INDEX IF NOT EXISTS "Document_userId_idx" ON "Document"("userId");
     `,
   },
+  {
+    name: "20260510160000_drop_psicogame_tables",
+    sql: `
+DROP TABLE IF EXISTS "PsicoTransaction";
+DROP TABLE IF EXISTS "PsicoWallet";
+DROP TABLE IF EXISTS "ShopItem";
+DROP TABLE IF EXISTS "CharacterProgress";
+    `,
+  },
 ];
 
 // ---------------------------------------------------------------------------
