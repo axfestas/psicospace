@@ -363,6 +363,7 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
         textLayerDiv.style.setProperty("--scale-round-x", "1px");
         textLayerDiv.style.setProperty("--scale-round-y", "1px");
 
+        const pdfjs = await import("pdfjs-dist");
         const textLayer = new pdfjs.TextLayer({
           textContentSource: page.streamTextContent({
             includeMarkedContent: true,
