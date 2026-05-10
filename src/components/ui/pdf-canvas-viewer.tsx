@@ -104,7 +104,7 @@ interface SelectedToken {
   height: number;
 }
 
-function selectionLineTolerance(aHeight: number, bHeight: number): number {
+function calculateSelectionLineTolerance(aHeight: number, bHeight: number): number {
   return Math.min(aHeight, bHeight) * SELECTION_LINE_TOLERANCE_RATIO;
 }
 
@@ -140,7 +140,7 @@ function buildSelectionTextFromGeometry(wrapper: HTMLDivElement, range: Range): 
   if (tokens.length === 0) return "";
 
   tokens.sort((a, b) => {
-    const lineTolerance = selectionLineTolerance(a.height, b.height);
+    const lineTolerance = calculateSelectionLineTolerance(a.height, b.height);
     if (Math.abs(a.top - b.top) <= lineTolerance) return a.left - b.left;
     return a.top - b.top;
   });
@@ -155,7 +155,7 @@ function buildSelectionTextFromGeometry(wrapper: HTMLDivElement, range: Range): 
       continue;
     }
 
-    const lineTolerance = selectionLineTolerance(previous.height, token.height);
+    const lineTolerance = calculateSelectionLineTolerance(previous.height, token.height);
     const isSameLine = Math.abs(token.top - previous.top) <= lineTolerance;
 
     if (!isSameLine) {
