@@ -364,7 +364,7 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
         textLayerDiv.style.setProperty("--scale-round-y", "1px");
 
         const pdfjs = await import("pdfjs-dist");
-        const textLayer = new pdfjs.TextLayer({
+        const textLayerInstance = new pdfjs.TextLayer({
           textContentSource: page.streamTextContent({
             // Keep pdf.js tokens untouched; copy/highlight normalization happens in our own helpers.
             includeMarkedContent: true,
@@ -373,11 +373,11 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
           container: textLayerDiv,
           viewport,
         });
-        textLayerTaskRef.current = textLayer;
-        await textLayer.render();
+        textLayerTaskRef.current = textLayerInstance;
+        await textLayerInstance.render();
         if (cancelled) return;
         // Only clear the ref if this render still owns it.
-        if (textLayerTaskRef.current === textLayer) {
+        if (textLayerTaskRef.current === textLayerInstance) {
           textLayerTaskRef.current = null;
         }
       } catch (err: unknown) {
