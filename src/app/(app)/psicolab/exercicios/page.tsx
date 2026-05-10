@@ -73,6 +73,7 @@ import { DIFFICULTY_LABELS } from "@/lib/pdf-extraction";
 type DifficultyKey = "FACIL" | "MEDIO" | "DIFICIL";
 
 const DIFFICULTY_KEYS: DifficultyKey[] = ["FACIL", "MEDIO", "DIFICIL"];
+const PROGRESS_PER_REPETITION = 25;
 
 const DIFFICULTY_STYLES: Record<DifficultyKey, string> = {
   FACIL: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-800",
@@ -220,9 +221,17 @@ export default function PsicoLabExercisesPage() {
     return Math.min(100, Math.round((completionCount / exercises.length) * 100));
   }, [completionCount, exercises.length]);
 
-  const strongestStreak = useMemo(
+  const maxRepetitions = useMemo(
     () => Math.max(0, ...exercises.map((exercise) => exercise.reviewState?.repetitions ?? 0)),
     [exercises]
+  );
+
+  const questionNumberById = useMemo(
+    () =>
+      Object.fromEntries(
+        filteredExercises.map((exercise, index) => [exercise.id, index + 1])
+      ) as Record<string, number>,
+    [filteredExercises]
   );
 
   const goToExercise = (exerciseId: string) => {
@@ -251,7 +260,7 @@ export default function PsicoLabExercisesPage() {
 
   const getExerciseProgress = (exercise: Exercise) => {
     const reps = exercise.reviewState?.repetitions ?? 0;
-    return Math.min(100, reps * 25);
+    return Math.min(100, reps * PROGRESS_PER_REPETITION);
   };
 
   const getExerciseStatus = (exercise: Exercise) => {
@@ -438,7 +447,7 @@ export default function PsicoLabExercisesPage() {
                 </div>
 
                 <div className="space-y-2">
-                  {bucket.map((exercise, index) => {
+                          {bucket.map((exercise) => {
                     const status = getExerciseStatus(exercise);
                     const StatusIcon = status.icon;
                     const isSelected = selectedExerciseId === exercise.id;
@@ -473,7 +482,7 @@ export default function PsicoLabExercisesPage() {
                               {exercise.title}
                             </p>
                             <Badge className={cn("border text-[10px]", DIFFICULTY_STYLES[difficulty])}>
-                              Q{index + 1}
+                              Q{questionNumberById[exercise.id] ?? "—"}
                             </Badge>
                           </div>
 
@@ -593,7 +602,7 @@ export default function PsicoLabExercisesPage() {
 
             <div className="rounded-xl border border-violet-200 bg-violet-50/70 p-3 dark:border-violet-900 dark:bg-violet-900/20">
               <p className="text-xs text-violet-700/80 dark:text-violet-300/80">Streak / ritmo</p>
-              <p className="mt-1 text-lg font-semibold text-violet-700 dark:text-violet-300">{strongestStreak} seg.</p>
+              <p className="mt-1 text-lg font-semibold text-violet-700 dark:text-violet-300">{maxRepetitions} rep.</p>
               <p className="text-xs text-violet-700/70 dark:text-violet-300/70">{stats?.dueForReview ?? 0} em revisão no momento</p>
             </div>
           </div>
