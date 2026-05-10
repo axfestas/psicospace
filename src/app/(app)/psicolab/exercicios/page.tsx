@@ -81,6 +81,10 @@ const DIFFICULTY_STYLES: Record<DifficultyKey, string> = {
   DIFICIL: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-900/20 dark:text-rose-300 dark:border-rose-800",
 };
 
+function isDifficultyKey(value: string | null | undefined): value is DifficultyKey {
+  return !!value && DIFFICULTY_KEYS.includes(value as DifficultyKey);
+}
+
 export default function PsicoLabExercisesPage() {
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [selectedExerciseId, setSelectedExerciseId] = useState<string | null>(null);
@@ -179,9 +183,10 @@ export default function PsicoLabExercisesPage() {
     };
 
     filteredExercises.forEach((exercise) => {
-      if (exercise.difficulty === "FACIL") grouped.FACIL.push(exercise);
-      else if (exercise.difficulty === "DIFICIL") grouped.DIFICIL.push(exercise);
-      else grouped.MEDIO.push(exercise);
+      const normalizedDifficulty = isDifficultyKey(exercise.difficulty)
+        ? exercise.difficulty
+        : "MEDIO";
+      grouped[normalizedDifficulty].push(exercise);
     });
 
     return grouped;
@@ -447,7 +452,7 @@ export default function PsicoLabExercisesPage() {
                 </div>
 
                 <div className="space-y-2">
-                          {bucket.map((exercise) => {
+                  {bucket.map((exercise) => {
                     const status = getExerciseStatus(exercise);
                     const StatusIcon = status.icon;
                     const isSelected = selectedExerciseId === exercise.id;
@@ -655,9 +660,9 @@ export default function PsicoLabExercisesPage() {
                 {selectedExercise && (
                   <div className="flex flex-wrap items-center gap-2 text-xs">
                     {selectedExercise.difficulty &&
-                      (DIFFICULTY_KEYS as string[]).includes(selectedExercise.difficulty) && (
-                        <Badge className={cn("border", DIFFICULTY_STYLES[selectedExercise.difficulty as DifficultyKey])}>
-                          {DIFFICULTY_LABELS[selectedExercise.difficulty as DifficultyKey]}
+                      isDifficultyKey(selectedExercise.difficulty) && (
+                        <Badge className={cn("border", DIFFICULTY_STYLES[selectedExercise.difficulty])}>
+                          {DIFFICULTY_LABELS[selectedExercise.difficulty]}
                         </Badge>
                       )}
                     {(selectedExercise.material || selectedExercise.libraryItem) && (
