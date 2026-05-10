@@ -789,12 +789,16 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
           <div className="flex items-center gap-1 rounded-lg bg-white/5 px-2 py-1">
             <input
               value={pageInput}
-              onChange={(e) => setPageInput(e.target.value.replace(/\D+/g, ""))}
-              onBlur={() => goTo(parseInt(pageInput || "1", 10))}
+              onChange={(e) => {
+                if (/^\d*$/.test(e.target.value)) {
+                  setPageInput(e.target.value);
+                }
+              }}
+              onBlur={() => goTo(parseInt(pageInput, 10) || 1)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
-                  goTo(parseInt(pageInput || "1", 10));
-                  (e.currentTarget as HTMLInputElement).blur();
+                  goTo(parseInt(pageInput, 10) || 1);
+                  e.currentTarget.blur();
                 }
               }}
               inputMode="numeric"
