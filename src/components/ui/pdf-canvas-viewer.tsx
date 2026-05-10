@@ -78,6 +78,10 @@ const DEFAULT_ASPECT_RATIO = 1.414;
 const SELECTION_LINE_TOLERANCE_RATIO = 0.6;
 /** Horizontal gap tuned to reinsert missing spaces without over-spacing punctuation or hyphenation. */
 const SELECTION_SPACE_GAP_RATIO = 0.18;
+const TOOLBAR_GROUP_CLASS =
+  "flex items-center gap-1 rounded-xl border border-white/10 bg-[#0f172a]/70 px-1.5 py-1 shadow-sm";
+const ICON_BUTTON_CLASS =
+  "rounded-lg p-1.5 text-slate-300 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-40";
 
 /** Returns true if the currently-focused element is a text-editing field */
 function isEditableActive(): boolean {
@@ -176,25 +180,6 @@ function buildSelectionTextFromGeometry(wrapper: HTMLDivElement, range: Range): 
   return normalizeSelectionText(result);
 }
 
-// ── Helper: combine two 2-D affine matrices ────────────────────────────────────
-// Each matrix is [a, b, c, d, e, f] representing:
-//   | a  c  e |
-//   | b  d  f |
-//   | 0  0  1 |
-function multiplyMatrix(
-  [a1, b1, c1, d1, e1, f1]: number[],
-  [a2, b2, c2, d2, e2, f2]: number[],
-): number[] {
-  return [
-    a1 * a2 + c1 * b2,
-    b1 * a2 + d1 * b2,
-    a1 * c2 + c1 * d2,
-    b1 * c2 + d1 * d2,
-    a1 * e2 + c1 * f2 + e1,
-    b1 * e2 + d1 * f2 + f1,
-  ];
-}
-
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewerProps) {
@@ -232,6 +217,7 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
   const [rotation, setRotation] = useState(0);
   /** Current rendered canvas CSS-pixel width (drives wrapper width for scrolling) */
   const [wrapperWidth, setWrapperWidth] = useState(0);
+  const [pageInput, setPageInput] = useState("1");
 
   // ── Undo / Redo ────────────────────────────────────────────────────────────
   const [historyStack, setHistoryStack] = useState<PdfHighlight[][]>(() => {
@@ -269,6 +255,7 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
   const wrapperRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const renderTaskRef = useRef<RenderTask | null>(null);
+  const textLayerTaskRef = useRef<{ cancel: () => void } | null>(null);
   const dbSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const drawStartRef = useRef<{ x: number; y: number } | null>(null);
 
@@ -329,6 +316,14 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
         }
         renderTaskRef.current = null;
       }
+      if (textLayerTaskRef.current) {
+        try {
+          textLayerTaskRef.current.cancel();
+        } catch {
+          // ignore
+        }
+        textLayerTaskRef.current = null;
+      }
 
       try {
         const pdfDoc = pdfDocRef.current;
@@ -369,34 +364,26 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
         // ── Text layer ─────────────────────────────────────────────────────
         const textLayerDiv = textLayerRef.current!;
         textLayerDiv.innerHTML = "";
+        textLayerDiv.style.setProperty("--total-scale-factor", `${viewport.scale}`);
+        textLayerDiv.style.setProperty("--scale-round-x", "1px");
+        textLayerDiv.style.setProperty("--scale-round-y", "1px");
 
-        const textContent = await page.getTextContent();
+        const pdfjs = await import("pdfjs-dist");
+        const textLayerInstance = new pdfjs.TextLayer({
+          textContentSource: page.streamTextContent({
+            // Keep pdf.js tokens untouched; copy/highlight normalization happens in our own helpers.
+            includeMarkedContent: true,
+            disableNormalization: true,
+          }),
+          container: textLayerDiv,
+          viewport,
+        });
+        textLayerTaskRef.current = textLayerInstance;
+        await textLayerInstance.render();
         if (cancelled) return;
-
-        const vt: number[] = viewport.transform; // [a,b,c,d,e,f]
-
-        for (const item of textContent.items as Array<{
-          str?: string;
-          transform: number[];
-          width: number;
-          height: number;
-        }>) {
-          if (!item.str) continue;
-          const m = multiplyMatrix(vt, item.transform);
-          const span = document.createElement("span");
-          span.textContent = item.str;
-          span.style.cssText = `
-            position:absolute;
-            left:0;top:0;
-            transform:matrix(${m[0]},${m[1]},${m[2]},${m[3]},${m[4]},${m[5]});
-            transform-origin:0% 0%;
-            color:transparent;
-            white-space:pre;
-            cursor:text;
-            user-select:text;
-            -webkit-user-select:text;
-          `;
-          textLayerDiv.appendChild(span);
+        // Only clear the ref if this render still owns it.
+        if (textLayerTaskRef.current === textLayerInstance) {
+          textLayerTaskRef.current = null;
         }
       } catch (err: unknown) {
         // RenderingCancelledException is expected — not a real error
@@ -414,6 +401,14 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
     render();
     return () => {
       cancelled = true;
+      if (textLayerTaskRef.current) {
+        try {
+          textLayerTaskRef.current.cancel();
+        } catch {
+          // ignore
+        }
+        textLayerTaskRef.current = null;
+      }
     };
   }, [pdfReady, currentPage, zoom, rotation]);
 
@@ -739,13 +734,29 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
 
   const goTo = useCallback(
     (page: number) => {
+      if (!Number.isFinite(page)) {
+        setPageInput(String(currentPage));
+        return;
+      }
       setCurrentPage(Math.max(1, Math.min(numPages, page)));
       setSelectedId(null);
       setEditingNoteId(null);
       setNoteInputValue("");
     },
-    [numPages],
+    [currentPage, numPages],
   );
+
+  useEffect(() => {
+    setPageInput(String(currentPage));
+  }, [currentPage]);
+
+  const commitPageInput = useCallback(() => {
+    if (!pageInput) {
+      setPageInput(String(currentPage));
+      return;
+    }
+    goTo(parseInt(pageInput, 10) || 1);
+  }, [currentPage, goTo, pageInput]);
 
   // ── Derived ────────────────────────────────────────────────────────────────
 
@@ -770,200 +781,221 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
   }
 
   return (
-    <div className="flex flex-col h-full bg-gray-800">
+    <div className="flex h-full flex-col bg-[#2f3847]">
       {/* ── Toolbar ──────────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-1 px-3 py-1.5 bg-gray-900 border-b border-gray-700 flex-shrink-0 flex-wrap gap-y-1">
+      <div className="flex flex-wrap items-center gap-2 border-b border-white/10 bg-[#111827] px-3 py-2.5 flex-shrink-0">
         {/* Page navigation */}
-        <button
-          onClick={() => goTo(currentPage - 1)}
-          disabled={currentPage <= 1}
-          className="p-1 text-gray-300 hover:text-white disabled:opacity-40 rounded"
-          title="Página anterior"
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </button>
-        <span className="text-xs text-gray-300 tabular-nums min-w-[70px] text-center">
-          {numPages > 0 ? `${currentPage} / ${numPages}` : "…"}
-        </span>
-        <button
-          onClick={() => goTo(currentPage + 1)}
-          disabled={currentPage >= numPages}
-          className="p-1 text-gray-300 hover:text-white disabled:opacity-40 rounded"
-          title="Próxima página"
-        >
-          <ChevronRight className="h-4 w-4" />
-        </button>
-
-        <div className="w-px h-5 bg-gray-700 mx-1" />
+        <div className={TOOLBAR_GROUP_CLASS}>
+          <button
+            onClick={() => goTo(currentPage - 1)}
+            disabled={currentPage <= 1}
+            className={ICON_BUTTON_CLASS}
+            title="Página anterior"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <div className="flex items-center gap-1 rounded-lg bg-white/5 px-2 py-1">
+            <input
+              value={pageInput}
+              onChange={(e) => {
+                if (/^\d*$/.test(e.target.value)) {
+                  setPageInput(e.target.value);
+                }
+              }}
+              onBlur={commitPageInput}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  commitPageInput();
+                  e.currentTarget.blur();
+                }
+              }}
+              inputMode="numeric"
+              className="w-10 bg-transparent text-center text-xs font-medium tabular-nums text-white outline-none"
+              aria-label="Página atual"
+            />
+            <span className="text-xs text-slate-400">/ {numPages || "—"}</span>
+          </div>
+          <button
+            onClick={() => goTo(currentPage + 1)}
+            disabled={currentPage >= numPages}
+            className={ICON_BUTTON_CLASS}
+            title="Próxima página"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
 
         {/* ── Zoom controls ─────────────────────────────────────────────── */}
-        <button
-          onClick={() => setZoom((z) => Math.max(parseFloat((z - ZOOM_STEP).toFixed(2)), ZOOM_MIN))}
-          disabled={zoom <= ZOOM_MIN}
-          className="p-1 text-gray-300 hover:text-white disabled:opacity-40 rounded"
-          title="Diminuir zoom (Ctrl+Scroll)"
-        >
-          <ZoomOut className="h-4 w-4" />
-        </button>
-        <span className="text-xs text-gray-300 tabular-nums min-w-[38px] text-center">
-          {Math.round(zoom * 100)}%
-        </span>
-        <button
-          onClick={() => setZoom((z) => Math.min(parseFloat((z + ZOOM_STEP).toFixed(2)), ZOOM_MAX))}
-          disabled={zoom >= ZOOM_MAX}
-          className="p-1 text-gray-300 hover:text-white disabled:opacity-40 rounded"
-          title="Aumentar zoom (Ctrl+Scroll)"
-        >
-          <ZoomIn className="h-4 w-4" />
-        </button>
-        <button
-          onClick={() => setZoom(1.0)}
-          disabled={zoom === 1.0}
-          className="p-1 text-gray-300 hover:text-white disabled:opacity-40 rounded"
-          title="Ajustar à largura (zoom 100%)"
-        >
-          <Maximize2 className="h-4 w-4" />
-        </button>
-
-        <div className="w-px h-5 bg-gray-700 mx-1" />
+        <div className={TOOLBAR_GROUP_CLASS}>
+          <button
+            onClick={() => setZoom((z) => Math.max(parseFloat((z - ZOOM_STEP).toFixed(2)), ZOOM_MIN))}
+            disabled={zoom <= ZOOM_MIN}
+            className={ICON_BUTTON_CLASS}
+            title="Diminuir zoom (Ctrl+Scroll)"
+          >
+            <ZoomOut className="h-4 w-4" />
+          </button>
+          <span className="min-w-[52px] text-center text-xs font-medium tabular-nums text-white">
+            {Math.round(zoom * 100)}%
+          </span>
+          <button
+            onClick={() => setZoom((z) => Math.min(parseFloat((z + ZOOM_STEP).toFixed(2)), ZOOM_MAX))}
+            disabled={zoom >= ZOOM_MAX}
+            className={ICON_BUTTON_CLASS}
+            title="Aumentar zoom (Ctrl+Scroll)"
+          >
+            <ZoomIn className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => setZoom(1.0)}
+            disabled={zoom === 1.0}
+            className={ICON_BUTTON_CLASS}
+            title="Ajustar à largura (zoom 100%)"
+          >
+            <Maximize2 className="h-4 w-4" />
+          </button>
+        </div>
 
         {/* ── Rotation controls ─────────────────────────────────────────── */}
-        <button
-          onClick={() => setRotation((r) => (r - 90 + 360) % 360)}
-          className="p-1 text-gray-300 hover:text-white rounded"
-          title="Girar 90° para a esquerda"
-        >
-          <RotateCcw className="h-4 w-4" />
-        </button>
-        <button
-          onClick={() => setRotation((r) => (r + 90) % 360)}
-          className="p-1 text-gray-300 hover:text-white rounded"
-          title="Girar 90° para a direita"
-        >
-          <RotateCw className="h-4 w-4" />
-        </button>
-
-        <div className="w-px h-5 bg-gray-700 mx-1" />
+        <div className={TOOLBAR_GROUP_CLASS}>
+          <button
+            onClick={() => setRotation((r) => (r - 90 + 360) % 360)}
+            className={ICON_BUTTON_CLASS}
+            title="Girar 90° para a esquerda"
+          >
+            <RotateCcw className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => setRotation((r) => (r + 90) % 360)}
+            className={ICON_BUTTON_CLASS}
+            title="Girar 90° para a direita"
+          >
+            <RotateCw className="h-4 w-4" />
+          </button>
+        </div>
 
         {/* ── Undo / Redo ───────────────────────────────────────────────── */}
-        <button
-          onClick={() => setHistoryIdx((i) => Math.max(0, i - 1))}
-          disabled={!canUndo}
-          className="p-1 text-gray-300 hover:text-white disabled:opacity-40 rounded"
-          title="Desfazer (Ctrl+Z)"
-        >
-          <Undo2 className="h-4 w-4" />
-        </button>
-        <button
-          onClick={() => setHistoryIdx((i) => Math.min(historyStack.length - 1, i + 1))}
-          disabled={!canRedo}
-          className="p-1 text-gray-300 hover:text-white disabled:opacity-40 rounded"
-          title="Refazer (Ctrl+Y)"
-        >
-          <Redo2 className="h-4 w-4" />
-        </button>
-
-        <div className="w-px h-5 bg-gray-700 mx-1" />
+        <div className={TOOLBAR_GROUP_CLASS}>
+          <button
+            onClick={() => setHistoryIdx((i) => Math.max(0, i - 1))}
+            disabled={!canUndo}
+            className={ICON_BUTTON_CLASS}
+            title="Desfazer (Ctrl+Z)"
+          >
+            <Undo2 className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => setHistoryIdx((i) => Math.min(historyStack.length - 1, i + 1))}
+            disabled={!canRedo}
+            className={ICON_BUTTON_CLASS}
+            title="Refazer (Ctrl+Y)"
+          >
+            <Redo2 className="h-4 w-4" />
+          </button>
+        </div>
 
         {/* ── Highlight mode toggle ─────────────────────────────────────── */}
-        <button
-          onClick={() => {
-            setHighlightMode((v) => !v);
-            if (markAreaMode) setMarkAreaMode(false);
-            setSelectedId(null);
-          }}
-          className={`flex items-center gap-1 text-xs px-2 py-1 rounded transition-colors ${
-            highlightMode
-              ? "bg-yellow-400 text-gray-900 font-medium"
-              : "text-gray-300 hover:text-white border border-gray-600"
-          }`}
-          title="Modo marca-texto: ative e selecione o texto para marcar"
-        >
-          <Highlighter className="h-3.5 w-3.5" />
-          Marca-texto
-        </button>
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-white/10 bg-[#0f172a]/70 px-2 py-1 shadow-sm">
+          <button
+            onClick={() => {
+              setHighlightMode((v) => !v);
+              if (markAreaMode) setMarkAreaMode(false);
+              setSelectedId(null);
+            }}
+            className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs transition-colors ${
+              highlightMode
+                ? "bg-yellow-300 text-slate-950 font-semibold"
+                : "text-slate-300 hover:bg-white/10 hover:text-white"
+            }`}
+            title="Modo marca-texto: ative e selecione o texto para marcar"
+          >
+            <Highlighter className="h-3.5 w-3.5" />
+            Marca-texto
+          </button>
 
-        {/* ── Area selection mode ───────────────────────────────────────── */}
-        <button
-          onClick={() => {
-            setMarkAreaMode((v) => !v);
-            if (highlightMode) setHighlightMode(false);
-            setSelectedId(null);
-          }}
-          className={`flex items-center gap-1 text-xs px-2 py-1 rounded transition-colors ${
-            markAreaMode
-              ? "bg-blue-400 text-gray-900 font-medium"
-              : "text-gray-300 hover:text-white border border-gray-600"
-          }`}
-          title="Marcar área (retângulo) — útil para PDFs digitalizados"
-        >
-          <Square className="h-3.5 w-3.5" />
-          Área
-        </button>
+          {/* ── Area selection mode ───────────────────────────────────────── */}
+          <button
+            onClick={() => {
+              setMarkAreaMode((v) => !v);
+              if (highlightMode) setHighlightMode(false);
+              setSelectedId(null);
+            }}
+            className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs transition-colors ${
+              markAreaMode
+                ? "bg-sky-300 text-slate-950 font-semibold"
+                : "text-slate-300 hover:bg-white/10 hover:text-white"
+            }`}
+            title="Marcar área (retângulo) — útil para PDFs digitalizados"
+          >
+            <Square className="h-3.5 w-3.5" />
+            Área
+          </button>
 
-        {/* Color picker — visible in either marking mode */}
-        {(highlightMode || markAreaMode) && (
-          <div className="flex items-center gap-1">
-            {HIGHLIGHT_COLORS.map((color) => (
-              <button
-                key={color}
-                onClick={() => setSelectedColor(color)}
-                className={`w-5 h-5 rounded-full border-2 transition-transform hover:scale-110 ${
-                  selectedColor === color ? "border-white scale-110" : "border-transparent"
-                }`}
-                style={{ backgroundColor: color }}
-                title={`Cor ${color}`}
-              />
-            ))}
-          </div>
-        )}
+          {/* Color picker — visible in either marking mode */}
+          {(highlightMode || markAreaMode) && (
+            <div className="flex items-center gap-1 rounded-lg bg-white/5 px-1 py-1">
+              {HIGHLIGHT_COLORS.map((color) => (
+                <button
+                  key={color}
+                  onClick={() => setSelectedColor(color)}
+                  className={`h-5 w-5 rounded-full border-2 transition-transform hover:scale-110 ${
+                    selectedColor === color ? "scale-110 border-white" : "border-transparent"
+                  }`}
+                  style={{ backgroundColor: color }}
+                  title={`Cor ${color}`}
+                />
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* Delete selected highlight */}
         {selectedId && (
           <>
-            <div className="w-px h-5 bg-gray-700 mx-1" />
-            <button
-              onClick={() => {
-                const hl = highlights.find((h) => h.id === selectedId);
-                if (editingNoteId === selectedId) {
+            <div className={TOOLBAR_GROUP_CLASS}>
+              <button
+                onClick={() => {
+                  const hl = highlights.find((h) => h.id === selectedId);
+                  if (editingNoteId === selectedId) {
+                    setEditingNoteId(null);
+                    setNoteInputValue("");
+                  } else {
+                    setEditingNoteId(selectedId);
+                    setNoteInputValue(hl?.note ?? "");
+                  }
+                }}
+                className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs transition-colors ${
+                  editingNoteId === selectedId
+                    ? "bg-indigo-500 text-white"
+                    : highlights.find((h) => h.id === selectedId)?.note
+                      ? "text-indigo-300 hover:bg-indigo-500/15"
+                      : "text-slate-300 hover:bg-white/10 hover:text-white"
+                }`}
+                title="Adicionar / editar comentário"
+              >
+                <MessageSquare className="h-3.5 w-3.5" />
+                Comentar
+              </button>
+              <button
+                onClick={() => {
+                  pushToHistory(highlights.filter((h) => h.id !== selectedId));
+                  setSelectedId(null);
                   setEditingNoteId(null);
                   setNoteInputValue("");
-                } else {
-                  setEditingNoteId(selectedId);
-                  setNoteInputValue(hl?.note ?? "");
-                }
-              }}
-              className={`flex items-center gap-1 text-xs px-2 py-1 rounded border transition-colors ${
-                editingNoteId === selectedId
-                  ? "bg-indigo-500 text-white border-indigo-400"
-                  : highlights.find((h) => h.id === selectedId)?.note
-                    ? "text-indigo-300 border-indigo-700 hover:text-indigo-200"
-                    : "text-gray-300 hover:text-white border-gray-600"
-              }`}
-              title="Adicionar / editar comentário"
-            >
-              <MessageSquare className="h-3.5 w-3.5" />
-              Comentar
-            </button>
-            <button
-              onClick={() => {
-                pushToHistory(highlights.filter((h) => h.id !== selectedId));
-                setSelectedId(null);
-                setEditingNoteId(null);
-                setNoteInputValue("");
-              }}
-              className="flex items-center gap-1 text-xs text-red-400 hover:text-red-300 border border-red-800 rounded px-2 py-1"
-              title="Apagar marca-texto selecionado (Delete)"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              Apagar
-            </button>
+                }}
+                className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs text-red-300 transition-colors hover:bg-red-500/15 hover:text-red-200"
+                title="Apagar marca-texto selecionado (Delete)"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                Apagar
+              </button>
+            </div>
           </>
         )}
 
         {/* Total highlight count */}
         {highlights.length > 0 && (
-          <span className="ml-auto text-xs text-gray-400">
+          <span className="ml-auto rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-slate-300">
             {highlights.length} marca{highlights.length !== 1 ? "s" : ""}
           </span>
         )}
@@ -1016,7 +1048,7 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
       )}
 
       {/* ── PDF canvas area ──────────────────────────────────────────────── */}
-      <div ref={scrollContainerRef} className="flex-1 overflow-auto bg-gray-700 p-4">
+      <div ref={scrollContainerRef} className="flex-1 overflow-auto bg-[#525659] p-4 sm:p-6">
         {!pdfReady && (
           <div className="flex items-center justify-center h-32">
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" />
@@ -1122,7 +1154,7 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
               {/* Text layer — spans are transparent so only selection colour shows */}
               <div
                 ref={textLayerRef}
-                className="pdf-text-layer"
+                className="pdf-text-layer textLayer"
                 style={{ pointerEvents: textLayerActive ? "auto" : "none" }}
               />
 

@@ -21,6 +21,13 @@ interface DocumentViewerModalProps {
   initialPage?: number;
 }
 
+const VIEWER_KIND_LABELS: Record<string, string> = {
+  PDF: "Leitor PDF",
+  IMAGE: "Imagem",
+  SLIDE: "Apresentação",
+  LINK: "Link externo",
+};
+
 export function DocumentViewerModal({ url, title, type, onClose, materialId, initialPage }: DocumentViewerModalProps) {
   const [iframeError, setIframeError] = useState(false);
   const normalizedUrl = normalizeStoredMaterialUrl(url, type);
@@ -68,65 +75,76 @@ export function DocumentViewerModal({ url, title, type, onClose, materialId, ini
 
   return (
     <div
-      className="fixed inset-0 z-50 flex flex-col bg-black/80"
+      className="fixed inset-0 z-50 bg-black/75 p-0 sm:p-4"
       onClick={(e) => { if (e.target === e.currentTarget) handleClose(); }}
     >
-      {/* Header bar */}
-      <div className="flex items-center justify-between bg-gray-900 px-4 py-2 flex-shrink-0">
-        <span className="text-sm font-medium text-white truncate max-w-[70%]">{title}</span>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          {/* Download button — always present so user can get the file even if preview fails */}
-          {canDownloadFile && (
-            <a
-              href={absoluteUrl}
-              download
-              className="flex items-center gap-1.5 text-xs text-gray-300 hover:text-white border border-gray-600 hover:border-gray-400 rounded px-2 py-1 transition-colors"
-              title="Baixar arquivo"
+      <div className="flex h-full flex-col overflow-hidden bg-[#2f3847] shadow-2xl ring-1 ring-white/10 sm:rounded-2xl">
+        {/* Header bar */}
+        <div className="flex items-center justify-between gap-3 border-b border-white/10 bg-[#111827] px-4 py-3 flex-shrink-0">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="hidden h-2.5 w-2.5 rounded-full bg-emerald-400 sm:block" />
+            <div className="min-w-0">
+              <span className="block truncate text-sm font-semibold uppercase tracking-wide text-white">
+                {title}
+              </span>
+              <span className="block text-[11px] uppercase tracking-[0.2em] text-slate-400">
+                {VIEWER_KIND_LABELS[viewerKind] ?? viewerKind}
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {/* Download button — always present so user can get the file even if preview fails */}
+            {canDownloadFile && (
+              <a
+                href={absoluteUrl}
+                download
+                className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs text-slate-200 transition-colors hover:border-white/20 hover:bg-white/10 hover:text-white"
+                title="Baixar arquivo"
+              >
+                <Download className="h-3.5 w-3.5" />
+                Baixar
+              </a>
+            )}
+            {/* Open-in-new-tab — lets the browser render the PDF natively outside the iframe */}
+            {(viewerKind === "PDF" || viewerKind === "IMAGE") && (
+              <a
+                href={absoluteUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs text-slate-200 transition-colors hover:border-white/20 hover:bg-white/10 hover:text-white"
+                title="Abrir em nova aba"
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                Nova aba
+              </a>
+            )}
+            {/* Pomodoro timer button */}
+            <PomodoroHeaderButton
+              phase={pomodoro.phase}
+              formattedTime={pomodoro.formattedTime}
+              completedPomodoros={pomodoro.completedPomodoros}
+              isActive={pomodoro.isActive}
+              isBreak={pomodoro.isBreak}
+              onStart={pomodoro.start}
+              onStop={pomodoro.stop}
+              onSkip={pomodoro.skipPhase}
+            />
+            <button
+              onClick={handleClose}
+              className="rounded-lg p-1.5 text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
+              title="Fechar"
             >
-              <Download className="h-3.5 w-3.5" />
-              Baixar
-            </a>
-          )}
-          {/* Open-in-new-tab — lets the browser render the PDF natively outside the iframe */}
-          {(viewerKind === "PDF" || viewerKind === "IMAGE") && (
-            <a
-              href={absoluteUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 text-xs text-gray-300 hover:text-white border border-gray-600 hover:border-gray-400 rounded px-2 py-1 transition-colors"
-              title="Abrir em nova aba"
-            >
-              <ExternalLink className="h-3.5 w-3.5" />
-              Nova aba
-            </a>
-          )}
-          {/* Pomodoro timer button */}
-          <PomodoroHeaderButton
-            phase={pomodoro.phase}
-            formattedTime={pomodoro.formattedTime}
-            completedPomodoros={pomodoro.completedPomodoros}
-            isActive={pomodoro.isActive}
-            isBreak={pomodoro.isBreak}
-            onStart={pomodoro.start}
-            onStop={pomodoro.stop}
-            onSkip={pomodoro.skipPhase}
-          />
-          <button
-            onClick={handleClose}
-            className="text-gray-300 hover:text-white p-1"
-            title="Fechar"
-          >
-            <X className="h-5 w-5" />
-          </button>
+              <X className="h-5 w-5" />
+            </button>
+          </div>
         </div>
-      </div>
-
-      {/* Content area */}
-      <div className="flex-1 overflow-hidden relative">
-        {viewerKind === "SLIDE" ? (
+ 
+        {/* Content area */}
+        <div className="relative flex-1 overflow-hidden">
+          {viewerKind === "SLIDE" ? (
           /* Presentations (PPTX/PPT) cannot be displayed inline in a browser.
              Offer a download link instead. */
-          <div className="flex flex-col items-center justify-center h-full gap-6 text-white">
+          <div className="flex h-full flex-col items-center justify-center gap-6 text-white">
             <Presentation className="h-20 w-20 text-orange-400" />
             <p className="text-lg font-medium text-center px-4">{title}</p>
             <p className="text-sm text-gray-400 text-center px-8">
@@ -142,10 +160,10 @@ export function DocumentViewerModal({ url, title, type, onClose, materialId, ini
               Baixar Apresentação
             </a>
           </div>
-        ) : showExternalLinkView ? (
+          ) : showExternalLinkView ? (
           /* External links often block iframe embedding (X-Frame-Options).
              Open them reliably in a new tab instead. */
-          <div className="flex flex-col items-center justify-center h-full gap-6 text-white">
+          <div className="flex h-full flex-col items-center justify-center gap-6 text-white">
             <Globe className="h-20 w-20 text-blue-400" />
             <p className="text-lg font-medium text-center px-4">{title}</p>
             <p className="text-sm text-gray-400 text-center px-8">
@@ -161,9 +179,9 @@ export function DocumentViewerModal({ url, title, type, onClose, materialId, ini
               Abrir Link
             </a>
           </div>
-        ) : iframeError ? (
+          ) : iframeError ? (
           /* Iframe failed to load — show a friendly fallback */
-          <div className="flex flex-col items-center justify-center h-full gap-6 text-white">
+          <div className="flex h-full flex-col items-center justify-center gap-6 text-white">
             <AlertTriangle className="h-16 w-16 text-yellow-400" />
             <p className="text-lg font-medium text-center px-4">{title}</p>
             <p className="text-sm text-gray-400 text-center px-8">
@@ -190,8 +208,8 @@ export function DocumentViewerModal({ url, title, type, onClose, materialId, ini
               </a>
             </div>
           </div>
-        ) : viewerKind === "IMAGE" ? (
-          <div className="h-full w-full overflow-auto bg-black flex items-center justify-center p-4">
+          ) : viewerKind === "IMAGE" ? (
+          <div className="flex h-full w-full items-center justify-center overflow-auto bg-[#3d4758] p-4">
             <img
               src={normalizedUrl}
               alt={title}
@@ -199,26 +217,27 @@ export function DocumentViewerModal({ url, title, type, onClose, materialId, ini
               onError={() => setIframeError(true)}
             />
           </div>
-        ) : (
+          ) : (
           /* PDF files — rendered via canvas using pdfjs-dist.
              Supports per-material page persistence and text highlights. */
-          <PdfCanvasViewer
-            url={normalizedUrl}
-            storageKey={storageKey}
-            materialId={materialId}
-          />
-        )}
-        {/* Pomodoro break overlay — displayed on top of content during a break */}
-        {(pomodoro.phase === "shortBreak" || pomodoro.phase === "longBreak") && (
-          <PomodoroBreakOverlay
-            phase={pomodoro.phase}
-            secondsLeft={pomodoro.secondsLeft}
-            totalSeconds={pomodoro.totalSeconds}
-            completedPomodoros={pomodoro.completedPomodoros}
-            formattedTime={pomodoro.formattedTime}
-            onSkip={pomodoro.skipPhase}
-          />
-        )}
+            <PdfCanvasViewer
+              url={normalizedUrl}
+              storageKey={storageKey}
+              materialId={materialId}
+            />
+          )}
+          {/* Pomodoro break overlay — displayed on top of content during a break */}
+          {(pomodoro.phase === "shortBreak" || pomodoro.phase === "longBreak") && (
+            <PomodoroBreakOverlay
+              phase={pomodoro.phase}
+              secondsLeft={pomodoro.secondsLeft}
+              totalSeconds={pomodoro.totalSeconds}
+              completedPomodoros={pomodoro.completedPomodoros}
+              formattedTime={pomodoro.formattedTime}
+              onSkip={pomodoro.skipPhase}
+            />
+          )}
+        </div>
       </div>
     </div>
   );

@@ -83,6 +83,36 @@ body {
   -webkit-user-select: text;
 }
 
+.pdf-text-layer.textLayer {
+  overflow: clip;
+  forced-color-adjust: none;
+  caret-color: CanvasText;
+  z-index: 0;
+}
+
+.pdf-text-layer.textLayer :is(span, br) {
+  color: transparent;
+  position: absolute;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0% 0%;
+}
+
+.pdf-text-layer.textLayer > :not(.markedContent),
+.pdf-text-layer.textLayer .markedContent span:not(.markedContent) {
+  z-index: 1;
+  --font-height: 0;
+  --scale-x: 1;
+  --rotate: 0deg;
+  /* Match pdf.js text metrics; pdfjs-dist injects --min-font-size on the text layer at render time. */
+  font-size: calc(var(--total-scale-factor) * var(--min-font-size, 1) * var(--font-height));
+  transform: rotate(var(--rotate)) scaleX(var(--scale-x)) scale(calc(1 / var(--min-font-size, 1)));
+}
+
+.pdf-text-layer.textLayer .markedContent {
+  display: contents;
+}
+
 .pdf-text-layer ::selection {
   background: rgba(0, 100, 255, 0.25);
 }
