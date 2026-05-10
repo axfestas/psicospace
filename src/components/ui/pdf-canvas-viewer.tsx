@@ -366,6 +366,7 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
         const pdfjs = await import("pdfjs-dist");
         const textLayer = new pdfjs.TextLayer({
           textContentSource: page.streamTextContent({
+            // Keep pdf.js tokens untouched; copy/highlight normalization happens in our own helpers.
             includeMarkedContent: true,
             disableNormalization: true,
           }),
@@ -375,6 +376,7 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
         textLayerTaskRef.current = textLayer;
         await textLayer.render();
         if (cancelled) return;
+        // Only clear the ref if this render still owns it.
         if (textLayerTaskRef.current === textLayer) {
           textLayerTaskRef.current = null;
         }

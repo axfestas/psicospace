@@ -104,6 +104,7 @@ body {
   --font-height: 0;
   --scale-x: 1;
   --rotate: 0deg;
+  /* Match pdf.js text metrics so browser selection/copy geometry stays aligned with the canvas. */
   font-size: calc(var(--total-scale-factor) * var(--min-font-size) * var(--font-height));
   transform: rotate(var(--rotate)) scaleX(var(--scale-x)) scale(calc(1 / var(--min-font-size)));
 }
