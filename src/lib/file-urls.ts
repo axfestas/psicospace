@@ -106,8 +106,10 @@ export function resolveViewerKind(type: StoredMaterialType, url: string): Viewer
   const normalizedUrl = normalizeStoredMaterialUrl(url, type);
   const detectedKind = detectViewerKindFromUrl(normalizedUrl);
 
-  if (type === "LINK" && !isInternalFileUrl(normalizedUrl)) return "LINK";
+  // External links that clearly point to a supported file type (e.g. .pdf)
+  // should still use the rich in-app viewer.
   if (detectedKind !== "UNKNOWN") return detectedKind;
+  if (type === "LINK" && !isInternalFileUrl(normalizedUrl)) return "LINK";
   if (type === "PDF") return "PDF";
   if (type === "SLIDE") return "SLIDE";
   if (type === "LINK") return "LINK";
