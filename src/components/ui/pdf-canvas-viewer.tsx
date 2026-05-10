@@ -74,9 +74,9 @@ const MAX_HISTORY = 50;
 const SCROLL_CONTAINER_PADDING = 32;
 /** Fallback canvas aspect ratio when buffer dimensions are unavailable (√2 ≈ A4 paper ratio) */
 const DEFAULT_ASPECT_RATIO = 1.414;
-/** Vertical tolerance (fraction of span height) to consider two tokens on the same visual line. */
+/** Vertical tolerance tuned in manual tests (mixed academic PDFs) to keep same-line words grouped. */
 const SELECTION_LINE_TOLERANCE_RATIO = 0.6;
-/** Horizontal gap threshold (fraction of span height) used to inject spaces between selected tokens. */
+/** Horizontal gap tuned to reinsert missing spaces without over-spacing punctuation or hyphenation. */
 const SELECTION_SPACE_GAP_RATIO = 0.18;
 
 /** Returns true if the currently-focused element is a text-editing field */
@@ -119,6 +119,7 @@ function buildSelectionTextFromGeometry(wrapper: HTMLDivElement, range: Range): 
     try {
       intersects = range.intersectsNode(node);
     } catch {
+      // Can happen for stale/detached nodes while the text layer is being re-rendered.
       intersects = false;
     }
     if (!intersects) continue;
