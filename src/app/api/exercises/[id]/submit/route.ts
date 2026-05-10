@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAuthUser } from "@/lib/auth";
-import { grantExerciseReward } from "@/lib/psico-economy";
 import { nextSM2State, nextReviewDate } from "@/lib/spaced-repetition";
 
 export const runtime = "edge";
@@ -13,16 +12,6 @@ function normalizeAnswer(value?: string | null) {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/\s+/g, " ");
-}
-
-function isExerciseEligibleForReward(exercise: { materialId: string | null; libraryItemId: string | null }) {
-  return Boolean(exercise.materialId || exercise.libraryItemId);
-}
-
-function calculateRewardedAt(previousRewardedAt: Date | null, awarded: boolean) {
-  if (previousRewardedAt) return new Date(previousRewardedAt).toISOString();
-  if (awarded) return new Date().toISOString();
-  return null;
 }
 
 export async function POST(
@@ -64,29 +53,6 @@ export async function POST(
       isCorrect = expected.length > 0 && expected === received;
     }
 
-    const previous = await prisma.exerciseAttempt.findUnique({
-      where: {
-        userId_exerciseId: {
-          userId: auth.userId,
-          exerciseId: id,
-        },
-      },
-    });
-
-    let awarded = false;
-    let rewardAmount = 0;
-
-    const canReward =
-      !previous?.rewardedAt && isCorrect && isExerciseEligibleForReward(exercise);
-    if (canReward) {
-      const reward = await grantExerciseReward(auth.userId, id);
-      awarded = reward.awarded;
-      rewardAmount = reward.amount;
-    }
-
-    const resolvedRewardedAt = calculateRewardedAt(previous?.rewardedAt ?? null, awarded);
-    const resolvedRewardAmount = previous?.rewardedAt ? previous.rewardAmount : rewardAmount;
-
     const attempt = await prisma.exerciseAttempt.upsert({
       where: {
         userId_exerciseId: {
@@ -98,8 +64,6 @@ export async function POST(
         answer: normalizedAnswer || null,
         selectedOptionId: optionId || null,
         isCorrect,
-        rewardedAt: resolvedRewardedAt,
-        rewardAmount: resolvedRewardAmount,
       },
       create: {
         userId: auth.userId,
@@ -107,8 +71,6 @@ export async function POST(
         answer: normalizedAnswer || null,
         selectedOptionId: optionId || null,
         isCorrect,
-        rewardedAt: awarded ? new Date().toISOString() : null,
-        rewardAmount,
       },
     });
 
@@ -154,8 +116,6 @@ export async function POST(
       attempt,
       validation: {
         isCorrect,
-        awarded,
-        rewardAmount,
       },
     });
   } catch (error) {

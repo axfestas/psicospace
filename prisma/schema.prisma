@@ -49,8 +49,6 @@ model User {
   libraryItems        LibraryItem[]
   microTasks          MicroTask[]
   studySessions       StudySession[]
-  psicoWallet         PsicoWallet?
-  characterProgress   CharacterProgress?
   exerciseAttempts    ExerciseAttempt[]
   exerciseReviews     ExerciseReview[]
   createdExercises    Exercise[]         @relation("CreatedExercises")
@@ -258,8 +256,6 @@ model ExerciseAttempt {
   answer       String?
   selectedOptionId String?
   isCorrect    Boolean  @default(false)
-  rewardedAt   DateTime?
-  rewardAmount Int      @default(0)
   attemptedAt  DateTime @default(now())
   updatedAt    DateTime @updatedAt
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -285,63 +281,7 @@ model ExerciseReview {
   @@index([exerciseId])
 }
 
-// ── Gamification (PsicoGame) ────────────────────────────────────────────────
-
-model PsicoWallet {
-  id           String             @id @default(cuid())
-  userId       String             @unique
-  balance      Int                @default(0)
-  updatedAt    DateTime           @updatedAt
-  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  transactions PsicoTransaction[]
-}
-
-// type: EARN | SPEND
-// reason: session_completed | recall_answered | microtask_done | item_purchased
-model PsicoTransaction {
-  id          String      @id @default(cuid())
-  walletId    String
-  amount      Int
-  type        String
-  reason      String
-  referenceId String?
-  createdAt   DateTime    @default(now())
-  wallet      PsicoWallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
-
-  @@index([walletId])
-}
-
-model CharacterProgress {
-  id            String   @id @default(cuid())
-  userId        String   @unique
-  level         Int      @default(1)
-  xp            Int      @default(0)
-  totalSessions Int      @default(0)
-  currentStreak Int      @default(0)
-  longestStreak Int      @default(0)
-  lastSessionAt DateTime?
-  ownedItems    String   @default("[]")
-  equippedItems String   @default("{}")
-  updatedAt     DateTime @updatedAt
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-// type: AVATAR_FRAME | BACKGROUND | BADGE | TITLE
-// category: AVATAR | TEMA | CONQUISTA | ESPECIAL
-// rarity: COMUM | INCOMUM | RARO | ÉPICO | LENDÁRIO
-model ShopItem {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  type        String
-  slot        String
-  category    String   @default("GERAL")
-  rarity      String   @default("COMUM")
-  price       Int
-  imageUrl    String?
-  active      Boolean  @default(true)
-  createdAt   DateTime @default(now())
-}
+// ── Notes / Documents ────────────────────────────────────────────────────────
 
 model Note {
   id        String   @id @default(cuid())
