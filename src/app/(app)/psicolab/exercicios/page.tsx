@@ -99,7 +99,15 @@ export default function PsicoLabExercisesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [difficultyFilter, setDifficultyFilter] = useState<DifficultyKey | "ALL">("ALL");
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [markedForReview, setMarkedForReview] = useState<string[]>([]);
+  const [markedForReview, setMarkedForReview] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const stored = window.localStorage.getItem("psicolab_marked_review");
+      return stored ? (JSON.parse(stored) as string[]) : [];
+    } catch {
+      return [];
+    }
+  });
 
   const loadStats = useCallback(async () => {
     try {
@@ -144,6 +152,10 @@ export default function PsicoLabExercisesPage() {
     loadExercises(reviewMode);
     loadStats();
   }, [loadExercises, loadStats, reviewMode]);
+
+  useEffect(() => {
+    window.localStorage.setItem("psicolab_marked_review", JSON.stringify(markedForReview));
+  }, [markedForReview]);
 
   const resetForm = () => {
     setTextAnswer("");
@@ -192,6 +204,19 @@ export default function PsicoLabExercisesPage() {
     return grouped;
   }, [filteredExercises]);
 
+  const invalidDifficulties = useMemo(
+    () =>
+      exercises
+        .filter((exercise) => exercise.difficulty && !isDifficultyKey(exercise.difficulty))
+        .map((exercise) => ({ id: exercise.id, difficulty: exercise.difficulty })),
+    [exercises]
+  );
+
+  useEffect(() => {
+    if (!invalidDifficulties.length) return;
+    console.warn("[psicolab/exercicios] invalid_difficulty_fallback", invalidDifficulties);
+  }, [invalidDifficulties]);
+
   useEffect(() => {
     if (!filteredExercises.length) {
       setSelectedExerciseId(null);
@@ -226,10 +251,10 @@ export default function PsicoLabExercisesPage() {
     return Math.min(100, Math.round((completionCount / exercises.length) * 100));
   }, [completionCount, exercises.length]);
 
-  const maxRepetitions = useMemo(
-    () => Math.max(0, ...exercises.map((exercise) => exercise.reviewState?.repetitions ?? 0)),
-    [exercises]
-  );
+  const maxRepetitions = useMemo(() => {
+    if (!exercises.length) return 0;
+    return Math.max(0, ...exercises.map((exercise) => exercise.reviewState?.repetitions ?? 0));
+  }, [exercises]);
 
   const questionNumberById = useMemo(
     () =>
@@ -623,7 +648,7 @@ export default function PsicoLabExercisesPage() {
                   <div className="space-y-2">
                     <p className="text-xs text-gray-500 dark:text-gray-400">
                       PsicoLab <span className="mx-1">/</span> Exercícios
-                      {selectedExercise && (
+                      {selectedExercise && selectedIndex >= 0 && (
                         <>
                           <span className="mx-1">/</span>
                           <span className="font-medium text-gray-700 dark:text-gray-200">Questão {selectedIndex + 1}</span>
