@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAuthUser } from "@/lib/auth";
-import { grantSessionReward } from "@/lib/psico-economy";
 
 export const runtime = "edge";
 
@@ -120,10 +119,8 @@ export async function PUT(
       }
     }
 
-    // On completion: grant reward and mark microtask done
+    // On completion: mark microtask done
     if (isCompleting) {
-      const sessionTotalSeconds = typeof totalSeconds === "number" ? totalSeconds : updated.totalSeconds ?? 0;
-      await grantSessionReward(auth.userId, id, sessionTotalSeconds);
       await prisma.microTask.update({
         where: { id: session.microTaskId },
         data: { completed: true },

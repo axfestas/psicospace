@@ -155,10 +155,8 @@ export default function PsicoLabExercisesPage() {
       }
 
       const validation = data.validation;
-      if (validation.isCorrect && validation.awarded) {
-        setFeedback({ message: `Resposta correta! +${validation.rewardAmount} Psiquê`, ok: true, explanation: selectedExercise.explanation });
-      } else if (validation.isCorrect) {
-        setFeedback({ message: "Resposta correta, mas a recompensa já foi registrada antes.", ok: true, explanation: selectedExercise.explanation });
+      if (validation.isCorrect) {
+        setFeedback({ message: "Resposta correta!", ok: true, explanation: selectedExercise.explanation });
       } else {
         setFeedback({ message: "Resposta incorreta. Revise e tente novamente.", ok: false, explanation: selectedExercise.explanation });
       }

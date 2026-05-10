@@ -223,50 +223,6 @@ CREATE TABLE IF NOT EXISTS "ExerciseOption" (
     "order" INTEGER NOT NULL DEFAULT 0,
     CONSTRAINT "ExerciseOption_exerciseId_fkey" FOREIGN KEY ("exerciseId") REFERENCES "Exercise" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
-CREATE TABLE IF NOT EXISTS "PsicoWallet" (
-    "id" TEXT NOT NULL PRIMARY KEY,
-    "userId" TEXT NOT NULL,
-    "balance" INTEGER NOT NULL DEFAULT 0,
-    "updatedAt" DATETIME NOT NULL,
-    CONSTRAINT "PsicoWallet_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE
-);
-CREATE UNIQUE INDEX IF NOT EXISTS "PsicoWallet_userId_key" ON "PsicoWallet"("userId");
-CREATE TABLE IF NOT EXISTS "PsicoTransaction" (
-    "id" TEXT NOT NULL PRIMARY KEY,
-    "walletId" TEXT NOT NULL,
-    "amount" INTEGER NOT NULL,
-    "type" TEXT NOT NULL,
-    "reason" TEXT NOT NULL,
-    "referenceId" TEXT,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT "PsicoTransaction_walletId_fkey" FOREIGN KEY ("walletId") REFERENCES "PsicoWallet" ("id") ON DELETE CASCADE ON UPDATE CASCADE
-);
-CREATE TABLE IF NOT EXISTS "CharacterProgress" (
-    "id" TEXT NOT NULL PRIMARY KEY,
-    "userId" TEXT NOT NULL,
-    "level" INTEGER NOT NULL DEFAULT 1,
-    "xp" INTEGER NOT NULL DEFAULT 0,
-    "totalSessions" INTEGER NOT NULL DEFAULT 0,
-    "currentStreak" INTEGER NOT NULL DEFAULT 0,
-    "longestStreak" INTEGER NOT NULL DEFAULT 0,
-    "lastSessionAt" DATETIME,
-    "ownedItems" TEXT NOT NULL DEFAULT '[]',
-    "equippedItems" TEXT NOT NULL DEFAULT '{}',
-    "updatedAt" DATETIME NOT NULL,
-    CONSTRAINT "CharacterProgress_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE
-);
-CREATE UNIQUE INDEX IF NOT EXISTS "CharacterProgress_userId_key" ON "CharacterProgress"("userId");
-CREATE TABLE IF NOT EXISTS "ShopItem" (
-    "id" TEXT NOT NULL PRIMARY KEY,
-    "name" TEXT NOT NULL,
-    "description" TEXT,
-    "type" TEXT NOT NULL,
-    "slot" TEXT NOT NULL,
-    "price" INTEGER NOT NULL,
-    "imageUrl" TEXT,
-    "active" BOOLEAN NOT NULL DEFAULT true,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
     `,
   },
   {
@@ -288,36 +244,6 @@ CREATE TABLE IF NOT EXISTS "ExerciseAttempt" (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS "ExerciseAttempt_userId_exerciseId_key" ON "ExerciseAttempt"("userId", "exerciseId");
     `,
-  },
-  {
-    name: "20260417140000_shopitem_category_rarity",
-    sql: `
-ALTER TABLE "ShopItem" ADD COLUMN "category" TEXT NOT NULL DEFAULT 'GERAL';
-ALTER TABLE "ShopItem" ADD COLUMN "rarity" TEXT NOT NULL DEFAULT 'COMUM';
-    `,
-  },
-  {
-    name: "20260417141000_shopitem_seed",
-    sql: `
-INSERT OR IGNORE INTO "ShopItem" ("id", "name", "description", "type", "slot", "category", "rarity", "price", "active")
-VALUES
-  ('shopitem_frame_basic',   'Moldura Básica',                  'Moldura simples para seu avatar',                  'AVATAR_FRAME', 'frame', 'AVATAR',    'COMUM',    30,  true),
-  ('shopitem_title_stud',    'Título: Estudante',               'Para quem nunca para de aprender',                 'TITLE',        'title', 'CONQUISTA', 'COMUM',    20,  true),
-  ('shopitem_badge_psico',   'Badge: Psicólogue',               'Símbolo da psicologia',                            'BADGE',        'badge', 'CONQUISTA', 'INCOMUM',  50,  true),
-  ('shopitem_bg_lilas',      'Fundo Lilás',                     'Fundo em tom lilás suave para seu perfil',         'BACKGROUND',   'bg',    'TEMA',      'COMUM',    40,  true),
-  ('shopitem_frame_gold',    'Moldura Dourada',                 'Moldura dourada para os mais dedicados',           'AVATAR_FRAME', 'frame', 'AVATAR',    'RARO',    100,  true),
-  ('shopitem_title_mestre',  'Título: Mestre do Inconsciente',  'Conquistado por grandes estudiosos de Freud',      'TITLE',        'title', 'CONQUISTA', 'ÉPICO',   200,  true),
-  ('shopitem_frame_plat',    'Moldura Platina',                 'Para os que atingiram o topo do conhecimento',     'AVATAR_FRAME', 'frame', 'AVATAR',    'ÉPICO',   300,  true),
-  ('shopitem_badge_freud',   'Badge: Freud',                    'O pai da psicanálise em forma de insígnia rara',   'BADGE',        'badge', 'ESPECIAL',  'LENDÁRIO', 500,  true);
-    `,
-  },
-  {
-    name: "20260418001836_badge_psico_neutral",
-    sql: `UPDATE "ShopItem" SET "name" = 'Badge: Psicólogue' WHERE "id" = 'shopitem_badge_psico';`,
-  },
-  {
-    name: "20260418180500_shopitem_title_estudante",
-    sql: `UPDATE "ShopItem" SET "name" = 'Título: Estudante' WHERE "id" = 'shopitem_title_stud';`,
   },
   {
     name: "20260418020503_exercise_difficulty",
@@ -514,50 +440,6 @@ CREATE TABLE IF NOT EXISTS "ExerciseReview" (
     CONSTRAINT "ExerciseReview_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT "ExerciseReview_exerciseId_fkey" FOREIGN KEY ("exerciseId") REFERENCES "Exercise" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
-CREATE TABLE IF NOT EXISTS "PsicoWallet" (
-    "id" TEXT NOT NULL PRIMARY KEY,
-    "userId" TEXT NOT NULL,
-    "balance" INTEGER NOT NULL DEFAULT 0,
-    "updatedAt" DATETIME NOT NULL,
-    CONSTRAINT "PsicoWallet_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE
-);
-CREATE TABLE IF NOT EXISTS "PsicoTransaction" (
-    "id" TEXT NOT NULL PRIMARY KEY,
-    "walletId" TEXT NOT NULL,
-    "amount" INTEGER NOT NULL,
-    "type" TEXT NOT NULL,
-    "reason" TEXT NOT NULL,
-    "referenceId" TEXT,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT "PsicoTransaction_walletId_fkey" FOREIGN KEY ("walletId") REFERENCES "PsicoWallet" ("id") ON DELETE CASCADE ON UPDATE CASCADE
-);
-CREATE TABLE IF NOT EXISTS "CharacterProgress" (
-    "id" TEXT NOT NULL PRIMARY KEY,
-    "userId" TEXT NOT NULL,
-    "level" INTEGER NOT NULL DEFAULT 1,
-    "xp" INTEGER NOT NULL DEFAULT 0,
-    "totalSessions" INTEGER NOT NULL DEFAULT 0,
-    "currentStreak" INTEGER NOT NULL DEFAULT 0,
-    "longestStreak" INTEGER NOT NULL DEFAULT 0,
-    "lastSessionAt" DATETIME,
-    "ownedItems" TEXT NOT NULL DEFAULT '[]',
-    "equippedItems" TEXT NOT NULL DEFAULT '{}',
-    "updatedAt" DATETIME NOT NULL,
-    CONSTRAINT "CharacterProgress_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE
-);
-CREATE TABLE IF NOT EXISTS "ShopItem" (
-    "id" TEXT NOT NULL PRIMARY KEY,
-    "name" TEXT NOT NULL,
-    "description" TEXT,
-    "type" TEXT NOT NULL,
-    "slot" TEXT NOT NULL,
-    "category" TEXT NOT NULL DEFAULT 'GERAL',
-    "rarity" TEXT NOT NULL DEFAULT 'COMUM',
-    "price" INTEGER NOT NULL,
-    "imageUrl" TEXT,
-    "active" BOOLEAN NOT NULL DEFAULT true,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
 CREATE TABLE IF NOT EXISTS "Note" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "content" TEXT NOT NULL,
@@ -587,8 +469,6 @@ CREATE TABLE IF NOT EXISTS "Notification" (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS "User_email_key" ON "User"("email");
 CREATE UNIQUE INDEX IF NOT EXISTS "MaterialProgress_userId_materialId_key" ON "MaterialProgress"("userId", "materialId");
-CREATE UNIQUE INDEX IF NOT EXISTS "PsicoWallet_userId_key" ON "PsicoWallet"("userId");
-CREATE UNIQUE INDEX IF NOT EXISTS "CharacterProgress_userId_key" ON "CharacterProgress"("userId");
 CREATE UNIQUE INDEX IF NOT EXISTS "ExerciseAttempt_userId_exerciseId_key" ON "ExerciseAttempt"("userId", "exerciseId");
 CREATE UNIQUE INDEX IF NOT EXISTS "ExerciseReview_userId_exerciseId_key" ON "ExerciseReview"("userId", "exerciseId");
     `,
@@ -613,7 +493,6 @@ CREATE INDEX IF NOT EXISTS "Exercise_status_idx" ON "Exercise"("status");
 CREATE INDEX IF NOT EXISTS "ExerciseOption_exerciseId_idx" ON "ExerciseOption"("exerciseId");
 CREATE INDEX IF NOT EXISTS "ExerciseAttempt_exerciseId_idx" ON "ExerciseAttempt"("exerciseId");
 CREATE INDEX IF NOT EXISTS "ExerciseReview_exerciseId_idx" ON "ExerciseReview"("exerciseId");
-CREATE INDEX IF NOT EXISTS "PsicoTransaction_walletId_idx" ON "PsicoTransaction"("walletId");
 CREATE INDEX IF NOT EXISTS "StudySession_userId_idx" ON "StudySession"("userId");
 CREATE INDEX IF NOT EXISTS "StudySession_microTaskId_idx" ON "StudySession"("microTaskId");
 CREATE INDEX IF NOT EXISTS "MicroTask_userId_idx" ON "MicroTask"("userId");
@@ -625,6 +504,15 @@ CREATE INDEX IF NOT EXISTS "Task_userId_idx" ON "Task"("userId");
 CREATE INDEX IF NOT EXISTS "Event_userId_idx" ON "Event"("userId");
 CREATE INDEX IF NOT EXISTS "Note_userId_idx" ON "Note"("userId");
 CREATE INDEX IF NOT EXISTS "Document_userId_idx" ON "Document"("userId");
+    `,
+  },
+  {
+    name: "20260510160000_drop_psicogame_tables",
+    sql: `
+DROP TABLE IF EXISTS "PsicoTransaction";
+DROP TABLE IF EXISTS "PsicoWallet";
+DROP TABLE IF EXISTS "ShopItem";
+DROP TABLE IF EXISTS "CharacterProgress";
     `,
   },
 ];

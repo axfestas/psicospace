@@ -17,14 +17,12 @@ import {
   GraduationCap,
   Library,
   FlaskConical,
-  Star,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/agenda", label: "Agenda", icon: Calendar },
-  { href: "/psicogame", label: "PsicoGame", icon: Star },
   { href: "/biblioteca", label: "Biblioteca", icon: Library },
   { href: "/disciplinas", label: "Disciplinas", icon: GraduationCap },
   { href: "/psicolab", label: "PsicoLab", icon: FlaskConical },
