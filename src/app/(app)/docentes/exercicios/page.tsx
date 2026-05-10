@@ -119,6 +119,12 @@ interface PdfExtractionResult {
   method: PdfExtractionMethod;
 }
 
+// pdfjs-dist TextItem includes hasEOL but it's not always typed correctly.
+interface PdfTextItem {
+  str: string;
+  hasEOL?: boolean;
+}
+
 function isTextInsufficient(text: string): boolean {
   return text.trim().length < MIN_PDF_EXTRACTED_TEXT_CHARS;
 }
@@ -165,7 +171,8 @@ async function extractPdfTextFromArrayBuffer(
     const pageText = textContent.items
       .map((item) => {
         if (!("str" in item)) return "";
-        return item.str + ((item as { hasEOL?: boolean }).hasEOL ? "\n" : "");
+        const textItem = item as PdfTextItem;
+        return textItem.str + (textItem.hasEOL ? "\n" : "");
       })
       .join("");
     allPages.push(pageText);
@@ -279,6 +286,12 @@ export default function ExerciciosPage() {
   const [genError, setGenError] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [genStatus, setGenStatus] = useState<string | null>(null);
+
+  const handleGenSourceTypeChange = useCallback((type: "library" | "material") => {
+    setGenSourceType(type);
+    setGenPageFrom("");
+    setGenPageTo("");
+  }, []);
 
   // Create manual form
   const [showCreate, setShowCreate] = useState(false);
@@ -680,14 +693,14 @@ export default function ExerciciosPage() {
           <CardContent className="space-y-4">
             <div className="flex gap-2">
               <button
-                onClick={() => { setGenSourceType("library"); setGenPageFrom(""); setGenPageTo(""); }}
+                onClick={() => handleGenSourceTypeChange("library")}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${genSourceType === "library" ? "bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-900/30 dark:border-blue-700 dark:text-blue-300" : "border-gray-200 dark:border-gray-700"}`}
               >
                 <Library className="h-3.5 w-3.5" />
                 Biblioteca
               </button>
               <button
-                onClick={() => { setGenSourceType("material"); setGenPageFrom(""); setGenPageTo(""); }}
+                onClick={() => handleGenSourceTypeChange("material")}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${genSourceType === "material" ? "bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-900/30 dark:border-blue-700 dark:text-blue-300" : "border-gray-200 dark:border-gray-700"}`}
               >
                 <BookOpen className="h-3.5 w-3.5" />
