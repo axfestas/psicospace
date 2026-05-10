@@ -74,7 +74,9 @@ const MAX_HISTORY = 50;
 const SCROLL_CONTAINER_PADDING = 32;
 /** Fallback canvas aspect ratio when buffer dimensions are unavailable (√2 ≈ A4 paper ratio) */
 const DEFAULT_ASPECT_RATIO = 1.414;
+/** Vertical tolerance (fraction of span height) to consider two tokens on the same visual line. */
 const SELECTION_LINE_TOLERANCE_RATIO = 0.6;
+/** Horizontal gap threshold (fraction of span height) used to inject spaces between selected tokens. */
 const SELECTION_SPACE_GAP_RATIO = 0.18;
 
 /** Returns true if the currently-focused element is a text-editing field */
@@ -100,6 +102,10 @@ interface SelectedToken {
   left: number;
   right: number;
   height: number;
+}
+
+function selectionLineTolerance(aHeight: number, bHeight: number): number {
+  return Math.min(aHeight, bHeight) * SELECTION_LINE_TOLERANCE_RATIO;
 }
 
 function buildSelectionTextFromGeometry(wrapper: HTMLDivElement, range: Range): string {
@@ -134,7 +140,7 @@ function buildSelectionTextFromGeometry(wrapper: HTMLDivElement, range: Range): 
   if (tokens.length === 0) return "";
 
   tokens.sort((a, b) => {
-    const lineTolerance = Math.min(a.height, b.height) * SELECTION_LINE_TOLERANCE_RATIO;
+    const lineTolerance = selectionLineTolerance(a.height, b.height);
     if (Math.abs(a.top - b.top) <= lineTolerance) return a.left - b.left;
     return a.top - b.top;
   });
@@ -149,7 +155,7 @@ function buildSelectionTextFromGeometry(wrapper: HTMLDivElement, range: Range): 
       continue;
     }
 
-    const lineTolerance = Math.min(previous.height, token.height) * SELECTION_LINE_TOLERANCE_RATIO;
+    const lineTolerance = selectionLineTolerance(previous.height, token.height);
     const isSameLine = Math.abs(token.top - previous.top) <= lineTolerance;
 
     if (!isSameLine) {
@@ -157,7 +163,7 @@ function buildSelectionTextFromGeometry(wrapper: HTMLDivElement, range: Range): 
     } else {
       const gap = token.left - previous.right;
       const spaceThreshold = Math.min(previous.height, token.height) * SELECTION_SPACE_GAP_RATIO;
-      if (gap > spaceThreshold && !result.endsWith(" ")) {
+      if (gap > spaceThreshold) {
         result += " ";
       }
     }
