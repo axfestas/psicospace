@@ -143,20 +143,31 @@ function cloneArrayBuffer(buffer: ArrayBuffer): ArrayBuffer {
   return buffer.slice(0);
 }
 
-async function extractPdfTextFromArrayBuffer(arrayBuffer: ArrayBuffer): Promise<string> {
+async function extractPdfTextFromArrayBuffer(
+  arrayBuffer: ArrayBuffer,
+  pageFrom?: number,
+  pageTo?: number,
+): Promise<string> {
   const pdfjsLib = await import("pdfjs-dist");
   if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
     pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
   }
 
   const pdf = await pdfjsLib.getDocument({ data: cloneArrayBuffer(arrayBuffer) }).promise;
+  const start = Math.max(1, pageFrom ?? 1);
+  const end = Math.min(pdf.numPages, pageTo ?? pdf.numPages);
   const allPages: string[] = [];
-  for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+  for (let pageNumber = start; pageNumber <= end; pageNumber++) {
     const page = await pdf.getPage(pageNumber);
     const textContent = await page.getTextContent();
+    // Use hasEOL to reconstruct line breaks properly; join with "" since each
+    // item's str already contains its natural whitespace.
     const pageText = textContent.items
-      .map((item) => ("str" in item ? item.str : ""))
-      .join(" ");
+      .map((item) => {
+        if (!("str" in item)) return "";
+        return item.str + ((item as { hasEOL?: boolean }).hasEOL ? "\n" : "");
+      })
+      .join("");
     allPages.push(pageText);
   }
   return normalizeExtractedText(allPages.join("\n\n"));
@@ -165,9 +176,11 @@ async function extractPdfTextFromArrayBuffer(arrayBuffer: ArrayBuffer): Promise<
 async function extractPdfTextWithOcrFallback(
   arrayBuffer: ArrayBuffer,
   onProgress?: (step: string) => void,
+  pageFrom?: number,
+  pageTo?: number,
 ): Promise<PdfExtractionResult> {
   onProgress?.("Lendo texto do PDF…");
-  const directText = await extractPdfTextFromArrayBuffer(cloneArrayBuffer(arrayBuffer));
+  const directText = await extractPdfTextFromArrayBuffer(cloneArrayBuffer(arrayBuffer), pageFrom, pageTo);
   if (!isTextInsufficient(directText)) {
     logPdfExtractionDebug("pdf_direct", directText);
     return { text: directText, method: "pdf_direct" };
@@ -183,19 +196,21 @@ async function extractPdfTextWithOcrFallback(
   }
 
   const pdf = await pdfjsLib.getDocument({ data: cloneArrayBuffer(arrayBuffer) }).promise;
-  if (pdf.numPages > MAX_OCR_PAGES) {
+  const ocrStart = Math.max(1, pageFrom ?? 1);
+  const ocrEnd = Math.min(pdf.numPages, pageTo ?? pdf.numPages);
+  const ocrPageLimit = Math.min(ocrEnd, ocrStart + MAX_OCR_PAGES - 1);
+  if (ocrEnd - ocrStart + 1 > MAX_OCR_PAGES) {
     console.warn(
       "[docentes/exercicios] OCR will process a subset of pages",
-      JSON.stringify({ totalPages: pdf.numPages, processedPages: MAX_OCR_PAGES })
+      JSON.stringify({ requestedPages: ocrEnd - ocrStart + 1, processedPages: MAX_OCR_PAGES })
     );
   }
   const worker = await createWorker(OCR_LANG);
   const ocrPages: string[] = [];
 
   try {
-    const pageLimit = Math.min(pdf.numPages, MAX_OCR_PAGES);
-    for (let pageNumber = 1; pageNumber <= pageLimit; pageNumber++) {
-      onProgress?.(`OCR — pág. ${pageNumber}/${pageLimit}…`);
+    for (let pageNumber = ocrStart; pageNumber <= ocrPageLimit; pageNumber++) {
+      onProgress?.(`OCR — pág. ${pageNumber}/${ocrPageLimit}…`);
       const page = await pdf.getPage(pageNumber);
       const viewport = page.getViewport({ scale: 1.5 });
       const canvas = document.createElement("canvas");
@@ -221,6 +236,8 @@ async function extractPdfTextWithOcrFallback(
 async function extractPdfTextFromUrl(
   url: string,
   onProgress?: (step: string) => void,
+  pageFrom?: number,
+  pageTo?: number,
 ): Promise<PdfExtractionResult> {
   onProgress?.("Baixando PDF…");
   const response = await fetch(url, { credentials: "include" });
@@ -228,7 +245,7 @@ async function extractPdfTextFromUrl(
     throw new Error(`Falha ao buscar PDF (${response.status})`);
   }
   const buffer = await response.arrayBuffer();
-  return extractPdfTextWithOcrFallback(buffer, onProgress);
+  return extractPdfTextWithOcrFallback(buffer, onProgress, pageFrom, pageTo);
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -257,6 +274,8 @@ export default function ExerciciosPage() {
   const [genCount, setGenCount] = useState(3);
   const [genTypes, setGenTypes] = useState<string[]>(["OPEN", "COMPREHENSION", "MULTIPLE_CHOICE"]);
   const [genDifficulty, setGenDifficulty] = useState("MISTO");
+  const [genPageFrom, setGenPageFrom] = useState<number | "">("");
+  const [genPageTo, setGenPageTo] = useState<number | "">("");
   const [genError, setGenError] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [genStatus, setGenStatus] = useState<string | null>(null);
@@ -342,6 +361,10 @@ export default function ExerciciosPage() {
       setGenError("Selecione um arquivo como base");
       return;
     }
+    if (genPageFrom !== "" && genPageTo !== "" && genPageFrom > genPageTo) {
+      setGenError("A página inicial não pode ser maior que a página final");
+      return;
+    }
     setGenError(null);
     setGenStatus(null);
     setGenerating(true);
@@ -354,9 +377,13 @@ export default function ExerciciosPage() {
           : allMaterials.find((material) => material.id === genMaterialId);
 
       if (selectedSource?.type === "PDF" && selectedSource.url) {
+        const pageFrom = genPageFrom !== "" ? genPageFrom : undefined;
+        const pageTo = genPageTo !== "" ? genPageTo : undefined;
         const extracted = await extractPdfTextFromUrl(
           selectedSource.url,
           (step) => setGenStatus(step),
+          pageFrom,
+          pageTo,
         );
         if (isTextInsufficient(extracted.text)) {
           throw new Error(PDF_EXTRACTION_FAILURE_MSG);
@@ -384,6 +411,8 @@ export default function ExerciciosPage() {
         setShowGenerate(false);
         setGenLibraryItemId("");
         setGenMaterialId("");
+        setGenPageFrom("");
+        setGenPageTo("");
         setGenStatus(null);
         await loadData();
       } else {
@@ -651,14 +680,14 @@ export default function ExerciciosPage() {
           <CardContent className="space-y-4">
             <div className="flex gap-2">
               <button
-                onClick={() => setGenSourceType("library")}
+                onClick={() => { setGenSourceType("library"); setGenPageFrom(""); setGenPageTo(""); }}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${genSourceType === "library" ? "bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-900/30 dark:border-blue-700 dark:text-blue-300" : "border-gray-200 dark:border-gray-700"}`}
               >
                 <Library className="h-3.5 w-3.5" />
                 Biblioteca
               </button>
               <button
-                onClick={() => setGenSourceType("material")}
+                onClick={() => { setGenSourceType("material"); setGenPageFrom(""); setGenPageTo(""); }}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${genSourceType === "material" ? "bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-900/30 dark:border-blue-700 dark:text-blue-300" : "border-gray-200 dark:border-gray-700"}`}
               >
                 <BookOpen className="h-3.5 w-3.5" />
@@ -689,6 +718,40 @@ export default function ExerciciosPage() {
                 ))}
               </select>
             )}
+
+            {/* Page range — shown only when a PDF source is selected */}
+            {(() => {
+              const src = genSourceType === "library"
+                ? libraryItems.find((i) => i.id === genLibraryItemId)
+                : allMaterials.find((m) => m.id === genMaterialId);
+              return src?.type === "PDF" ? (
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                    Intervalo de páginas{" "}
+                    <span className="font-normal text-gray-400">(opcional — deixe em branco para usar todo o PDF)</span>
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min={1}
+                      placeholder="De"
+                      value={genPageFrom}
+                      onChange={(e) => setGenPageFrom(e.target.value === "" ? "" : Number(e.target.value))}
+                      className="h-9 w-20 rounded-md border border-gray-300 bg-white px-3 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                    />
+                    <span className="text-xs text-gray-500">até</span>
+                    <input
+                      type="number"
+                      min={1}
+                      placeholder="Até"
+                      value={genPageTo}
+                      onChange={(e) => setGenPageTo(e.target.value === "" ? "" : Number(e.target.value))}
+                      className="h-9 w-20 rounded-md border border-gray-300 bg-white px-3 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                    />
+                  </div>
+                </div>
+              ) : null;
+            })()}
 
             <div className="flex gap-3 flex-wrap">
               <div className="space-y-1">
