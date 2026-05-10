@@ -103,7 +103,11 @@ export default function PsicoLabExercisesPage() {
     if (typeof window === "undefined") return [];
     try {
       const stored = window.localStorage.getItem("psicolab_marked_review");
-      return stored ? (JSON.parse(stored) as string[]) : [];
+      if (!stored) return [];
+      const parsed = JSON.parse(stored);
+      return Array.isArray(parsed) && parsed.every((item) => typeof item === "string")
+        ? parsed
+        : [];
     } catch {
       return [];
     }
@@ -204,18 +208,14 @@ export default function PsicoLabExercisesPage() {
     return grouped;
   }, [filteredExercises]);
 
-  const invalidDifficulties = useMemo(
-    () =>
-      exercises
-        .filter((exercise) => exercise.difficulty && !isDifficultyKey(exercise.difficulty))
-        .map((exercise) => ({ id: exercise.id, difficulty: exercise.difficulty })),
-    [exercises]
-  );
-
   useEffect(() => {
+    if (process.env.NODE_ENV !== "development") return;
+    const invalidDifficulties = exercises
+      .filter((exercise) => exercise.difficulty && !isDifficultyKey(exercise.difficulty))
+      .map((exercise) => ({ id: exercise.id, difficulty: exercise.difficulty }));
     if (!invalidDifficulties.length) return;
     console.warn("[psicolab/exercicios] invalid_difficulty_fallback", invalidDifficulties);
-  }, [invalidDifficulties]);
+  }, [exercises]);
 
   useEffect(() => {
     if (!filteredExercises.length) {
@@ -256,13 +256,12 @@ export default function PsicoLabExercisesPage() {
     return Math.max(0, ...exercises.map((exercise) => exercise.reviewState?.repetitions ?? 0));
   }, [exercises]);
 
-  const questionNumberById = useMemo(
-    () =>
-      Object.fromEntries(
-        filteredExercises.map((exercise, index) => [exercise.id, index + 1])
-      ) as Record<string, number>,
-    [filteredExercises]
-  );
+  const questionNumberById = useMemo(() => {
+    return filteredExercises.reduce<Record<string, number>>((acc, exercise, index) => {
+      acc[exercise.id] = index + 1;
+      return acc;
+    }, {});
+  }, [filteredExercises]);
 
   const goToExercise = (exerciseId: string) => {
     setSelectedExerciseId(exerciseId);
@@ -290,6 +289,7 @@ export default function PsicoLabExercisesPage() {
 
   const getExerciseProgress = (exercise: Exercise) => {
     const reps = exercise.reviewState?.repetitions ?? 0;
+    // SM-2 cadence: 4 successful repetitions represent stable recall (100% on this bar).
     return Math.min(100, reps * PROGRESS_PER_REPETITION);
   };
 
