@@ -74,6 +74,8 @@ const MAX_HISTORY = 50;
 const SCROLL_CONTAINER_PADDING = 32;
 /** Fallback canvas aspect ratio when buffer dimensions are unavailable (√2 ≈ A4 paper ratio) */
 const DEFAULT_ASPECT_RATIO = 1.414;
+const SELECTION_LINE_TOLERANCE_RATIO = 0.6;
+const SELECTION_SPACE_GAP_RATIO = 0.18;
 
 /** Returns true if the currently-focused element is a text-editing field */
 function isEditableActive(): boolean {
@@ -81,6 +83,90 @@ function isEditableActive(): boolean {
   if (!el) return false;
   const tag = el.tagName.toLowerCase();
   return tag === "input" || tag === "textarea" || tag === "select" || el.isContentEditable;
+}
+
+function normalizeSelectionText(text: string): string {
+  return text
+    .replace(/\u00a0/g, " ")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n[ \t]+/g, "\n")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
+}
+
+interface SelectedToken {
+  text: string;
+  top: number;
+  left: number;
+  right: number;
+  height: number;
+}
+
+function buildSelectionTextFromGeometry(wrapper: HTMLDivElement, range: Range): string {
+  const nodes = Array.from(
+    wrapper.querySelectorAll<HTMLSpanElement>(".pdf-text-layer span"),
+  );
+  const tokens: SelectedToken[] = [];
+
+  for (const node of nodes) {
+    let intersects = false;
+    try {
+      intersects = range.intersectsNode(node);
+    } catch {
+      intersects = false;
+    }
+    if (!intersects) continue;
+
+    const text = (node.textContent ?? "").trim();
+    if (!text) continue;
+    const rect = node.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) continue;
+
+    tokens.push({
+      text,
+      top: rect.top,
+      left: rect.left,
+      right: rect.right,
+      height: rect.height,
+    });
+  }
+
+  if (tokens.length === 0) return "";
+
+  tokens.sort((a, b) => {
+    const lineTolerance = Math.min(a.height, b.height) * SELECTION_LINE_TOLERANCE_RATIO;
+    if (Math.abs(a.top - b.top) <= lineTolerance) return a.left - b.left;
+    return a.top - b.top;
+  });
+
+  let result = "";
+  let previous: SelectedToken | null = null;
+
+  for (const token of tokens) {
+    if (!previous) {
+      result += token.text;
+      previous = token;
+      continue;
+    }
+
+    const lineTolerance = Math.min(previous.height, token.height) * SELECTION_LINE_TOLERANCE_RATIO;
+    const isSameLine = Math.abs(token.top - previous.top) <= lineTolerance;
+
+    if (!isSameLine) {
+      result += "\n";
+    } else {
+      const gap = token.left - previous.right;
+      const spaceThreshold = Math.min(previous.height, token.height) * SELECTION_SPACE_GAP_RATIO;
+      if (gap > spaceThreshold && !result.endsWith(" ")) {
+        result += " ";
+      }
+    }
+
+    result += token.text;
+    previous = token;
+  }
+
+  return normalizeSelectionText(result);
 }
 
 // ── Helper: combine two 2-D affine matrices ────────────────────────────────────
@@ -491,15 +577,48 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
     [highlights, saveHighlights, historyIdx],
   );
 
+  const getNormalizedSelectionText = useCallback(() => {
+    const selection = window.getSelection();
+    if (!selection || selection.isCollapsed) return "";
+
+    const raw = normalizeSelectionText(selection.toString());
+    if (selection.rangeCount === 0) return raw;
+
+    const wrapper = wrapperRef.current;
+    if (!wrapper) return raw;
+
+    const range = selection.getRangeAt(0);
+    const geometric = buildSelectionTextFromGeometry(wrapper, range);
+    return geometric || raw;
+  }, []);
+
+  const handleCopy = useCallback(
+    (e: React.ClipboardEvent<HTMLDivElement>) => {
+      const selection = window.getSelection();
+      const wrapper = wrapperRef.current;
+      if (!selection || selection.isCollapsed || !wrapper || selection.rangeCount === 0) return;
+
+      const range = selection.getRangeAt(0);
+      if (!wrapper.contains(range.commonAncestorContainer)) return;
+
+      const normalized = getNormalizedSelectionText();
+      if (!normalized) return;
+
+      e.preventDefault();
+      e.clipboardData.setData("text/plain", normalized);
+    },
+    [getNormalizedSelectionText],
+  );
+
   // ── Capture text selection as highlight ──────────────────────────────────
 
   const handleMouseUp = useCallback(() => {
     if (!highlightMode || markAreaMode) return;
     const selection = window.getSelection();
-    if (!selection || selection.isCollapsed || !selection.toString().trim()) return;
-
-    const text = selection.toString();
+    if (!selection || selection.isCollapsed) return;
     const range = selection.getRangeAt(0);
+    const text = getNormalizedSelectionText();
+    if (!text) return;
     const wrapper = wrapperRef.current;
     if (!wrapper) return;
 
@@ -526,7 +645,7 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
 
     pushToHistory([...highlights, hl]);
     selection.removeAllRanges();
-  }, [highlightMode, markAreaMode, currentPage, selectedColor, highlights, pushToHistory]);
+  }, [highlightMode, markAreaMode, currentPage, selectedColor, highlights, pushToHistory, getNormalizedSelectionText]);
 
   // ── Delete selected highlight via keyboard (Delete / Backspace) ───────────
 
@@ -910,6 +1029,7 @@ export function PdfCanvasViewer({ url, storageKey, materialId }: PdfCanvasViewer
               }}
               onMouseDown={handleAreaMouseDown}
               onMouseMove={handleAreaMouseMove}
+              onCopy={handleCopy}
               onMouseUp={(e) => {
                 handleAreaMouseUp(e);
                 handleMouseUp();
