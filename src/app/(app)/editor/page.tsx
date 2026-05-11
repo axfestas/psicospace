@@ -2547,34 +2547,13 @@ function EditorPageInner() {
     URL.revokeObjectURL(a.href);
   };
 
-  const handleExportPDF = async () => {
+  const handleExportPDF = () => {
     if (!editor) return;
-    const { jsPDF } = await import("jspdf");
-    const isLandscape = pageOrientation === "landscape";
-    const doc = new jsPDF({ unit: "pt", format: "a4", orientation: isLandscape ? "landscape" : "portrait" });
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const cssToP = (val: string) => {
-      const m = val.match(/^([\d.]+)(cm|mm|in|px)?$/);
-      if (!m) return 56.7; // fallback ~2cm
-      const n = parseFloat(m[1]);
-      switch (m[2]) {
-        case "cm": return n * 28.35;
-        case "mm": return n * 2.835;
-        case "in": return n * 72;
-        case "px": return n * 0.75;
-        default:   return n * 28.35;
-      }
-    };
-    const mTop  = cssToP(pageMargin.top);
-    const mLeft = cssToP(pageMargin.left);
-    const maxWidth = pageWidth - mLeft - cssToP(pageMargin.right);
-    doc.setFontSize(16);
-    doc.text(title, mLeft, mTop);
-    doc.setFontSize(11);
-    const lines = doc.splitTextToSize(editor.state.doc.textContent, maxWidth);
-    doc.text(lines, mLeft, mTop + 28);
-    doc.save(`${title}.pdf`);
+    // Use the same print-window approach as handlePrint so that:
+    // 1. All CSS formatting is preserved (bold, italic, headings, tables, …)
+    // 2. The resulting PDF has a real text layer → text is selectable/copyable
+    // The user selects "Salvar como PDF" (Save as PDF) in the browser print dialog.
+    handlePrint();
   };
 
   const handleFind = (text: string) => {
@@ -2621,7 +2600,9 @@ function EditorPageInner() {
       }
     });
     if (from !== -1) {
-      const tr = state.tr.replaceWith(from, from + find.length, state.schema.text(replace));
+      const tr = replace
+        ? state.tr.replaceWith(from, from + find.length, state.schema.text(replace))
+        : state.tr.delete(from, from + find.length);
       dispatch(tr);
     }
   };
@@ -2637,8 +2618,13 @@ function EditorPageInner() {
         let localIdx: number;
         while ((localIdx = node.text.indexOf(find, start)) !== -1) {
           const from = pos + localIdx + offset;
-          tr.replaceWith(from, from + find.length, state.schema.text(replace));
-          offset += replace.length - find.length;
+          if (replace) {
+            tr.replaceWith(from, from + find.length, state.schema.text(replace));
+            offset += replace.length - find.length;
+          } else {
+            tr.delete(from, from + find.length);
+            offset -= find.length;
+          }
           start = localIdx + find.length;
         }
       }
@@ -2662,8 +2648,8 @@ function EditorPageInner() {
     if (!editor) return;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const chain = editor.chain().focus() as any;
-    if (!lh) chain?.unsetLineHeight?.();
-    else chain?.setLineHeight?.(lh);
+    if (!lh) chain?.unsetLineHeight?.()?.run?.();
+    else chain?.setLineHeight?.(lh)?.run?.();
   };
 
   const handleInsertFootnote = (text: string) => {
@@ -2700,8 +2686,14 @@ function EditorPageInner() {
     if (!editor) return;
     setShowLinkDialog(false);
     if (editor.state.selection.empty) {
-      // Use setLink on a text node to avoid raw HTML injection
-      editor.chain().focus().insertContent(url).setLink({ href: url }).run();
+      // When there is no text selection, insert the URL as a proper link node.
+      // insertContent with a mark object creates the text with the link mark applied
+      // directly, so there is no need to select after insertion.
+      editor.chain().focus().insertContent({
+        type: "text",
+        text: url,
+        marks: [{ type: "link", attrs: { href: url } }],
+      }).run();
     } else {
       editor.chain().focus().setLink({ href: url }).run();
     }
@@ -3032,8 +3024,8 @@ function EditorPageInner() {
                     onChange={(v) => {
                       // eslint-disable-next-line @typescript-eslint/no-explicit-any
                       const chain = editor?.chain().focus() as any;
-                      if (!v) chain?.unsetFontSize?.();
-                      else chain?.setFontSize?.(String(v));
+                      if (!v) chain?.unsetFontSize?.()?.run?.();
+                      else chain?.setFontSize?.(String(v))?.run?.();
                     }}
                   />
                   <Divider />
@@ -3298,7 +3290,7 @@ function EditorPageInner() {
                   <ToolbarButton onClick={handleExportTXT} title="Exportar TXT">
                     <FileText className="h-4 w-4" />
                   </ToolbarButton>
-                  <ToolbarButton onClick={handleExportPDF} title="Exportar PDF">
+                  <ToolbarButton onClick={handleExportPDF} title="Exportar PDF (Salvar como PDF na janela de impressão)">
                     <FileDown className="h-4 w-4" />
                   </ToolbarButton>
                   <Divider />
