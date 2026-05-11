@@ -54,6 +54,8 @@ interface PageMargin {
 }
 
 const DEFAULT_MARGIN: PageMargin = { top: "2.5cm", bottom: "2.5cm", left: "2.5cm", right: "2.5cm" };
+/** A4 page height in CSS pixels at 96 dpi (297 mm). Must match .editor-page min-height in globals.css. */
+const A4_HEIGHT_PX = 1123;
 
 /** Convert legacy preset strings saved by older versions */
 function normalizeLegacyMargin(m: unknown): PageMargin {
@@ -578,7 +580,12 @@ function ColorPicker({
 }) {
   const [open, setOpen] = useState(false);
   const [customHex, setCustomHex] = useState("");
+  const [hexError, setHexError] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+
+  // The native color input needs a valid #rrggbb value.
+  // Use the current value if it's a valid 6-digit hex, otherwise fall back to black.
+  const nativeColorValue = value && /^#[0-9a-fA-F]{6}$/.test(value) ? value : "#000000";
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -590,7 +597,13 @@ function ColorPicker({
 
   const applyCustom = () => {
     const hex = customHex.startsWith("#") ? customHex : `#${customHex}`;
-    if (/^#[0-9a-fA-F]{6}$/.test(hex)) { onChange(hex); setOpen(false); }
+    if (/^#[0-9a-fA-F]{6}$/.test(hex)) {
+      setHexError(false);
+      onChange(hex);
+      setOpen(false);
+    } else {
+      setHexError(true);
+    }
   };
 
   return (
@@ -619,25 +632,27 @@ function ColorPicker({
               />
             ))}
           </div>
-          {/* Native color input */}
+          {/* Native color input + custom hex */}
           <div className="flex items-center gap-1 border-t border-gray-100 dark:border-gray-700 pt-2">
             <input
               type="color"
-              value={value && /^#[0-9a-fA-F]{6}$/.test(value) ? value : "#000000"}
+              value={nativeColorValue}
               onChange={(e) => { onChange(e.target.value); setOpen(false); }}
-              className="h-6 w-6 rounded cursor-pointer border-0 p-0 bg-transparent"
-              title="Cor personalizada"
+              className="h-6 w-6 rounded cursor-pointer border-0 p-0 bg-transparent flex-shrink-0"
+              title="Escolher cor"
             />
             <input
               type="text"
               value={customHex}
-              onChange={(e) => setCustomHex(e.target.value)}
+              onChange={(e) => { setCustomHex(e.target.value); setHexError(false); }}
               onKeyDown={(e) => e.key === "Enter" && applyCustom()}
               placeholder="#rrggbb"
-              className="flex-1 h-6 text-[11px] border border-gray-200 dark:border-gray-600 rounded px-1.5 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-mono focus:outline-none focus:ring-1 focus:ring-blue-400"
+              className={`flex-1 h-6 text-[11px] border rounded px-1.5 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-mono focus:outline-none focus:ring-1 ${hexError ? "border-red-400 focus:ring-red-400" : "border-gray-200 dark:border-gray-600 focus:ring-blue-400"}`}
+              title={hexError ? "Formato inválido. Use: #rrggbb" : "Cor em hexadecimal"}
             />
-            <button onClick={applyCustom} className="text-[10px] px-1.5 py-0.5 rounded bg-blue-600 text-white hover:bg-blue-700">OK</button>
+            <button onClick={applyCustom} className="text-[10px] px-1.5 py-0.5 rounded bg-blue-600 text-white hover:bg-blue-700 flex-shrink-0">OK</button>
           </div>
+          {hexError && <p className="text-[10px] text-red-500 mt-1">Formato inválido. Ex: #ff0000</p>}
         </div>
       )}
     </div>
@@ -685,6 +700,7 @@ function FontSizeControl({
   const commit = (raw: string) => {
     const n = parseFloat(raw);
     if (!isNaN(n) && n > 0) onChange(`${Math.round(n)}pt`);
+    // On invalid input, simply exit edit mode — the previous value is preserved
     setEditing(false);
   };
 
@@ -3579,7 +3595,7 @@ function EditorPageInner() {
                 ...(zoomLevel !== 100 ? {
                   transform: `scale(${zoomLevel / 100})`,
                   transformOrigin: "top center",
-                  marginBottom: `calc(${zoomLevel / 100} * 1123px - 1123px + 32px)`,
+                  marginBottom: `calc(${zoomLevel / 100} * ${A4_HEIGHT_PX}px - ${A4_HEIGHT_PX}px + 32px)`,
                 } : {}),
               } as React.CSSProperties}
             >
