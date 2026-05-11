@@ -96,6 +96,23 @@ interface VersionSnapshot {
   footer?: string;
 }
 
+declare module "@tiptap/core" {
+  interface Commands<ReturnType> {
+    fontSize: {
+      setFontSize: (size: string) => ReturnType;
+      unsetFontSize: () => ReturnType;
+    };
+    lineHeight: {
+      setLineHeight: (lineHeight: string) => ReturnType;
+      unsetLineHeight: () => ReturnType;
+    };
+    paragraphIndent: {
+      setTextIndent: (indent: string) => ReturnType;
+      unsetTextIndent: () => ReturnType;
+    };
+  }
+}
+
 function parseDocContent(raw: string): DocMeta {
   try {
     const parsed = JSON.parse(raw);
@@ -258,11 +275,11 @@ const FontSize = Extension.create({
       },
     }];
   },
-  addCommands(): any {
+  addCommands() {
     return {
-      setFontSize: (size: string) => ({ chain }: { chain: () => { setMark: (name: string, attrs: Record<string, unknown>) => { run: () => boolean } } }) =>
+      setFontSize: (size: string) => ({ chain }) =>
         chain().setMark("textStyle", { fontSize: size }).run(),
-      unsetFontSize: () => ({ chain }: { chain: () => { setMark: (name: string, attrs: Record<string, unknown>) => { run: () => boolean } } }) =>
+      unsetFontSize: () => ({ chain }) =>
         chain().setMark("textStyle", { fontSize: null }).run(),
     };
   },
@@ -305,13 +322,11 @@ const LineHeight = Extension.create({
       },
     }];
   },
-  addCommands(): any {
+  addCommands() {
     return {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      setLineHeight: (lineHeight: string) => ({ commands }: any) =>
+      setLineHeight: (lineHeight: string) => ({ commands }) =>
         this.options.types.every((type: string) => commands.updateAttributes(type, { lineHeight })),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      unsetLineHeight: () => ({ commands }: any) =>
+      unsetLineHeight: () => ({ commands }) =>
         this.options.types.every((type: string) => commands.resetAttributes(type, "lineHeight")),
     };
   },
@@ -333,13 +348,11 @@ const ParagraphIndent = Extension.create({
       },
     }];
   },
-  addCommands(): any {
+  addCommands() {
     return {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      setTextIndent: (indent: string) => ({ commands }: any) =>
+      setTextIndent: (indent: string) => ({ commands }) =>
         this.options.types.every((type: string) => commands.updateAttributes(type, { textIndent: indent })),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      unsetTextIndent: () => ({ commands }: any) =>
+      unsetTextIndent: () => ({ commands }) =>
         this.options.types.every((type: string) => commands.resetAttributes(type, "textIndent")),
     };
   },
