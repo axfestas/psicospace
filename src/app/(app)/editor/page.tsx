@@ -54,6 +54,8 @@ interface PageMargin {
 }
 
 const DEFAULT_MARGIN: PageMargin = { top: "2.5cm", bottom: "2.5cm", left: "2.5cm", right: "2.5cm" };
+/** A4 page height in CSS pixels at 96 dpi (297 mm). Must match .editor-page min-height in globals.css. */
+const A4_HEIGHT_PX = 1123;
 
 /** Convert legacy preset strings saved by older versions */
 function normalizeLegacyMargin(m: unknown): PageMargin {
@@ -92,6 +94,23 @@ interface VersionSnapshot {
   json?: JSONContent;
   header?: string;
   footer?: string;
+}
+
+declare module "@tiptap/core" {
+  interface Commands<ReturnType> {
+    fontSize: {
+      setFontSize: (size: string) => ReturnType;
+      unsetFontSize: () => ReturnType;
+    };
+    lineHeight: {
+      setLineHeight: (lineHeight: string) => ReturnType;
+      unsetLineHeight: () => ReturnType;
+    };
+    paragraphIndent: {
+      setTextIndent: (indent: string) => ReturnType;
+      unsetTextIndent: () => ReturnType;
+    };
+  }
 }
 
 function parseDocContent(raw: string): DocMeta {
@@ -258,9 +277,9 @@ const FontSize = Extension.create({
   },
   addCommands() {
     return {
-      setFontSize: (size: string) => ({ chain }: { chain: () => { setMark: (name: string, attrs: Record<string, unknown>) => { run: () => boolean } } }) =>
+      setFontSize: (size: string) => ({ chain }) =>
         chain().setMark("textStyle", { fontSize: size }).run(),
-      unsetFontSize: () => ({ chain }: { chain: () => { setMark: (name: string, attrs: Record<string, unknown>) => { run: () => boolean } } }) =>
+      unsetFontSize: () => ({ chain }) =>
         chain().setMark("textStyle", { fontSize: null }).run(),
     };
   },
@@ -305,12 +324,36 @@ const LineHeight = Extension.create({
   },
   addCommands() {
     return {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      setLineHeight: (lineHeight: string) => ({ commands }: any) =>
+      setLineHeight: (lineHeight: string) => ({ commands }) =>
         this.options.types.every((type: string) => commands.updateAttributes(type, { lineHeight })),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      unsetLineHeight: () => ({ commands }: any) =>
+      unsetLineHeight: () => ({ commands }) =>
         this.options.types.every((type: string) => commands.resetAttributes(type, "lineHeight")),
+    };
+  },
+});
+
+// ── Custom ParagraphIndent extension (first-line indent) ─────────────────────
+const ParagraphIndent = Extension.create({
+  name: "paragraphIndent",
+  addOptions() { return { types: ["paragraph"] }; },
+  addGlobalAttributes() {
+    return [{
+      types: this.options.types,
+      attributes: {
+        textIndent: {
+          default: null,
+          parseHTML: (el) => (el as HTMLElement).style.textIndent || null,
+          renderHTML: (attrs) => attrs.textIndent ? { style: `text-indent: ${attrs.textIndent}` } : {},
+        },
+      },
+    }];
+  },
+  addCommands() {
+    return {
+      setTextIndent: (indent: string) => ({ commands }) =>
+        this.options.types.every((type: string) => commands.updateAttributes(type, { textIndent: indent })),
+      unsetTextIndent: () => ({ commands }) =>
+        this.options.types.every((type: string) => commands.resetAttributes(type, "textIndent")),
     };
   },
 });
@@ -451,11 +494,18 @@ const TrackDelete = Mark.create({
 const FONTS = [
   { label: "Padrão", value: "" },
   { label: "Arial", value: "Arial" },
-  { label: "Times New Roman", value: "Times New Roman" },
+  { label: "Arial Black", value: "Arial Black" },
+  { label: "Calibri", value: "Calibri" },
+  { label: "Cambria", value: "Cambria" },
+  { label: "Comic Sans MS", value: "Comic Sans MS" },
   { label: "Courier New", value: "Courier New" },
   { label: "Georgia", value: "Georgia" },
-  { label: "Verdana", value: "Verdana" },
+  { label: "Helvetica", value: "Helvetica" },
+  { label: "Impact", value: "Impact" },
+  { label: "Palatino", value: "Palatino" },
+  { label: "Times New Roman", value: "Times New Roman" },
   { label: "Trebuchet MS", value: "Trebuchet MS" },
+  { label: "Verdana", value: "Verdana" },
 ];
 
 const FONT_SIZES = [
@@ -542,7 +592,13 @@ function ColorPicker({
   title?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [customHex, setCustomHex] = useState("");
+  const [hexError, setHexError] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+
+  // The native color input needs a valid #rrggbb value.
+  // Use the current value if it's a valid 6-digit hex, otherwise fall back to black.
+  const nativeColorValue = value && /^#[0-9a-fA-F]{6}$/.test(value) ? value : "#000000";
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -551,6 +607,17 @@ function ColorPicker({
     if (open) document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
+
+  const applyCustom = () => {
+    const hex = customHex.startsWith("#") ? customHex : `#${customHex}`;
+    if (/^#[0-9a-fA-F]{6}$/.test(hex)) {
+      setHexError(false);
+      onChange(hex);
+      setOpen(false);
+    } else {
+      setHexError(true);
+    }
+  };
 
   return (
     <div ref={ref} className="relative flex-shrink-0">
@@ -566,18 +633,39 @@ function ColorPicker({
         <ChevronDown className="h-2.5 w-2.5" />
       </button>
       {open && (
-        <div className="absolute top-full left-0 z-50 mt-1 p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
-          <div className="grid grid-cols-5 gap-1">
+        <div className="absolute top-full left-0 z-50 mt-1 p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg min-w-[148px]">
+          <div className="grid grid-cols-5 gap-1 mb-2">
             {colors.map((c) => (
               <button
                 key={c}
                 onClick={() => { onChange(c); setOpen(false); }}
-                className="h-5 w-5 rounded border border-gray-300 dark:border-gray-500 hover:scale-110 transition-transform"
+                className={`h-5 w-5 rounded border hover:scale-110 transition-transform ${value === c ? "border-blue-500 ring-1 ring-blue-400" : "border-gray-300 dark:border-gray-500"}`}
                 style={{ backgroundColor: c }}
                 title={c}
               />
             ))}
           </div>
+          {/* Native color input + custom hex */}
+          <div className="flex items-center gap-1 border-t border-gray-100 dark:border-gray-700 pt-2">
+            <input
+              type="color"
+              value={nativeColorValue}
+              onChange={(e) => { onChange(e.target.value); setOpen(false); }}
+              className="h-6 w-6 rounded cursor-pointer border-0 p-0 bg-transparent flex-shrink-0"
+              title="Escolher cor"
+            />
+            <input
+              type="text"
+              value={customHex}
+              onChange={(e) => { setCustomHex(e.target.value); setHexError(false); }}
+              onKeyDown={(e) => e.key === "Enter" && applyCustom()}
+              placeholder="#rrggbb"
+              className={`flex-1 h-6 text-[11px] border rounded px-1.5 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-mono focus:outline-none focus:ring-1 ${hexError ? "border-red-400 focus:ring-red-400" : "border-gray-200 dark:border-gray-600 focus:ring-blue-400"}`}
+              title={hexError ? "Formato inválido. Use: #rrggbb" : "Cor em hexadecimal"}
+            />
+            <button onClick={applyCustom} className="text-[10px] px-1.5 py-0.5 rounded bg-blue-600 text-white hover:bg-blue-700 flex-shrink-0">OK</button>
+          </div>
+          {hexError && <p className="text-[10px] text-red-500 mt-1">Formato inválido. Ex: #ff0000</p>}
         </div>
       )}
     </div>
@@ -606,6 +694,67 @@ function SelectDropdown({
         <option key={o.value} value={o.value}>{o.label}</option>
       ))}
     </select>
+  );
+}
+
+/** Editable font-size control: shows current size, lets user type or pick from dropdown */
+function FontSizeControl({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+
+  const displayVal = value ? value.replace("pt", "") : "";
+
+  const commit = (raw: string) => {
+    const n = parseFloat(raw);
+    if (!isNaN(n) && n > 0) onChange(`${Math.round(n)}pt`);
+    // On invalid input, simply exit edit mode — the previous value is preserved
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        type="text"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => commit(draft)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") commit(draft);
+          if (e.key === "Escape") setEditing(false);
+        }}
+        className="w-12 h-7 text-xs text-center rounded border border-blue-400 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-500 flex-shrink-0"
+      />
+    );
+  }
+
+  return (
+    <div className="flex items-center flex-shrink-0">
+      <button
+        title="Clique para digitar o tamanho de fonte"
+        onClick={() => { setDraft(displayVal); setEditing(true); }}
+        className="w-10 h-7 text-xs text-center rounded-l border border-r-0 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none"
+      >
+        {displayVal || "—"}
+      </button>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        title="Tamanho de fonte"
+        className="h-7 rounded-r border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-xs pl-0.5 pr-1 focus:outline-none focus:ring-1 focus:ring-blue-500 flex-shrink-0 w-5"
+      >
+        <option value="" />
+        {FONT_SIZES.map((o) => (
+          <option key={o.value} value={o.value}>{o.label}</option>
+        ))}
+      </select>
+    </div>
   );
 }
 
@@ -1878,6 +2027,7 @@ function EditorPageInner() {
   const [spellcheck, setSpellcheck] = useState(false);
   const [showAbntCitation, setShowAbntCitation] = useState(false);
   const [showRuler, setShowRuler] = useState(true);
+  const [zoomLevel, setZoomLevel] = useState(100); // percentage
   const [savingStatus, setSavingStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [saveError, setSaveError] = useState<string | null>(null);
   const [loadDocsError, setLoadDocsError] = useState<string | null>(null);
@@ -1951,6 +2101,7 @@ function EditorPageInner() {
       FontFamily,
       IndentExtension,
       LineHeight,
+      ParagraphIndent,
       Footnote,
       CommentMark,
       PageBreak,
@@ -2547,34 +2698,13 @@ function EditorPageInner() {
     URL.revokeObjectURL(a.href);
   };
 
-  const handleExportPDF = async () => {
+  const handleExportPDF = () => {
     if (!editor) return;
-    const { jsPDF } = await import("jspdf");
-    const isLandscape = pageOrientation === "landscape";
-    const doc = new jsPDF({ unit: "pt", format: "a4", orientation: isLandscape ? "landscape" : "portrait" });
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const cssToP = (val: string) => {
-      const m = val.match(/^([\d.]+)(cm|mm|in|px)?$/);
-      if (!m) return 56.7; // fallback ~2cm
-      const n = parseFloat(m[1]);
-      switch (m[2]) {
-        case "cm": return n * 28.35;
-        case "mm": return n * 2.835;
-        case "in": return n * 72;
-        case "px": return n * 0.75;
-        default:   return n * 28.35;
-      }
-    };
-    const mTop  = cssToP(pageMargin.top);
-    const mLeft = cssToP(pageMargin.left);
-    const maxWidth = pageWidth - mLeft - cssToP(pageMargin.right);
-    doc.setFontSize(16);
-    doc.text(title, mLeft, mTop);
-    doc.setFontSize(11);
-    const lines = doc.splitTextToSize(editor.state.doc.textContent, maxWidth);
-    doc.text(lines, mLeft, mTop + 28);
-    doc.save(`${title}.pdf`);
+    // Use the same print-window approach as handlePrint so that:
+    // 1. All CSS formatting is preserved (bold, italic, headings, tables, …)
+    // 2. The resulting PDF has a real text layer → text is selectable/copyable
+    // The user selects "Salvar como PDF" (Save as PDF) in the browser print dialog.
+    handlePrint();
   };
 
   const handleFind = (text: string) => {
@@ -2621,7 +2751,9 @@ function EditorPageInner() {
       }
     });
     if (from !== -1) {
-      const tr = state.tr.replaceWith(from, from + find.length, state.schema.text(replace));
+      const tr = replace
+        ? state.tr.replaceWith(from, from + find.length, state.schema.text(replace))
+        : state.tr.delete(from, from + find.length);
       dispatch(tr);
     }
   };
@@ -2637,8 +2769,13 @@ function EditorPageInner() {
         let localIdx: number;
         while ((localIdx = node.text.indexOf(find, start)) !== -1) {
           const from = pos + localIdx + offset;
-          tr.replaceWith(from, from + find.length, state.schema.text(replace));
-          offset += replace.length - find.length;
+          if (replace) {
+            tr.replaceWith(from, from + find.length, state.schema.text(replace));
+            offset += replace.length - find.length;
+          } else {
+            tr.delete(from, from + find.length);
+            offset -= find.length;
+          }
           start = localIdx + find.length;
         }
       }
@@ -2662,8 +2799,8 @@ function EditorPageInner() {
     if (!editor) return;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const chain = editor.chain().focus() as any;
-    if (!lh) chain?.unsetLineHeight?.();
-    else chain?.setLineHeight?.(lh);
+    if (!lh) chain?.unsetLineHeight?.()?.run?.();
+    else chain?.setLineHeight?.(lh)?.run?.();
   };
 
   const handleInsertFootnote = (text: string) => {
@@ -2700,8 +2837,14 @@ function EditorPageInner() {
     if (!editor) return;
     setShowLinkDialog(false);
     if (editor.state.selection.empty) {
-      // Use setLink on a text node to avoid raw HTML injection
-      editor.chain().focus().insertContent(url).setLink({ href: url }).run();
+      // When there is no text selection, insert the URL as a proper link node.
+      // insertContent with a mark object creates the text with the link mark applied
+      // directly, so there is no need to select after insertion.
+      editor.chain().focus().insertContent({
+        type: "text",
+        text: url,
+        marks: [{ type: "link", attrs: { href: url } }],
+      }).run();
     } else {
       editor.chain().focus().setLink({ href: url }).run();
     }
@@ -3025,15 +3168,13 @@ function EditorPageInner() {
                       else editor?.chain().focus().setFontFamily(String(v)).run();
                     }}
                   />
-                  <SelectDropdown
-                    title="Tamanho de fonte"
-                    options={[{ label: "Tam.", value: "" }, ...FONT_SIZES]}
+                  <FontSizeControl
                     value={currentFontSize}
                     onChange={(v) => {
                       // eslint-disable-next-line @typescript-eslint/no-explicit-any
                       const chain = editor?.chain().focus() as any;
-                      if (!v) chain?.unsetFontSize?.();
-                      else chain?.setFontSize?.(String(v));
+                      if (!v) chain?.unsetFontSize?.()?.run?.();
+                      else chain?.setFontSize?.(v)?.run?.();
                     }}
                   />
                   <Divider />
@@ -3213,6 +3354,25 @@ function EditorPageInner() {
                     title="Diminuir recuo (Shift+Tab)"
                   >
                     <Outdent className="h-4 w-4" />
+                  </ToolbarButton>
+                  {/* First-line indent (ABNT / Word-style) */}
+                  <ToolbarButton
+                    onClick={() => {
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      const chain = editor?.chain().focus() as any;
+                      const { state } = editor?.view ?? {};
+                      if (!state) return;
+                      const { from, to } = state.selection;
+                      let hasIndent = false;
+                      state.doc.nodesBetween(from, to, (node) => {
+                        if (node.type.name === "paragraph" && node.attrs.textIndent) hasIndent = true;
+                      });
+                      if (hasIndent) chain?.unsetTextIndent?.()?.run?.();
+                      else chain?.setTextIndent?.("1.25cm")?.run?.();
+                    }}
+                    title="Recuo de primeira linha (1.25 cm — padrão ABNT)"
+                  >
+                    <span className="text-[10px] font-bold leading-none">¶→</span>
                   </ToolbarButton>
                   <Divider />
                   <SelectDropdown
@@ -3445,6 +3605,11 @@ function EditorPageInner() {
                 "--doc-margin-bottom": pageMargin.bottom,
                 "--doc-margin-left":   pageMargin.left,
                 "--doc-margin-right":  pageMargin.right,
+                ...(zoomLevel !== 100 ? {
+                  transform: `scale(${zoomLevel / 100})`,
+                  transformOrigin: "top center",
+                  marginBottom: `calc(${zoomLevel / 100} * ${A4_HEIGHT_PX}px - ${A4_HEIGHT_PX}px + 32px)`,
+                } : {}),
               } as React.CSSProperties}
             >
               {/* Cabeçalho */}
@@ -3521,6 +3686,29 @@ function EditorPageInner() {
               {currentDoc && (
                 <span>Última edição: {formatDate(currentDoc.updatedAt)}</span>
               )}
+              {/* Zoom controls */}
+              <div className="flex items-center gap-1 border-l border-gray-200 dark:border-gray-700 pl-3">
+                <button
+                  onClick={() => setZoomLevel((z) => Math.max(50, z - 10))}
+                  className="hover:text-gray-700 dark:hover:text-gray-200 w-5 h-5 flex items-center justify-center rounded hover:bg-gray-100 dark:hover:bg-gray-700 font-bold"
+                  title="Diminuir zoom (−10%)"
+                >−</button>
+                <select
+                  value={zoomLevel}
+                  onChange={(e) => setZoomLevel(Number(e.target.value))}
+                  className="text-xs border border-gray-200 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 h-5 px-0.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  title="Nível de zoom"
+                >
+                  {[50, 60, 70, 75, 80, 90, 100, 110, 125, 150, 175, 200].map((z) => (
+                    <option key={z} value={z}>{z}%</option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => setZoomLevel((z) => Math.min(200, z + 10))}
+                  className="hover:text-gray-700 dark:hover:text-gray-200 w-5 h-5 flex items-center justify-center rounded hover:bg-gray-100 dark:hover:bg-gray-700 font-bold"
+                  title="Aumentar zoom (+10%)"
+                >+</button>
+              </div>
             </div>
           </div>
         </Card>
