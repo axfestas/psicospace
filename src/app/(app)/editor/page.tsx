@@ -258,7 +258,7 @@ const FontSize = Extension.create({
       },
     }];
   },
-  addCommands() {
+  addCommands(): any {
     return {
       setFontSize: (size: string) => ({ chain }: { chain: () => { setMark: (name: string, attrs: Record<string, unknown>) => { run: () => boolean } } }) =>
         chain().setMark("textStyle", { fontSize: size }).run(),
@@ -305,7 +305,7 @@ const LineHeight = Extension.create({
       },
     }];
   },
-  addCommands() {
+  addCommands(): any {
     return {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       setLineHeight: (lineHeight: string) => ({ commands }: any) =>
