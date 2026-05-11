@@ -333,7 +333,7 @@ const ParagraphIndent = Extension.create({
       },
     }];
   },
-  addCommands() {
+  addCommands(): any {
     return {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       setTextIndent: (indent: string) => ({ commands }: any) =>
