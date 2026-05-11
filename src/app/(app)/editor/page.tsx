@@ -3290,7 +3290,7 @@ function EditorPageInner() {
                   <ToolbarButton onClick={handleExportTXT} title="Exportar TXT">
                     <FileText className="h-4 w-4" />
                   </ToolbarButton>
-                  <ToolbarButton onClick={handleExportPDF} title="Exportar PDF (Salvar como PDF na janela de impressão)">
+                  <ToolbarButton onClick={handleExportPDF} title="Exportar PDF">
                     <FileDown className="h-4 w-4" />
                   </ToolbarButton>
                   <Divider />
