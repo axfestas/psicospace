@@ -176,7 +176,9 @@ body {
 
 /* Outer scrollable area — grey "desk" */
 .editor-page-area {
-  background: #e0e0e0;
+  background: #d0d0d0;
+  background-image: radial-gradient(circle at 1px 1px, rgba(0,0,0,0.04) 1px, transparent 0);
+  background-size: 20px 20px;
   padding: 32px 24px;
   overflow-y: auto;
   overflow-x: auto;  /* allow horizontal scroll so page never shrinks */
@@ -184,13 +186,15 @@ body {
 }
 
 .dark .editor-page-area {
-  background: #2d2d2d;
+  background: #232323;
+  background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,0.03) 1px, transparent 0);
+  background-size: 20px 20px;
 }
 
 /* The A4 "paper" sheet — white card with shadow */
 .editor-page {
   background: #ffffff;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.22), 0 1px 4px rgba(0,0,0,0.12);
   width: 794px;         /* A4 at 96 dpi ≈ 210 mm */
   flex-shrink: 0;       /* never shrink — scroll instead */
   min-height: 1123px;   /* A4 at 96 dpi ≈ 297 mm */
@@ -202,27 +206,29 @@ body {
   padding-right:  var(--doc-margin-right,  2.5cm);
   box-sizing: border-box;
   position: relative;
+  border-radius: 2px;
 }
 
 /* Visual page-break guide line at A4 height */
 .editor-page::after {
   content: "";
   position: absolute;
-  left: 0;
-  right: 0;
+  left: -24px;
+  right: -24px;
   top: 1123px;
   height: 0;
-  border-top: 2px dashed #c0c0c0;
+  border-top: 3px solid #b0b0b0;
   pointer-events: none;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.08);
 }
 
 .dark .editor-page {
   background: #1e1e1e;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), 0 1px 4px rgba(0,0,0,0.3);
 }
 
 .dark .editor-page::after {
-  border-top-color: #444;
+  border-top-color: #555;
 }
 
 /* ProseMirror inside the page */
@@ -236,6 +242,92 @@ body {
 
 .dark .editor-page .ProseMirror {
   color: #e5e5e5;
+}
+
+/* ── Typography: headings ────────────────────────────────────── */
+.editor-page .ProseMirror h1 {
+  font-size: 2em;
+  font-weight: 700;
+  margin-top: 1em;
+  margin-bottom: 0.4em;
+  line-height: 1.2;
+  color: #111827;
+}
+.editor-page .ProseMirror h2 {
+  font-size: 1.5em;
+  font-weight: 700;
+  margin-top: 0.9em;
+  margin-bottom: 0.35em;
+  line-height: 1.25;
+  color: #111827;
+}
+.editor-page .ProseMirror h3 {
+  font-size: 1.25em;
+  font-weight: 600;
+  margin-top: 0.8em;
+  margin-bottom: 0.3em;
+  line-height: 1.3;
+  color: #111827;
+}
+.editor-page .ProseMirror h4 {
+  font-size: 1.1em;
+  font-weight: 600;
+  margin-top: 0.7em;
+  margin-bottom: 0.25em;
+  line-height: 1.35;
+  color: #1f2937;
+}
+.editor-page .ProseMirror h5,
+.editor-page .ProseMirror h6 {
+  font-size: 1em;
+  font-weight: 600;
+  margin-top: 0.6em;
+  margin-bottom: 0.2em;
+  color: #374151;
+}
+.dark .editor-page .ProseMirror h1,
+.dark .editor-page .ProseMirror h2,
+.dark .editor-page .ProseMirror h3,
+.dark .editor-page .ProseMirror h4,
+.dark .editor-page .ProseMirror h5,
+.dark .editor-page .ProseMirror h6 {
+  color: #f3f4f6;
+}
+
+/* ── Typography: paragraphs ─────────────────────────────────── */
+.editor-page .ProseMirror p {
+  margin-top: 0;
+  margin-bottom: 0.5em;
+}
+
+/* ── Typography: code blocks ────────────────────────────────── */
+.editor-page .ProseMirror pre {
+  background: #f8f8f8;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 1em 1.25em;
+  font-size: 0.875em;
+  line-height: 1.6;
+  overflow-x: auto;
+  margin: 0.75em 0;
+}
+.dark .editor-page .ProseMirror pre {
+  background: #1a1a2e;
+  border-color: #374151;
+  color: #e2e8f0;
+}
+.editor-page .ProseMirror code:not(pre code) {
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 3px;
+  padding: 0.1em 0.35em;
+  font-size: 0.875em;
+  font-family: "Courier New", Courier, monospace;
+}
+.dark .editor-page .ProseMirror code:not(pre code) {
+  background: #1e293b;
+  border-color: #334155;
+  color: #94a3b8;
 }
 
 /* ── Mobile responsive: reduce gutter, keep page at its configured size ──── */
@@ -277,26 +369,35 @@ body {
 /* Table styles */
 .ProseMirror table {
   border-collapse: collapse;
-  margin: 0;
+  margin: 0.75em 0;
   overflow: hidden;
   table-layout: fixed;
   width: 100%;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
 }
 
 .ProseMirror table td,
 .ProseMirror table th {
-  border: 2px solid #e5e7eb;
+  border: 1px solid #d1d5db;
   box-sizing: border-box;
   min-width: 1em;
-  padding: 3px 5px;
+  padding: 6px 10px;
   position: relative;
   vertical-align: top;
+  line-height: 1.5;
 }
 
 .ProseMirror table th {
-  background-color: #f3f4f6;
+  background-color: #f0f4f8;
   font-weight: 600;
   text-align: left;
+  color: #374151;
+  border-bottom: 2px solid #cbd5e1;
+}
+
+.dark .ProseMirror table {
+  border-color: #374151;
 }
 
 .dark .ProseMirror table td,
@@ -306,6 +407,12 @@ body {
 
 .dark .ProseMirror table th {
   background-color: #1f2937;
+  color: #d1d5db;
+  border-bottom-color: #4b5563;
+}
+
+.ProseMirror table tr:hover td {
+  background-color: rgba(59, 130, 246, 0.03);
 }
 
 .ProseMirror table .selectedCell:after {
@@ -322,16 +429,25 @@ body {
 
 /* Blockquote */
 .ProseMirror blockquote {
-  border-left: 4px solid #d1d5db;
+  border-left: 4px solid #93c5fd;
   margin-left: 0;
-  padding-left: 1rem;
-  color: #6b7280;
+  margin-right: 0;
+  padding: 0.5em 1em;
+  color: #4b5563;
   font-style: italic;
+  background-color: #f0f9ff;
+  border-radius: 0 6px 6px 0;
 }
 
 .dark .ProseMirror blockquote {
-  border-left-color: #4b5563;
+  border-left-color: #3b82f6;
   color: #9ca3af;
+  background-color: rgba(59, 130, 246, 0.06);
+}
+
+/* Text selection highlight in the editor */
+.editor-page .ProseMirror ::selection {
+  background: rgba(59, 130, 246, 0.2);
 }
 
 /* Inline comment marks */
