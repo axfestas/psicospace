@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
   Calendar,
+  MessageSquare,
   BookOpen,
   FileText,
   BookMarked,
@@ -16,16 +17,15 @@ import {
   LogOut,
   GraduationCap,
   Library,
-  FlaskConical,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/agenda", label: "Agenda", icon: Calendar },
+  { href: "/estudo", label: "Estudo", icon: MessageSquare },
   { href: "/biblioteca", label: "Biblioteca", icon: Library },
   { href: "/disciplinas", label: "Disciplinas", icon: GraduationCap },
-  { href: "/psicolab", label: "PsicoLab", icon: FlaskConical },
   { href: "/editor", label: "Editor", icon: FileText },
   { href: "/abnt", label: "Normas ABNT", icon: BookMarked },
 ];
@@ -134,20 +134,6 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                         )}
                       >
                         Materiais
-                      </Link>
-                    </li>
-                    <li>
-                      <Link
-                        href="/docentes/exercicios"
-                        onClick={onClose}
-                        className={cn(
-                          "block rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
-                          pathname === "/docentes/exercicios"
-                            ? "text-blue-700 dark:text-blue-400"
-                            : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                        )}
-                      >
-                        Exercícios
                       </Link>
                     </li>
                   </ul>

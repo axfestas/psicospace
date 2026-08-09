@@ -83,6 +83,7 @@ declare interface CloudflareEnv {
   JWT_SECRET?: string;
   RESEND_API_KEY?: string;
   GROQ_API_KEY?: string;
+  OPENAI_API_KEY?: string;
   EMAIL_FROM?: string;
   NEXT_PUBLIC_BASE_URL?: string;
   CRON_SECRET?: string;

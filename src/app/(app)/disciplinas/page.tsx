@@ -96,8 +96,13 @@ export default function DisciplinasPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+      <div className="space-y-4 animate-pulse">
+        <div className="h-10 w-1/3 rounded bg-gray-200 dark:bg-gray-700" />
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="h-40 rounded-2xl bg-gray-200 dark:bg-gray-700" />
+          <div className="h-40 rounded-2xl bg-gray-200 dark:bg-gray-700" />
+          <div className="h-40 rounded-2xl bg-gray-200 dark:bg-gray-700" />
+        </div>
       </div>
     );
   }

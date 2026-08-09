@@ -30,17 +30,29 @@ export async function GET() {
       },
     });
 
+    // If the user is a student, filter disciplines to only those the user
+    // is enrolled/authorized for. Docentes and admins see all disciplines.
+    let allowedDisciplineIds: Set<string> | null = null;
+    if (auth.role === "ESTUDANTE") {
+      const enrollments = await prisma.userDiscipline.findMany({ where: { userId: auth.userId }, select: { disciplineId: true } });
+      allowedDisciplineIds = new Set(enrollments.map((e: { disciplineId: string }) => e.disciplineId));
+    }
+
     return NextResponse.json({
-      periods: periods.map((period) => ({
-        ...period,
-        disciplines: period.disciplines.map((discipline) => ({
-          ...discipline,
-          materials: discipline.materials.map((material) => ({
-            ...material,
-            url: normalizeStoredMaterialUrl(material.url, material.type),
-          })),
-        })),
-      })),
+      periods: periods
+        .map((period) => ({
+          ...period,
+          disciplines: period.disciplines
+            .filter((d) => (allowedDisciplineIds ? allowedDisciplineIds.has(d.id) : true))
+            .map((discipline) => ({
+              ...discipline,
+              materials: discipline.materials.map((material) => ({
+                ...material,
+                url: normalizeStoredMaterialUrl(material.url, material.type),
+              })),
+            })),
+        }))
+        .filter((p) => p.disciplines.length > 0 || auth.role !== "ESTUDANTE"),
     });
   } catch (error) {
     console.error("[periods]", error);

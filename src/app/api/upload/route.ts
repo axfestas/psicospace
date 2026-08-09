@@ -25,7 +25,8 @@ const ALLOWED_EXTENSIONS: Record<string, string> = {
   webp: "image/webp",
 };
 
-const MAX_SIZE_BYTES = 200 * 1024 * 1024; // 200 MB
+// Note: we avoid enforcing an arbitrary upload size here. Files are streamed
+// directly into R2 to prevent buffering large uploads in the Worker memory.
 
 export async function POST(request: NextRequest) {
   try {
@@ -63,11 +64,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const bytes = await file.arrayBuffer();
-    if (bytes.byteLength > MAX_SIZE_BYTES) {
-      return NextResponse.json({ error: "Arquivo excede o limite de 200 MB" }, { status: 413 });
-    }
-
     // Build a unique key: userId/timestamp-filename.ext
     // safeName strips all characters except alphanumerics, dots, hyphens, and
     // underscores, which prevents path-separator injection (no slashes remain).
@@ -80,9 +76,28 @@ export async function POST(request: NextRequest) {
     const key = `${auth.userId}/${Date.now()}-${safeName}`;
 
     const { env } = getRequestContext();
-    await env["bk-psi"].put(key, bytes, {
-      httpMetadata: { contentType: detectedContentType },
-    });
+    // Stream the file directly into R2 to avoid buffering large files in memory.
+    // The `file` returned by `formData` is a Blob/File-like; use `stream()` when
+    // available, otherwise fall back to reading an ArrayBuffer.
+    const bucket = env["bk-psi"];
+    try {
+      // `file.stream()` exists at runtime in the Edge FormData File; use a
+      // runtime-safe cast to avoid TypeScript errors.
+      if (typeof (file as any).stream === "function") {
+        const stream = (file as any).stream();
+        await bucket.put(key, stream, {
+          httpMetadata: { contentType: detectedContentType },
+        });
+      } else {
+        const bytes = await file.arrayBuffer();
+        await bucket.put(key, bytes, {
+          httpMetadata: { contentType: detectedContentType },
+        });
+      }
+    } catch (r2Err) {
+      console.error("[/api/upload] R2 put error:", r2Err);
+      return NextResponse.json({ error: "Falha ao salvar arquivo. Tente novamente." }, { status: 502 });
+    }
 
     return NextResponse.json(
       { url: `/api/files/${key}`, key },

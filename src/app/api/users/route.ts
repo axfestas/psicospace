@@ -7,7 +7,7 @@ export const runtime = "edge";
 export async function GET() {
   try {
     const auth = await getAuthUser();
-    if (!auth || !["ADMIN", "SUPERADMIN"].includes(auth.role)) {
+    if (!auth || !["DOCENTE", "ADMIN", "SUPERADMIN"].includes(auth.role)) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
     }
 

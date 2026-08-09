@@ -51,7 +51,22 @@ function startMigration(d1: CfD1Database): void {
 // the in-flight promise (which may resolve or reject).
 async function awaitMigrations(): Promise<void> {
   if (migrationComplete) return;
-  if (migrationPromise) await migrationPromise;
+  if (migrationPromise) {
+    // Wait briefly for migrations to finish, but don't block requests
+    // indefinitely — a long-running migration should not turn into a hard
+    // 503 for read requests. If migrations don't finish within the timeout
+    // we proceed and let the query run (it may fail if schema is incompatible).
+    try {
+      await Promise.race([
+        migrationPromise,
+        new Promise<void>((resolve) => setTimeout(resolve, 2000)),
+      ]);
+    } catch {
+      // If migrationPromise rejects we swallow here and allow the caller
+      // to hit a schema error; the migration runner logs the error.
+    }
+    return;
+  }
   // If neither flag is set, the migration failed previously and was cleared.
   // Let the query proceed — it will fail with a schema error if needed.
 }

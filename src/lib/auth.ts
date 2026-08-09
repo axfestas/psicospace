@@ -1,19 +1,25 @@
-import { SignJWT, jwtVerify } from "jose";
 import { compare as bcryptCompare } from "bcrypt-ts";
 import { cookies } from "next/headers";
-import { getRequestContext } from "@cloudflare/next-on-pages";
 import type { Role } from "@/types";
 
-function getJwtSecret(): string {
-  // On Cloudflare Pages, env vars are exposed via the request context binding
-  // env object. process.env is a fallback for local Next.js development.
-  let secret: string | undefined;
-  try {
-    secret = getRequestContext().env.JWT_SECRET;
-  } catch {
-    // getRequestContext() throws outside a request context (e.g. during build).
-  }
-  secret ??= process.env.JWT_SECRET;
+import { SignJWT } from "jose/jwt/sign";
+import { jwtVerify } from "jose/jwt/verify";
+
+function getRequestContextFromGlobal(): { env?: Record<string, string | undefined> } | undefined {
+  // @cloudflare/next-on-pages injects the request context into globalThis using
+  // this shared symbol. This avoids importing the package at build time and
+  // keeps runtime checks edge-safe.
+  return (globalThis as any)[Symbol.for("__cloudflare-request-context__")];
+}
+
+function getCloudflareEnv(): Record<string, string | undefined> {
+  const context = getRequestContextFromGlobal();
+  return context?.env ?? {};
+}
+
+async function getJwtSecret(): Promise<string> {
+  const cfEnv = getCloudflareEnv();
+  const secret = cfEnv.JWT_SECRET ?? process.env.JWT_SECRET;
   if (!secret) {
     throw new Error("JWT_SECRET environment variable is required");
   }
@@ -100,7 +106,7 @@ export async function comparePassword(
 }
 
 export async function signToken(payload: JWTPayload): Promise<string> {
-  const secret = new TextEncoder().encode(getJwtSecret());
+  const secret = new TextEncoder().encode(await getJwtSecret());
   return new SignJWT({ userId: payload.userId, email: payload.email, role: payload.role })
     .setProtectedHeader({ alg: "HS256" })
     .setExpirationTime("7d")
@@ -111,7 +117,7 @@ const VALID_ROLES: Role[] = ["ESTUDANTE", "DOCENTE", "ADMIN", "SUPERADMIN"];
 
 export async function verifyToken(token: string): Promise<JWTPayload | null> {
   try {
-    const secret = new TextEncoder().encode(getJwtSecret());
+    const secret = new TextEncoder().encode(await getJwtSecret());
     const { payload } = await jwtVerify(token, secret);
     const { userId, email, role } = payload;
     if (
@@ -136,19 +142,9 @@ export async function getAuthUser(): Promise<JWTPayload | null> {
 }
 
 export function setAuthCookie(token: string) {
-  // In Cloudflare Pages/Edge, process.env.NODE_ENV is not reliably "production"
-  // (CF Pages runtime does not populate it from the dashboard env vars into
-  // process.env). We detect the CF runtime by calling getRequestContext(): it
-  // succeeds inside a real CF Workers/Pages request and throws otherwise (e.g.
-  // during a local `next dev` server). CF Pages always serves over HTTPS, so
-  // secure=true is always correct there.
-  let isSecure = process.env.NODE_ENV === "production";
-  try {
-    getRequestContext();
-    isSecure = true;
-  } catch {
-    // Not in CF runtime (local Next.js dev server) — keep process.env.NODE_ENV check.
-  }
+  // Use secure cookies in production. In local development, secure=false
+  // keeps the cookie writable over HTTP.
+  const isSecure = process.env.NODE_ENV === "production";
   return {
     name: "auth-token",
     value: token,

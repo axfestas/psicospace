@@ -19,7 +19,6 @@ export default function DashboardPage() {
     pendingTasks: 0,
     totalTasks: 0,
   });
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -52,24 +51,11 @@ export default function DashboardPage() {
         });
       } catch (error) {
         console.error("Dashboard error:", error);
-      } finally {
-        setLoading(false);
       }
     };
 
     fetchData();
   }, []);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent mx-auto" />
-          <p className="mt-2 text-gray-500">Carregando...</p>
-        </div>
-      </div>
-    );
-  }
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite";

@@ -515,6 +515,20 @@ DROP TABLE IF EXISTS "ShopItem";
 DROP TABLE IF EXISTS "CharacterProgress";
     `,
   },
+  {
+    name: "20260808000000_add_user_disciplines",
+    sql: `
+CREATE TABLE IF NOT EXISTS "UserDiscipline" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "userId" TEXT NOT NULL,
+    "disciplineId" TEXT NOT NULL,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "UserDiscipline_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT "UserDiscipline_disciplineId_fkey" FOREIGN KEY ("disciplineId") REFERENCES "Discipline" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "UserDiscipline_userId_disciplineId_key" ON "UserDiscipline"("userId", "disciplineId");
+    `,
+  },
 ];
 
 // ---------------------------------------------------------------------------

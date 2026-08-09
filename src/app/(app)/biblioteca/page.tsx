@@ -19,7 +19,6 @@ interface LibraryItem {
 
 export default function BibliotecaPage() {
   const [items, setItems] = useState<LibraryItem[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [viewer, setViewer] = useState<{ url: string; title: string; type: "PDF" | "SLIDE" | "LINK"; materialId?: string } | null>(null);
 
@@ -29,7 +28,6 @@ export default function BibliotecaPage() {
       const data = await res.json();
       setItems(data.items || []);
     }
-    setLoading(false);
   }, []);
 
   useEffect(() => { loadItems(); }, [loadItems]);
@@ -48,14 +46,6 @@ export default function BibliotecaPage() {
       it.title.toLowerCase().includes(search.toLowerCase()) ||
       (it.description ?? "").toLowerCase().includes(search.toLowerCase())
   );
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-4">

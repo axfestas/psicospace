@@ -53,6 +53,7 @@ model User {
   exerciseReviews     ExerciseReview[]
   createdExercises    Exercise[]         @relation("CreatedExercises")
   approvedExercises   Exercise[]         @relation("ApprovedExercises")
+  userDisciplines     UserDiscipline[]
 }
 
 model Period {
@@ -71,6 +72,8 @@ model Discipline {
   createdAt   DateTime   @default(now())
   period      Period     @relation(fields: [periodId], references: [id], onDelete: Cascade)
   materials   Material[]
+
+  userDisciplines UserDiscipline[]
 
   @@index([periodId])
 }
@@ -110,6 +113,20 @@ model LibraryItem {
   exercises    Exercise[]
 
   @@index([uploadedById])
+}
+
+model UserDiscipline {
+  id           String   @id @default(cuid())
+  userId       String
+  disciplineId String
+  createdAt    DateTime @default(now())
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  discipline   Discipline @relation(fields: [disciplineId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, disciplineId])
+  @@index([userId])
+  @@index([disciplineId])
 }
 
 model MaterialProgress {

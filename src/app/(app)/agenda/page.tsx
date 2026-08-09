@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Task, Note } from "@/types";
 import { formatDate } from "@/lib/utils";
-import { Plus, Trash2, Check, X, ChevronLeft, ChevronRight, Edit2, AlertCircle, RefreshCw, Loader2 } from "lucide-react";
+import { Plus, Trash2, Check, X, ChevronLeft, ChevronRight, Edit2, AlertCircle, RefreshCw } from "lucide-react";
 
 interface CalendarEvent {
   id: string;
@@ -476,13 +476,6 @@ export default function AgendaPage() {
         ))}
       </div>
 
-      {/* ── Loading / error banner ── */}
-      {loadingData && (
-        <div className="flex items-center justify-center py-8">
-          <Loader2 className="h-6 w-6 animate-spin text-blue-600 mr-2" />
-          <span className="text-sm text-gray-500">Carregando dados…</span>
-        </div>
-      )}
       {!loadingData && loadDataError && (
         <div className="flex flex-col items-center gap-3 rounded-lg border border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20 p-4 text-center">
           <AlertCircle className="h-6 w-6 text-red-500" />

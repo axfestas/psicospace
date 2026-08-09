@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import type { User } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +35,13 @@ interface Material {
   createdAt: string;
   uploadedBy: { name: string };
   progress: Progress[];
+}
+
+interface Assignment {
+  id: string;
+  user: { id: string; name: string; email: string };
+  discipline: { id: string; name: string; periodId: string };
+  createdAt: string;
 }
 
 const progressLabels: Record<string, string> = {
@@ -93,6 +101,13 @@ export default function DocentesPage() {
   const [libraryItems, setLibraryItems] = useState<LibraryItem[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [viewer, setViewer] = useState<{ url: string; title: string; type: "PDF" | "SLIDE" | "LINK"; materialId?: string; initialPage?: number } | null>(null);
+  const [students, setStudents] = useState<User[]>([]);
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [selectedStudentId, setSelectedStudentId] = useState("");
+  const [selectedDisciplineId, setSelectedDisciplineId] = useState("");
+  const [assignSaving, setAssignSaving] = useState(false);
+  const [assignError, setAssignError] = useState<string | null>(null);
+  const [removeSavingId, setRemoveSavingId] = useState<string | null>(null);
 
   // Biblioteca section state
   const [showLibrary, setShowLibrary] = useState(false);
@@ -124,9 +139,11 @@ export default function DocentesPage() {
   }, [user, isDocente, router]);
 
   const loadData = useCallback(async () => {
-    const [periodsRes, libRes] = await Promise.all([
+    const [periodsRes, libRes, usersRes, assignmentsRes] = await Promise.all([
       fetch("/api/periods"),
       fetch("/api/biblioteca"),
+      fetch("/api/users"),
+      fetch("/api/user-disciplines"),
     ]);
     if (periodsRes.ok) {
       const data = await periodsRes.json();
@@ -136,10 +153,60 @@ export default function DocentesPage() {
       const data = await libRes.json();
       setLibraryItems(data.items || []);
     }
+    if (usersRes.ok) {
+      const data = await usersRes.json();
+      setStudents((data.users || []).filter((user: User) => user.role === "ESTUDANTE"));
+    }
+    if (assignmentsRes.ok) {
+      const data = await assignmentsRes.json();
+      setAssignments(data.assignments || []);
+    }
     setLoading(false);
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  const handleAssignStudent = async () => {
+    if (!selectedStudentId || !selectedDisciplineId) {
+      setAssignError("Selecione estudante e disciplina para autorizar.");
+      return;
+    }
+
+    setAssignSaving(true);
+    setAssignError(null);
+    const res = await fetch("/api/user-disciplines", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: selectedStudentId, disciplineId: selectedDisciplineId }),
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setAssignError(data.error ?? "Erro ao autorizar estudante.");
+      setAssignSaving(false);
+      return;
+    }
+
+    await loadData();
+    setAssignSaving(false);
+  };
+
+  const handleRemoveAssignment = async (assignment: Assignment) => {
+    setRemoveSavingId(assignment.id);
+    const res = await fetch("/api/user-disciplines", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: assignment.user.id, disciplineId: assignment.discipline.id }),
+    });
+
+    if (!res.ok) {
+      setRemoveSavingId(null);
+      return;
+    }
+
+    await loadData();
+    setRemoveSavingId(null);
+  };
 
   const uploadThumbnailFromDataUrl = useCallback(async (dataUrl: string): Promise<string | null> => {
     const thumbResponse = await fetch(dataUrl);
@@ -465,8 +532,15 @@ export default function DocentesPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+      <div className="space-y-6">
+        <div className="space-y-2 animate-pulse">
+          <div className="h-10 w-1/3 rounded bg-gray-200 dark:bg-gray-700" />
+          <div className="h-4 w-2/3 rounded bg-gray-200 dark:bg-gray-700" />
+        </div>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="h-48 rounded-2xl bg-gray-200 dark:bg-gray-700" />
+          <div className="h-48 rounded-2xl bg-gray-200 dark:bg-gray-700" />
+        </div>
       </div>
     );
   }
@@ -702,6 +776,91 @@ export default function DocentesPage() {
             )}
           </div>
         )}
+      </Card>
+
+      {/* ── Autorizações ─────────────────────────────────────────────────── */}
+      <Card className="overflow-hidden">
+        <CardHeader>
+          <CardTitle>Autorizar estudantes</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-3 md:grid-cols-2">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Estudante</label>
+              <select
+                value={selectedStudentId}
+                onChange={(e) => setSelectedStudentId(e.target.value)}
+                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+              >
+                <option value="">Selecione um estudante</option>
+                {students.map((student) => (
+                  <option key={student.id} value={student.id}>
+                    {student.name} — {student.email}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Disciplina</label>
+              <select
+                value={selectedDisciplineId}
+                onChange={(e) => setSelectedDisciplineId(e.target.value)}
+                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+              >
+                <option value="">Selecione uma disciplina</option>
+                {periods.flatMap((period) => period.disciplines).map((discipline) => (
+                  <option key={discipline.id} value={discipline.id}>
+                    {discipline.name} — {periods.find((period) => period.disciplines.some((d) => d.id === discipline.id))?.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          {assignError && <p className="text-sm text-red-600 dark:text-red-400">{assignError}</p>}
+          <div className="flex flex-wrap gap-2">
+            <Button
+              onClick={handleAssignStudent}
+              disabled={assignSaving || students.length === 0 || periods.flatMap((period) => period.disciplines).length === 0}
+              loading={assignSaving}
+            >
+              {assignSaving ? "Autorizando..." : "Autorizar estudante"}
+            </Button>
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Autorizações existentes</p>
+              <span className="text-xs text-gray-500 dark:text-gray-400">{assignments.length} registros</span>
+            </div>
+            {assignments.length === 0 ? (
+              <p className="text-sm text-gray-400">Nenhuma autorização registrada ainda.</p>
+            ) : (
+              <div className="space-y-2">
+                {assignments.map((assignment) => (
+                  <div key={assignment.id} className="flex flex-col gap-2 rounded-lg border border-gray-100 bg-white p-3 dark:border-gray-700 dark:bg-gray-900 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                        {assignment.user.name} — {assignment.user.email}
+                      </p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        {assignment.discipline.name} • {periods.find((period) => period.id === assignment.discipline.periodId)?.name ?? "-"}
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleRemoveAssignment(assignment)}
+                      disabled={removeSavingId !== null}
+                      loading={removeSavingId === assignment.id}
+                    >
+                      {removeSavingId === assignment.id ? "Removendo..." : "Remover"}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </CardContent>
       </Card>
 
       {/* ── Disciplinas ─────────────────────────────────────────────────── */}
