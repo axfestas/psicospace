@@ -45,9 +45,14 @@ function resolveAIProvider(): AIProviderConfig | null {
 
 export async function POST(request: NextRequest) {
   try {
-    const { message } = (await request.json()) as { message?: string };
-    const userMessage = String(message ?? "").trim();
-    if (!userMessage) {
+    const { messages, contextText } = (await request.json()) as {
+      messages?: Array<{ role: string; content: string }>;
+      contextText?: string;
+    };
+    const validMessages = Array.isArray(messages)
+      ? messages.filter((message) => message.role === "user" || message.role === "assistant")
+      : [];
+    if (validMessages.length === 0) {
       return NextResponse.json({ error: "Digite uma pergunta para começar." }, { status: 400 });
     }
 
@@ -62,16 +67,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const systemPrompt = `Você é um assistente de estudos em Português especializado em ajudar estudantes de Psicologia. Responda com explicações claras e exemplos quando possível. Seja direto, gentil e nunca invente informações. Se não souber a resposta, admita que precisa de mais detalhes.`;
+    const systemPrompt = `Você é o Freudzin, um assistente de estudos em Português especializado em Psicologia. Tenha personalidade amistosa, confiante e um pouco descontraída, mas sempre respeitosa e acadêmica. Responda com linguagem clara, estrutura lógica e exemplos quando fizer sentido. Conecte suas respostas às perguntas anteriores sempre que possível. Use o contexto adicional fornecido para recomendar materiais, disciplinas e referências da biblioteca. Se não souber a resposta ou precisar de mais detalhes, peça ao usuário informações específicas.`;
+
+    const conversationMessages = [
+      { role: "system", content: systemPrompt },
+    ];
+
+    if (contextText && contextText.trim().length > 0) {
+      conversationMessages.push({
+        role: "system",
+        content:
+          "Contexto adicional: " + contextText.trim() +
+          "\nUse essas informações para responder de forma precisa e relevante.",
+      });
+    }
+
+    conversationMessages.push(...validMessages.map((message) => ({
+      role: message.role as "user" | "assistant",
+      content: message.content,
+    })));
 
     const payload = {
       model: provider.model,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: `Me ajude a estudar: ${userMessage}` },
-      ],
-      temperature: 0.7,
-      max_tokens: 800,
+      messages: conversationMessages,
+      temperature: 0.35,
+      max_tokens: 1200,
     };
 
     const aiResponse = await fetch(provider.url, {

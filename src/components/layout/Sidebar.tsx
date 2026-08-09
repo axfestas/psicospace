@@ -23,7 +23,7 @@ import { useAuth } from "@/contexts/AuthContext";
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/agenda", label: "Agenda", icon: Calendar },
-  { href: "/estudo", label: "Estudo", icon: MessageSquare },
+  { href: "/estudo", label: "Freudzin", icon: MessageSquare },
   { href: "/biblioteca", label: "Biblioteca", icon: Library },
   { href: "/disciplinas", label: "Disciplinas", icon: GraduationCap },
   { href: "/editor", label: "Editor", icon: FileText },
@@ -118,26 +118,8 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                   )}
                 >
                   <BookOpen className="h-5 w-5 flex-shrink-0" />
-                  Área Docente
+                  Docentes
                 </Link>
-                {pathname.startsWith("/docentes") && (
-                  <ul className="ml-8 mt-1 space-y-0.5">
-                    <li>
-                      <Link
-                        href="/docentes"
-                        onClick={onClose}
-                        className={cn(
-                          "block rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
-                          pathname === "/docentes"
-                            ? "text-blue-700 dark:text-blue-400"
-                            : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                        )}
-                      >
-                        Materiais
-                      </Link>
-                    </li>
-                  </ul>
-                )}
               </li>
             )}
             {isAdmin && (

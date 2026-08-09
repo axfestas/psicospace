@@ -104,6 +104,7 @@ export default function DocentesPage() {
   const [students, setStudents] = useState<User[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [selectedStudentId, setSelectedStudentId] = useState("");
+  const [selectedPeriodId, setSelectedPeriodId] = useState("");
   const [selectedDisciplineId, setSelectedDisciplineId] = useState("");
   const [assignSaving, setAssignSaving] = useState(false);
   const [assignError, setAssignError] = useState<string | null>(null);
@@ -167,8 +168,8 @@ export default function DocentesPage() {
   useEffect(() => { loadData(); }, [loadData]);
 
   const handleAssignStudent = async () => {
-    if (!selectedStudentId || !selectedDisciplineId) {
-      setAssignError("Selecione estudante e disciplina para autorizar.");
+    if (!selectedStudentId || !selectedPeriodId || !selectedDisciplineId) {
+      setAssignError("Selecione estudante, período e curso para autorizar.");
       return;
     }
 
@@ -784,7 +785,7 @@ export default function DocentesPage() {
           <CardTitle>Autorizar estudantes</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="grid gap-3 md:grid-cols-3">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Estudante</label>
               <select
@@ -795,24 +796,47 @@ export default function DocentesPage() {
                 <option value="">Selecione um estudante</option>
                 {students.map((student) => (
                   <option key={student.id} value={student.id}>
-                    {student.name} — {student.email}
+                    {student.name}
                   </option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Disciplina</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Período</label>
+              <select
+                value={selectedPeriodId}
+                onChange={(e) => {
+                  setSelectedPeriodId(e.target.value);
+                  setSelectedDisciplineId("");
+                }}
+                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+              >
+                <option value="">Selecione um período</option>
+                {periods.map((period) => (
+                  <option key={period.id} value={period.id}>
+                    {period.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Curso</label>
               <select
                 value={selectedDisciplineId}
                 onChange={(e) => setSelectedDisciplineId(e.target.value)}
-                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                disabled={!selectedPeriodId}
+                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
               >
-                <option value="">Selecione uma disciplina</option>
-                {periods.flatMap((period) => period.disciplines).map((discipline) => (
-                  <option key={discipline.id} value={discipline.id}>
-                    {discipline.name} — {periods.find((period) => period.disciplines.some((d) => d.id === discipline.id))?.name}
-                  </option>
-                ))}
+                <option value="">
+                  {selectedPeriodId ? "Selecione um curso" : "Selecione um período primeiro"}
+                </option>
+                {periods
+                  .find((period) => period.id === selectedPeriodId)
+                  ?.disciplines.map((discipline) => (
+                    <option key={discipline.id} value={discipline.id}>
+                      {discipline.name}
+                    </option>
+                  ))}
               </select>
             </div>
           </div>

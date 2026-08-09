@@ -70,6 +70,23 @@ export default function DisciplinasPage() {
     return (completed / discipline.materials.length) * 100;
   };
 
+  const isPeriodCompleted = (period: Period) => {
+    if (period.disciplines.length === 0) return false;
+    return period.disciplines.every((discipline) => {
+      if (discipline.materials.length === 0) return false;
+      return discipline.materials.every((material) => material.progress?.[0]?.status === "COMPLETED");
+    });
+  };
+
+  const sortedPeriods = [...periods].sort((a, b) => {
+    const completedA = isPeriodCompleted(a);
+    const completedB = isPeriodCompleted(b);
+    if (completedA === completedB) {
+      return a.order - b.order;
+    }
+    return completedA ? 1 : -1;
+  });
+
   const handleProgressChange = async (materialId: string, status: string) => {
     await fetch(`/api/materials/${materialId}/progress`, {
       method: "PUT",
@@ -122,7 +139,7 @@ export default function DisciplinasPage() {
         </Card>
       ) : (
         <div className="space-y-3">
-          {periods.map((period) => (
+          {sortedPeriods.map((period) => (
             <Card key={period.id} className="overflow-hidden">
               <button
                 onClick={() =>
@@ -139,7 +156,12 @@ export default function DisciplinasPage() {
                   <span className="font-semibold text-gray-900 dark:text-gray-100">
                     {period.name}
                   </span>
-                  <Badge variant="info">{period.disciplines.length} disciplinas</Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="info">{period.disciplines.length} disciplinas</Badge>
+                    {isPeriodCompleted(period) && (
+                      <Badge variant="success">Período concluído</Badge>
+                    )}
+                  </div>
                 </div>
               </button>
 
